@@ -224,3 +224,6 @@ th { color: var(--ink-dim); font-weight: 500; font-size: 1rem; } td.lead, .lead 
 /* Keep the live dancer’s face clear of persistent score and timer labels. */
 .live-dance .hud.clock, .live-dance .hud.score { top: auto; bottom: 1.6rem; }
 .live-dance .hud.hint { top: auto; bottom: 7.6rem; }
+
+.demolition-stage .hud.hint { top:auto; bottom:1rem; }
+.demolition-stage .hud.hint.p1, .demolition-stage .hud.hint.p2 { top:6.4rem; bottom:auto; }

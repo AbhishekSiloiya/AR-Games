@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { bossState, coreImpact, plateImpact, punchTrigger } from './demolition-rules.ts';
+const boss=bossState(1,0);
+assert.equal(boss.armour.length,6);
+assert.equal(coreImpact(boss).points,0,'armour protects the core');
+const hit=plateImpact(boss,0,true);assert.equal(hit.broken,true,'marked weak spot breaks starter armour');
+assert.equal(plateImpact(boss,0,true).points,0,'detached plate cannot score twice');
+for(let i=1;i<6;i++)plateImpact(boss,i,true);
+assert.ok(boss.armour.every(hp=>hp===0));
+let points=0;while(boss.core>0)points+=coreImpact(boss).points;
+assert.equal(boss.defeated,true);assert.ok(points>=10);
+assert.equal(coreImpact(boss).points,0,'defeated core cannot score again');
+assert.ok(bossState(5,2).armour[0]>bossState(1,0).armour[0],'later stages and bosses have tougher plates');
+const punch=punchTrigger();assert.equal(punch(0,0,true),false);assert.equal(punch(4,.2,true),true,'swing begins before contact');assert.equal(punch(4,.3,true),true,'maintained-speed swing remains available at contact');punch.consume(.3);
+assert.equal(punch(8,.7,true),false,'holding a high tracker velocity does not repeat');
+assert.equal(punch(0,.8,true),false);assert.equal(punch(4,1.1,true),true,'slowing down rearms');punch.consume(1.1);
+punch(0,1.2,false);assert.equal(punch(5,1.6,true),false,'tracking reacquisition needs a settled hand');
+console.log('Demolition: protected core, plate damage, weak spots, defeat, stage scaling and deliberate punches pass.');

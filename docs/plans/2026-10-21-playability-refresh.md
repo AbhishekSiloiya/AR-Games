@@ -13,7 +13,7 @@ Tasks:
 6. Document music source/license options and offer short brand/acronym shortlist. Do not claim trademark availability.
 
 ## Smash concept for review
-Recommended: a robot demolition boss. A 45-second round presents a large toy robot with armour zones. Deliberate punches crack and remove plates; the exposed core ends the round with a clear demolition reward. Motion is answered immediately by a hand flash and impact burst. Difficulty comes from smaller/moving weak spots, tougher armour and timed combinations. Keep the player's live tracking panel; avoid a tower of dozens of free physics crates. Alternatives: break through a sequence of walls/obstacles, or leave Smash outside the first launch lineup. Implementation awaits the user's selection.
+Recommended: a robot demolition boss. A 45-second round presents a large toy robot with armour zones. Deliberate punches crack and remove plates; the exposed core ends the round with a clear demolition reward. Motion is answered immediately by a hand flash and impact burst. Difficulty comes from smaller/moving weak spots, tougher armour and timed combinations. Keep the player's live tracking panel; avoid a tower of dozens of free physics crates. Alternatives: break through a sequence of walls/obstacles, or leave Smash outside the first launch lineup. User selected this direction; implemented in the subsequent Smash demolition pass.
 
 ## Working name shortlist
 - VYRA — Virtual You. Real Action. Recommended: short and directly explains embodied play.

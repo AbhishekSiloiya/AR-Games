@@ -53,3 +53,10 @@ Playability refresh from hands-on user feedback:
 - Standard web-game client ran and screenshot/state inspected; focused controlled-landmark suites cover gameplay. Pure checks include arm-shot and shapeup rules. React review and independent code review complete; actionable material/beam findings resolved.
 - Real MacBook/tablet acceptance still needed for tracking lag, accessory style/fit, ambient sound balance and comfortable two-player framing; fake camera tests cannot validate those.
 - Smash awaits concept choice; recommended robot demolition pitch documented below. Branding suggestion VYRA (Virtual You. Real Action.), alternatives MOVA and KIRA; no app rename until selected.
+
+Smash robot demolition selected and implemented:
+- Replaced crate/Rapier arena with a scrapyard robot, six detachable armour plates, damage cracks, moving weak-spot guide and protected pulsing core. Marked plates take double damage; any intact plate accepts a deliberate punch for forgiving contact.
+- A 45-second round supports one or two independent robots/scores, demolition bonus, short celebration and tougher rebuild. Five stages increase durability. Lightweight hand glows and live tracked-camera inset retained.
+- Pure demolition tests pass: locked core, weak-spot damage, no repeated score, defeat, stage scaling and punch rearm. Review caught early swing consumption; swing now remains available during travel and is consumed only at actual contact, with a multi-frame regression assertion.
+- npm run check/build pass on source-identical /tmp/ar-games-quick-test. tools/test-smash-boss.mjs passes protected core, maintained-speed travel-to-contact, one impact per swing, all six plates, core defeat, tougher rebuild, two-player score isolation and live inset, with no console errors. Final gameplay screenshots inspected. Standard web-game client also ran and screenshot/state inspected.
+- Independent review confirms no remaining P1/P2 findings after contact fix. Existing bundle/worker warnings unchanged. Physical punch sensitivity and tablet frame rate still require user hardware feedback.
