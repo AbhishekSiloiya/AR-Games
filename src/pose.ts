@@ -92,7 +92,7 @@ const mkPlayer = (): Player => ({
 export const players: [Player, Player] = [mkPlayer(), mkPlayer()];
 // Receipt times, independent of camera timestamps; a stalled stream must never look ready.
 export const trackingSeen = [0, 0];
-// Horizontal reach demonstrated in setup, in mirrored camera coordinates.
+// Estimated comfortable horizontal reach from setup, in mirrored camera coordinates.
 export const cameraReach: ({ left: number; right: number } | null)[] = [null,null];
 export const perf = { fps: 0, delegate: '' };
 queueMicrotask(() => Object.assign(globalThis, { __romp: { perf, track, tuning, players, grip, trackingSeen } })); // a handle for DevTools over adb — read-only by convention

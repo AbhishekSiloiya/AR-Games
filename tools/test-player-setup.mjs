@@ -26,6 +26,7 @@ await page.evaluate(async()=>{
  if(window.__testMode==='moving'){for(const j of [11,12,13,14,15,16,23,24,25,26])b[j][0]+=(Math.floor(performance.now()/100)%2)*.08;}
  if(window.__testMode==='squat'){b[11][1]+=.08;b[12][1]+=.08;}
  if(window.__testMode==='noFeet')b[27][2]=b[28][2]=0;
+ if(window.__testMode==='relaxed'){for(const q of b)q[0]-=.2;b[13][2]=b[14][2]=.2;b[15][2]=b[16][2]=.4;}
  if(window.__testMode==='noHands')b[15][2]=b[16][2]=0;
  for(let i=0;i<2;i++){
  const bb=b.map(q=>[...q]);if(window.__pair)for(const q of bb)q[0]=(q[0]-.5)*.5+(i===0?.27:.73);
@@ -41,40 +42,41 @@ pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||wind
  }catch(e){window.__testError=e.message;}},30);
 });
 async function state(){return page.evaluate(()=>JSON.parse(window.render_game_to_text()));}
-async function setup(name){console.log('SETUP',name);await page.getByRole('button',{name:new RegExp(name)}).first().click();await page.getByRole('button',{name:'Play',exact:true}).click();await page.getByRole('heading',{name:'Find your play space'}).waitFor();}
-async function move(kind){await page.waitForTimeout(1000);await page.evaluate(k=>window.__testMode=k,kind);await page.waitForTimeout(450);await page.evaluate(()=>window.__testMode='neutral');await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).screen==='play',{timeout:10000});}
-await setup('Slice');
-await page.evaluate(()=>window.__testMode='noFeet');await page.waitForTimeout(1000);
-assert.match(await page.locator('.setup-prompt').innerText(),/Spread/);
-await page.screenshot({path:out+'/slice-setup-desktop.png'});
-await move('reach');
-assert.equal((await state()).game,'slice');
-await page.waitForTimeout(6500);await page.screenshot({path:out+'/slice-live.png'});
-await page.evaluate(()=>window.__testMode='lost');await page.getByRole('heading',{name:'Let’s find you again'}).waitFor();
-assert.equal((await state()).trackingLost,true);
-await page.screenshot({path:out+'/tracking-recovery.png'});
-await page.evaluate(()=>window.__testMode='moving');await page.waitForTimeout(2300);assert.equal((await state()).trackingLost,true);
-await page.evaluate(()=>window.__testMode='reach');await page.waitForTimeout(250);await page.evaluate(()=>window.__testMode='noHands');await page.waitForTimeout(300);assert.equal((await state()).trackingLost,true);
-await page.evaluate(()=>window.__testMode='neutral');await page.waitForFunction(()=>!JSON.parse(window.render_game_to_text()).trackingLost);
-await page.keyboard.press('Escape');await page.getByRole('button',{name:'Keep playing'}).click();assert.equal((await state()).paused,false);
-await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();
-await setup('Keepy-Uppy');
-await page.evaluate(()=>window.__testMode='noFeet');await page.waitForTimeout(1100);assert.match(await page.locator('.setup-prompt').innerText(),/feet/);
-await page.getByRole('button',{name:'Player cut-out',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();await setup('Slice');assert.equal(await page.getByRole('button',{name:'See yourself',exact:true}).getAttribute('aria-pressed'),'true');await page.getByRole('button',{name:'← Back',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();await setup('Keepy-Uppy');await page.evaluate(()=>window.__testMode='noFeet');await page.waitForTimeout(200);
-await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
-await page.evaluate(()=>window.__testMode='neutral');await move('reach');await page.waitForTimeout(3500);await page.screenshot({path:out+'/keepy-live.png'});
-await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();
-await page.setViewportSize({width:1440,height:900});await setup('Run');await move('squat');await page.locator('.player-inset').waitFor();await page.waitForTimeout(3500);await page.screenshot({path:out+'/run-live.png'});
-await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();
-// Every other game uses the same setup route, with no simulator escape in real mode.
-for(const name of ['Pulse','Leaks','Sprint','Jack Attack','Forge','Lumberjack','Smash','Goalie','Jab','Beat','Rocket','Freeze','Wipe','Shape Up']){
- await setup(name);assert.equal(await page.getByRole('button',{name:'Continue in simulator'}).count(),0);await page.getByRole('button',{name:'← Back',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();
+async function mode(value){await page.evaluate(v=>window.__testMode=v,value);}
+async function setup(name){
+ console.log('SETUP',name);
+ await page.getByRole('button',{name:new RegExp(name)}).first().click();
+ await page.getByRole('button',{name:'Play',exact:true}).click();
+ await page.getByRole('heading',{name:'Stand naturally. Let’s play.'}).waitFor();
 }
-await page.getByRole('button',{name:'Together',exact:true}).click();
-await page.evaluate(()=>{window.__pair=true;window.__secondReady=false;});await setup('Keepy-Uppy');await page.waitForTimeout(1100);assert.match(await page.locator('.setup-prompt').innerText(),/Player 2/);
-await page.evaluate(()=>window.__secondReady=true);await move('reach');assert.equal((await state()).players,2);
-await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();
-await page.getByRole('button',{name:'Take turns',exact:true}).click();await page.evaluate(()=>window.__pair=false);await setup('Slice');await move('reach');
+async function playing(){await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).screen==='play',null,{timeout:5000});}
+async function home(){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();}
+async function back(){await page.getByRole('button',{name:'← Back',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();}
+await mode('noHands');await setup('Slice');await page.waitForTimeout(1200);
+assert.equal((await state()).screen,'setup');assert.equal(await page.getByRole('button',{name:'Start game',exact:true}).isDisabled(),true);
+await page.screenshot({path:out+'/slice-setup-desktop.png'});
+// No movement demonstration or exact return pose is needed: natural off-centre tracking auto-starts.
+await mode('relaxed');const began=Date.now();await playing();assert.ok(Date.now()-began<4000);
+await page.waitForTimeout(6500);await page.screenshot({path:out+'/slice-live.png'});
+await mode('lost');await page.getByRole('heading',{name:'Let’s find you again'}).waitFor();
+await page.screenshot({path:out+'/tracking-recovery.png'});
+await mode('moving');await page.waitForTimeout(1600);assert.equal((await state()).trackingLost,true);
+await mode('neutral');await page.waitForFunction(()=>!JSON.parse(window.render_game_to_text()).trackingLost);
+await page.keyboard.press('Escape');await page.getByRole('button',{name:'Keep playing'}).click();assert.equal((await state()).paused,false);await home();
+await mode('noFeet');await setup('Keepy-Uppy');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/feet/);
+await page.getByRole('button',{name:'Player cut-out',exact:true}).click();await back();
+await mode('noHands');await setup('Slice');assert.equal(await page.getByRole('button',{name:'See yourself',exact:true}).getAttribute('aria-pressed'),'true');await back();
+await mode('noFeet');await setup('Keepy-Uppy');await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
+await mode('neutral');await playing();await page.waitForTimeout(3500);await page.screenshot({path:out+'/keepy-live.png'});await home();
+await page.setViewportSize({width:1440,height:900});await mode('noHands');await setup('Run');
+await mode('neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();await playing();await page.locator('.player-inset').waitFor();await page.waitForTimeout(3500);await page.screenshot({path:out+'/run-live.png'});await home();
+for(const name of ['Pulse','Leaks','Sprint','Jack Attack','Forge','Lumberjack','Smash','Goalie','Jab','Beat','Rocket','Freeze','Wipe','Shape Up']){
+ await mode('noHands');await setup(name);assert.equal(await page.getByRole('button',{name:'Continue in simulator'}).count(),0);await back();
+}
+await page.getByRole('button',{name:'Together',exact:true}).click();await mode('neutral');
+await page.evaluate(()=>{window.__pair=true;window.__secondReady=false;});await setup('Keepy-Uppy');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/Player 2/);
+await page.evaluate(()=>window.__secondReady=true);await playing();assert.equal((await state()).players,2);await home();
+await page.getByRole('button',{name:'Take turns',exact:true}).click();await page.evaluate(()=>window.__pair=false);await mode('noHands');await setup('Slice');await mode('neutral');await playing();
 assert.deepEqual(errors,[]);
-console.log(JSON.stringify({result:'PASS',checks:['all 17 setup routes','hands-only without feet','full-body missing-feet block','movement + neutral hold','live Slice/Keepy/Run','loss and stable recovery','manual pause/resume/home','two-player gate','turn-mode first setup'],errors,screenshots:out},null,2));
+console.log(JSON.stringify({result:'PASS',checks:['all 17 setup routes','missing essentials block start','natural off-centre auto-start without pose matching','manual Start game','full-body missing-feet block','live Slice/Keepy/Run','loss and recovery','pause/resume/home','two-player readiness','turn-mode setup'],errors,screenshots:out},null,2));
 } finally { await browser.close(); }

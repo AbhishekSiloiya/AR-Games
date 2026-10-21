@@ -32,3 +32,7 @@ On MacBook and Android: camera permission, different camera aspect ratios, near/
 Install Playwright locally for development (`npm install --no-save --package-lock=false playwright` and `npx playwright install chromium`), start `npm run dev`, then run `node tools/test-player-setup.mjs`. Alternatively set `AR_PLAYWRIGHT_MODULE` to an installed Playwright module. The script uses a fake camera, stops inference after startup and injects controlled landmark samples into the existing diagnostic handle. No real camera footage is recorded. Screenshots go to `test-results/player-setup` by default. Actual pose accuracy, segmentation quality and tablet performance require hardware acceptance.
 
 The browser check also exposed inaccessible bottom-row games on shorter screens; the library now scrolls so all 17 games can be selected.
+
+## Simplification after user testing
+
+The first preview required too much precision. Replace movement demonstration and exact return-pose matching with a single natural-standing check. Accept broader framing and modest landmark confidence, treat head/elbows as advisory, and tolerate up to 350 ms of tracking flicker without restarting progress. About 900 ms of usable tracking triggers the existing countdown; a Start game button allows intentional earlier entry when essential tracking is valid. Remove the target silhouette so the user does not try to match it. Estimate conservative reach from shoulder width for live Slice. Recovery uses the torso rather than every moving limb and resumes after a one-second steady check.

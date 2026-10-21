@@ -20,3 +20,11 @@ Verification:
 - Independent review: all actionable findings resolved; no remaining P1/P2 findings.
 
 Remaining hardware acceptance: test real MacBook/Android tracking, segmentation quality, comfort and two-player performance. Full second-turn completion and results/replay timing are not accelerated by this browser fixture; routing is shared with the tested first-round setup.
+
+User feedback revision: make positioning quick and forgiving.
+- Removed the movement demonstration, target silhouette, and exact return-to-start pose.
+- About 900 ms of usable natural-standing tracking auto-starts; 350 ms dropout grace prevents flicker from restarting setup. A manual Start game button is available when essential tracking is usable.
+- Wider framing and lower landmark-confidence threshold; head/elbows are advisory rather than blocking. Recovery checks torso stability for one second.
+- Live Slice uses conservative shoulder-based reach estimates; finale targets also follow each player's position.
+- Original Google Drive dependency reads stalled; verification ran on an identical temporary source copy at /tmp/ar-games-quick-test with freshly installed locked dependencies.
+- npm run check and npm run build passed. Updated browser suite passed all 17 routes, relaxed off-centre auto-start, manual start, missing-essential and full-body foot blocking, pilot views, recovery and two-player readiness with no console errors. Screenshots inspected. Independent review has no P1/P2 findings.

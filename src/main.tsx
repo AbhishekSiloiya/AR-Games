@@ -313,7 +313,7 @@ function App() {
       if (!lost && gate.lost) {lost=true;setTrackingLost(true);}
       if (lost) {
         const steady=ok&&Array.from({length:n},(_,i)=>standingPose(activeGame,players[i].body)&&stablePose(activeGame,players[i].body,previous[i]??[],now-last)).every(Boolean);
-        const hold=readiness(recoveredSince,steady,now);recoveredSince=hold.since;
+        const hold=readiness(recoveredSince,steady,now,1000);recoveredSince=hold.since;
         if (hold.ready) {lost=false;lostSince=recoveredSince=null;setTrackingLost(false);}
       }
       previous=players.slice(0,n).map(p=>p.body.map(q=>[...q]));last=now;
@@ -527,7 +527,7 @@ function App() {
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
       {screen.at === 'play' && screen.game.id === 'run' && playerView === 'live' && <div className="player-inset"><CameraView game="run" n={n} compact /><span>You · live</span></div>}
       {screen.at === 'play' && <screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} />}
-      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand tall with your hands and required body parts in view. Hold steady for two seconds.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
+      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
         <div className="pause">
           <div className="panel">

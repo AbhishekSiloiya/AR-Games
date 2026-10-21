@@ -91,7 +91,12 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     return { state: 'off', kind, flesh: FRUIT[type].flesh, power: 'frenzy', zone: 0, wait: 0, x: 0, y: 0, vx: 0, vy: 0, spin: 0, age: 0, rx: 0, ry: 0, whole, halo, halves, along: new Vec3(), base: new Quat() };
   });
   // The finale: one giant melon per zone (one between you, as a team) that takes every hit you can land before it bursts.
-  const melons = (rules.finale ? (team ? [0] : Array.from({ length: n }, (_, p) => zoneX(n, p))) : []).map((x) => {
+  const liveCamera=mirrorOn();
+  const finaleCentre=(p: number) => {
+    const reach=cameraReach[p];
+    return liveCamera&&reach ? cameraLaunchArea(reach.left,reach.right,players[p].frame.aspect,R).centre : zoneX(n,p);
+  };
+  const melons = (rules.finale ? (team&&!liveCamera ? [0] : Array.from({ length: n }, (_, p) => finaleCentre(p))) : []).map((x) => {
     const e = add(fruit[2].clone() as Entity);
     return { e, x, y: -H, hits: 0, wobble: 0 };
   });
@@ -178,7 +183,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
         m.wobble = Math.max(0, m.wobble - real * 6);
         if (show(m.e, g.burst < 0)) { m.e.setLocalPosition(m.x, m.y, 0); m.e.setLocalScale(size * (1 + m.wobble * 0.12), size * (1 - m.wobble * 0.1), size); m.e.setLocalEulerAngles(20, into * 40, Math.sin(into * 9) * 4); }
         at.forEach((h, i) => {
-          if (team ? false : h.p !== k) return;
+          if ((!team || liveCamera) && h.p !== k) return;
           const near = h.on && Math.hypot(h.x - m.x, h.y - m.y) < R * 3.4;
           // One hit per pass: the hand has to leave the melon (or stop) before it can score again. Flailing in place earns nothing.
           if (near && !g.inside[i] && h.speed > SLICE_SPEED && g.burst < 0 && rise === 1) {

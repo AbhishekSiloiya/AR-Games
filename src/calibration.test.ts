@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { assessPose, cameraLaunchArea, gameSetup, movementDone, neutralPose, standingPose, stablePose, supportedView, readiness, trackingGate, type PoseSample } from './calibration.ts';
+import { assessPose, cameraLaunchArea, standingPose, stablePose, supportedView, quickReadiness, readiness, trackingGate, type PoseSample } from './calibration.ts';
 
 const pose = (): PoseSample => {
   const body = Array.from({ length: 33 }, () => [0.5, 0.5, 1]);
@@ -15,20 +15,7 @@ const edge = pose(); edge.body[15][0] = -.1;
 assert.equal(assessPose('slice', edge, 1000).ok, false, 'off-camera wrists block setup');
 const tiny = pose(); tiny.body[11][0] = .49; tiny.body[12][0] = .51;
 assert.match(assessPose('slice', tiny, 1000).message, /closer/);
-const reach = pose(); reach.body[15] = [.2,.3,1]; reach.body[16] = [.8,.3,1];
-assert.equal(movementDone('reach', reach.body, pose().body), true);
-assert.equal(movementDone('reach', pose().body, pose().body), false);
 const squat = pose(); squat.body[11][1] += .08; squat.body[12][1] += .08;
-assert.equal(movementDone('squat', squat.body, pose().body), true);
-assert.equal(movementDone('squat', pose().body, pose().body), false);
-assert.equal(neutralPose('slice', reach.body, pose().body), false, 'return arms to the starting pose before locking');
-assert.equal(neutralPose('run', squat.body, pose().body), false, 'a crouch cannot become the standing baseline');
-assert.equal(neutralPose('slice', pose().body, pose().body), true);
-assert.equal(gameSetup('run').movement, 'squat');
-assert.equal(gameSetup('lumber').movement, 'reach');
-assert.equal(gameSetup('sprint').movement, 'knee');
-const knee = pose(); knee.body[25][1] = .58;
-assert.equal(movementDone('knee', knee.body, pose().body), true);
 let hold = readiness(null, true, 1000);
 hold = readiness(hold.since, true, 2999); assert.equal(hold.ready, false);
 hold = readiness(hold.since, true, 3000); assert.equal(hold.ready, true);
@@ -38,7 +25,7 @@ assert.equal(gate.lost, false);
 gate = trackingGate(gate.since, false, 1800); assert.equal(gate.lost, true);
 assert.equal(trackingGate(gate.since, true, 1801).since, null);
 assert.equal(assessPose('run', edge, 1000, false).ok, true, 'normal motion outside the setup margins is allowed during play');
-console.log('Calibration: joint requirements, freshness, framing, movement, stable hold and tracking-loss grace pass.');
+
 
 assert.equal(supportedView('slice',1,'cutout'), 'live');
 assert.equal(supportedView('keepy',1,'cutout'), 'cutout');
@@ -51,3 +38,21 @@ assert.equal(stablePose('run',pose().body,pose().body,100),true);
 const farBounds = cameraLaunchArea(.392,.608,16/9,.75);
 assert.ok(farBounds.left >= (.392-.5)*16 && farBounds.right <= (.608-.5)*16, 'far-player fruit stays inside demonstrated reach');
 assert.ok(farBounds.half < 1.75, 'far-player fan is narrower than the old five-unit spread');
+
+// Quick setup accepts a usable off-centre pose without a demonstration or exact hand height.
+const relaxed=pose();for(const q of relaxed.body)q[0]-=.2;
+relaxed.body[13][2]=relaxed.body[14][2]=.2;
+relaxed.body[15][2]=relaxed.body[16][2]=.4;
+assert.equal(assessPose('slice',relaxed,1000).ok,true,'off-centre and lower-confidence hands remain usable');
+assert.equal(standingPose('slice',relaxed.body),true);
+let quick=quickReadiness(null,true,1000);
+for(let t=1100;t<=1400;t+=100)quick=quickReadiness(quick,true,t);
+quick=quickReadiness(quick,false,1500);
+quick=quickReadiness(quick,true,1600);
+for(let t=1700;t<=2000;t+=100)quick=quickReadiness(quick,true,t);
+assert.equal(quick.ready,true,'a brief dropout does not restart quick setup');
+quick=quickReadiness(quick,false,2100);
+for(let t=2200;t<=2600;t+=100)quick=quickReadiness(quick,false,t);
+assert.equal(quick.goodMs,0,'sustained tracking loss resets readiness');
+
+console.log('Calibration: quick setup, relaxed framing, freshness, dropouts, posture and reach bounds pass.');
