@@ -1,7 +1,7 @@
 // Small, round-owned toy equipment. Local origin is the same contact point used by the game.
 import type { GraphNode } from 'playcanvas';
 import { flat, lit, node, shapes } from './engine.ts';
-export type Equipment = 'ninja' | 'keeper' | 'sponge';
+export type Equipment = 'ninja' | 'keeper' | 'sponge' | 'boxing';
 export function equipmentFactory(kind: Equipment) {
   const ball=shapes.sphere(1,10), box=shapes.box(1,1,1), pill=shapes.capsule(.12,.5);
   const cream=lit('#fff6dc',{fog:false}), ink=lit('#18243a',{fog:false}), coral=lit('#ff6b68',{fog:false}), cyan=lit('#45d8de',{fog:false}), yellow=lit('#ffe16b',{fog:false});
@@ -11,7 +11,14 @@ export function equipmentFactory(kind: Equipment) {
     const part=(mesh: typeof ball, look: typeof cream, x: number,y: number,z: number,sx: number,sy: number,sz: number) => {
       const e=node(root,mesh,look,[x,y,z]);e.setLocalScale(sx,sy,sz);return e;
     };
-    if (kind==='sponge') {
+    if (kind==='boxing') {
+      const glove=lit(side?'#3f91f5':'#f25a79',{fog:false});
+      part(ball,glove,0,.15,0,.6,.68,.3);
+      part(ball,glove,side===0?-.42:.42,-.06,.1,.26,.35,.24);
+      part(box,ink,0,-.43,.01,.84,.32,.4);
+      part(box,cream,0,-.43,.23,.56,.12,.04);
+      part(ball,cream,-.13,.36,.27,.17,.08,.02);
+    } else if (kind==='sponge') {
       part(box,green,0,-.2,0,1.35,.26,.4);
       part(box,yellow,0,.04,.05,1.35,.48,.46);
       for (let k=0;k<6;k++) part(ball,cream,(k%3-1)*.34,Math.floor(k/3)*.17-.04,.3,.055,.04,.02);

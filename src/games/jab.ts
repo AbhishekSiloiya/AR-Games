@@ -21,7 +21,7 @@ export default function jab({ n, stage, onEnd, hud, scene }: Game) {
   divider(scene, n);
 
   const g = { spawnIn: [0.5, 0.5], side: [1, -1], scores: [0, 0], combo: [0, 0], barAt: BAR_EVERY, ducked: [false, false] };
-  const hands = makeHands(scene, n), bursts = makeBursts(scene.root);
+  const hands = makeHands(scene, n, {cx:p=>zoneX(n,p),hw:zoneHalf(n),hh:4.5,equipment:'boxing'}), bursts = makeBursts(scene.root);
   const said = [{ text: '', until: 0 }, { text: '', until: 0 }];
   const tick = round(hud, ROUND, () => { music.stop(); onEnd(g.scores.slice(0, n)); });
   music.start('arcade');

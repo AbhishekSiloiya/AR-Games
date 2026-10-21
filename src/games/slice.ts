@@ -109,7 +109,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     chain: [0, 1, 2, 3].map(() => ({ n: 0, until: 0, x: 0, y: 0 })), // per hand: fruit cut in one continuous swing
     inside: [0, 1, 2, 3].map(() => false), burst: -1,
   };
-  const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true, equipment: 'ninja' }), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
+  const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true }), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
   if (sim) Object.assign(window, { __slice: { pieces } }); // test hook: a headless probe watches every piece, every frame
   const total = () => (team ? g.scores[0] : Math.max(g.scores[0], g.scores[1]));
   const notes = () => Array.from({ length: n }, (_, p) => [g.bestSlash[p] >= 3 ? `Best slash: ${g.bestSlash[p]} fruit` : '', g.bestCombo[p] >= 5 ? `Longest combo ×${g.bestCombo[p]}` : '', g.crits[p] ? `${g.crits[p]} critical${g.crits[p] > 1 ? 's' : ''}` : ''].filter(Boolean));

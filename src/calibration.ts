@@ -13,7 +13,7 @@ const UPPER = [0, 11, 12, 13, 14, 15, 16];
 const FULL = [...UPPER, 23, 24, 25, 26, 27, 28];
 export const jointName = (j: number) => j === 0 ? 'Head' : j < 13 ? 'Shoulder' : j < 15 ? 'Elbow' : j < 17 ? 'Hand' : j < 25 ? 'Hip' : j < 27 ? 'Knee' : 'Foot';
 export function gameSetup(id: string) {
-  const upper = ['slice', 'smash', 'goalie', 'wipe'].includes(id);
+  const upper = ['slice', 'smash', 'goalie', 'wipe', 'jacks'].includes(id);
   return { joints: upper ? UPPER : FULL, upper };
 }
 export const visibleJoint = (b: number[][], j: number, margin = 0) => {

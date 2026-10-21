@@ -9,6 +9,7 @@ const pose = (): PoseSample => {
 assert.equal(assessPose('slice', pose(), 1000).ok, true);
 const noFeet = pose(); noFeet.body[27][2] = noFeet.body[28][2] = 0;
 assert.equal(assessPose('slice', noFeet, 1000).ok, true, 'hands-only games do not require feet');
+assert.equal(assessPose('jacks', noFeet, 1000).ok, true, 'arm shooting does not require feet');
 assert.equal(assessPose('keepy', noFeet, 1000).ok, false, 'whole-body games require feet');
 assert.equal(assessPose('run', pose(), 2000).ok, false, 'a frozen tracker cannot unlock setup');
 const edge = pose(); edge.body[15][0] = -.1;

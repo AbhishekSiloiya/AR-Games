@@ -24,7 +24,7 @@ export default async function forge({ n, stage, team, best, onEnd, hud, scene }:
   const [anvil, hammerModel, fire, hut, barrel, grind, chest, bench] = await Promise.all([fitted(C + 'workbench-anvil.glb', 2.7, true), fitted(C + 'tool-hammer-upgraded.glb', 2.4), fitted(C + 'campfire-pit.glb', 2.6, true), fitted(C + 'structure.glb', 10, true), fitted(C + 'barrel-open.glb', 1.9, true), fitted(C + 'workbench-grind.glb', 2.6, true), fitted(C + 'chest.glb', 1.8, true), fitted(C + 'workbench.glb', 2.8, true)]);
   const put = (template: Entity, x: number, z: number, ry = 0) => { const e = template.clone() as Entity; e.setLocalPosition(x, FLOOR, z); e.setLocalEulerAngles(0, ry, 0); scene.root.addChild(e); return e; };
   const shared = n === 2 && team, spots = shared ? [-5.4, 5.4] : n === 2 ? [-6.2, 1.8] : [-3.6];
-  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: spots[p], y: 0.05, scale: 1.1 }));
+  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: spots[p], y: 0.05, scale: 1.1 }, 'smith'));
   const dark = shade(), steel = lit('#d4d4d8', { emissive: '#ffffff', glow: 1 }), rail = flat('#18181b', { opacity: 0.8 }), fill = flat('#fb923c'), ember = glowLook('#fb923c', 1);
   put(hut, shared || n === 1 ? 0.5 : 0, -7.5, 0); put(bench, n === 1 ? 7 : 0, -4.5, -20); put(chest, n === 1 ? -7.5 : 0, -3.5, 30);
   const smithies: Smithy[] = (shared ? [{ x: 0, who: [0, 1] }] : Array.from({ length: n }, (_, p) => ({ x: n === 2 ? zoneX(n, p) + 2.2 : 2.6, who: [p] }))).map(({ x, who }) => {

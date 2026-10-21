@@ -1,9 +1,10 @@
+import { discoStage } from '../disco-stage.ts';
 // Beat — moves fall to the line in time with the music: left up, right up, both up, squat, jump.
 // Each move has its own lane and shape; landing it close to the beat is "Perfect" and scores double.
 // All vertical, so it is compact. The clock is the AudioContext's, so notes and sound cannot drift apart.
 import { isAir, isLow, players, tuning, type Player } from '../pose.ts';
 import { hardness } from '../meta.ts';
-import { backdrop, fade, flat, node, shapes, show } from '../engine.ts';
+import { fade, flat, node, shapes, show } from '../engine.ts';
 import { COUNTDOWN, H, audio, bursts as makeBursts, comboText, countdown, divider, hitSound, inputLag, music, say, scoreHud, zoneHalf, zoneX, type Game } from '../kit.ts';
 
 const BPM = 104, BEAT = 60 / BPM, ROUND = 60, FALL = 2.4; // FALL = seconds a note is on screen before its beat
@@ -31,7 +32,7 @@ const chart = (hard: number) => {
 
 export default function beat({ n, stage, onEnd, hud, scene }: Game) {
   const notes = chart(hardness(stage));
-  backdrop(scene, 'synth');
+  const danceFloor=discoStage(scene);
   const mesh = { disc: shapes.circle(0.55, 24), wide: shapes.quad(3.4, 0.55), tri: shapes.circle(0.7, 3) }, looks = MOVES.map((m) => flat(m.color, { opacity: 1 }));
   // One marker per note per player, made up front and hidden until its note is on screen.
   const marks = notes.map((note) => Array.from({ length: n }, () => {
@@ -48,6 +49,7 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
   const laneX = (p: number, lane: number) => zoneX(n, p) + lane * zoneHalf(n) * 0.55;
 
   return () => {
+    danceFloor(Math.max(0,(audio().currentTime-g.start)/BEAT));
     if (g.done) return;
     const t = audio().currentTime - g.start, dt = Math.min(0.05, t - g.last);
     g.last = t;

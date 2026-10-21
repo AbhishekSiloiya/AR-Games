@@ -1,3 +1,4 @@
+import { trackedCostume, type Costume } from './tracked-costume.ts';
 // What every game shares: the round clock, sound, the players' hands, bursts, and the small geometry of hit-testing.
 // (The React shell that mounts a game lives in stage.tsx; nothing here touches React.)
 import type { Entity, GraphNode } from 'playcanvas';
@@ -127,7 +128,7 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
   const bead = shapes.quad(2, 2), makeEquipment=map.equipment?equipmentFactory(map.equipment):null;
   const all = Array.from({ length: n * 2 }, (_, i) => {
     const hex = tones ? tones[i & 1] : PLAYER_COLORS[i >> 1], trail = ribbon(scene.root, TRAIL, trailLook(hex)), cursor: Entity = node(scene.root, bead, glowLook(hex));
-    cursor.setLocalScale(1, 1, 1);
+    cursor.name=`hand-highlight-${i}`;cursor.setLocalScale(1, 1, 1);
     const gear=makeEquipment?.(scene.root,i&1,hex);
     const pts = new Float32Array(TRAIL * 2);
     return { trail, cursor, gear, roll:0, pts, age: new Float32Array(TRAIL), armed: true, pace: 0, state: { p: i >> 1, x: 0, y: 0, px: 0, py: 0, speed: 0, on: false, pts } as StageHand };
@@ -218,8 +219,9 @@ export function segDist(px: number, py: number, ax: number, ay: number, bx: numb
 // the shoulders sits; `scale` is stage units per shoulder-width (1.2 fits a standing adult, arms up, into the stage).
 export type Pad = { part: 'hand' | 'head' | 'elbow' | 'knee' | 'foot'; side: number; x: number; y: number; vx: number; vy: number; seen: boolean };
 const PADS: [Pad['part'], number, number[]][] = [['hand', 0, [15, 19]], ['hand', 1, [16, 20]], ['head', 0, [0]], ['elbow', 0, [13]], ['elbow', 1, [14]], ['knee', 0, [25]], ['knee', 1, [26]], ['foot', 0, [27, 31]], ['foot', 1, [28, 32]]];
-export function figure(scene: Scene, p: number, at: { x: number; y: number; scale: number }) {
+export function figure(scene: Scene, p: number, at: { x: number; y: number; scale: number }, costume?: Costume|'none') {
   const hex = PLAYER_COLORS[p], group = node(scene.root, undefined, undefined, [at.x, at.y, 0.6]);
+  const updateCostume=costume&&costume!=='none'?trackedCostume(group,costume,p):null;
   const pads: Pad[] = PADS.map(([part, side]) => ({ part, side, x: 0, y: 0, vx: 0, vy: 0, seen: false }));
   const inRoom = mirrorOn(), wantsPicture = tuning.look === 'camera' && !sim && !inRoom;
   const window_ = shapes.quad(CUT.left * 2 + 1, CUT.up + CUT.down + 1), lift = (CUT.up - CUT.down) / 2;
@@ -236,7 +238,7 @@ export function figure(scene: Scene, p: number, at: { x: number; y: number; scal
 
   const update = () => {
     const pl = players[p], rig = pl.rig, on = pl.present && rig.length === 33;
-    show(spot, on && !inRoom);
+    show(spot, on && !inRoom && costume!=='none');
     if (!show(group, on)) { show(ground, false); for (const pad of pads) pad.seen = false; return pads; }
     if (!inRoom) { // true to the room: sideways from your place, up and down with your body
       const f = pl.frame, off = sim ? pl.lean * 1.5 : (f.x / f.aspect - seatAt) * W * 0.9;
@@ -248,7 +250,9 @@ export function figure(scene: Scene, p: number, at: { x: number; y: number; scal
     // The picture, if there is one to show this frame (one player, mask arriving); otherwise the shadow body.
     const pictured = !!picture && tuning.look === 'camera' && cutout.slots === 1 && refreshCutouts() > 0;
     if (picture && show(picture, pictured)) { cut!.setParameter('uSlot', [0, 1, 0, 0]); cut!.setParameter('uTime', performance.now() / 1000); }
-    show(ground, !inRoom);
+    show(ground, !inRoom && costume!=='none');
+    if(costume)body.enabled=false;
+    if(updateCostume)updateCostume(rig);
     BODY_JOINTS.forEach((j, i) => { joints[i * 2] = rig[j][0]; joints[i * 2 + 1] = rig[j][1] - lift; seen[i] = rig[j][2]; });
     look.setParameter('uJ[0]', joints); look.setParameter('uSeen[0]', seen); look.setParameter('uTips', pictured || inRoom ? 1 : 0);
     PADS.forEach(([, , js], i) => {

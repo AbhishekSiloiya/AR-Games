@@ -55,12 +55,12 @@ async function enter(name,entity){
  assert.equal(await page.evaluate(name=>window.__pc.root.findByName(name).enabled,entity),true);
 }
 async function home(){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();}
-await enter('Slice','equipment-ninja-0');await page.screenshot({path:out+'/slice-gauntlets.png'});await home();
+await enter('Slice','hand-highlight-0');await page.screenshot({path:out+'/slice-gauntlets.png'});await home();
 await enter('Goalie','equipment-keeper-0');await page.locator('.player-inset').waitFor();await page.waitForFunction(()=>{const b=window.__pc.root.findByName('goalie-ball-0');return b?.enabled&&b.getLocalPosition().z>-8;},null,{timeout:45000});await page.screenshot({path:out+'/goalie-gloves.png'});await home();
 await enter('Wipe','equipment-sponge-0');await page.locator('.player-inset').waitFor();await page.screenshot({path:out+'/wipe-sponges.png'});await home();
 await enter('Freeze','disco-player-0');await page.screenshot({path:out+'/freeze-disco.png'});
-await mode('noHead');await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>window.__pc.root.findByName('disco-headphones-and-glasses').enabled),false);
-await mode('neutral');await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>window.__pc.root.findByName('disco-headphones-and-glasses').enabled),true);await home();
+await mode('noHead');await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>window.__pc.root.findByName('disco-fashion-visor').enabled),false);
+await mode('neutral');await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>window.__pc.root.findByName('disco-fashion-visor').enabled),true);await home();
 await enter('Jack Attack','space-ranger-0');await page.screenshot({path:out+'/jack-ranger.png'});
 await mode('jack');await page.waitForTimeout(350);await page.screenshot({path:out+'/jack-ranger-moving.png'});await mode('neutral');await home();
 await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;});

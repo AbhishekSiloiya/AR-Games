@@ -1,14 +1,15 @@
+import { startDanceTrack } from '../dance-music.ts';
 // Freeze — dance while the music plays: the more you move, the more you score. When it cuts out, freeze.
 // Any wobble costs points; a perfectly still freeze pays a bonus. Works wherever you stand, so it is compact.
 import { players, tuning } from '../pose.ts';
 import { discoGear } from '../disco-gear.ts';
 import { hardness } from '../meta.ts';
 import { backdrop, lit, mirrorOn, node, shapes, show, tint } from '../engine.ts';
-import { COUNTDOWN, PLAYER_COLORS, audio, bursts as makeBursts, divider, music, say, scoreHud, sfx, zoneX, type Game } from '../kit.ts';
+import { COUNTDOWN, PLAYER_COLORS, audio, bursts as makeBursts, divider, say, scoreHud, sfx, zoneX, type Game } from '../kit.ts';
 
 const ROUND = 60, GRACE = 0.6; // seconds after the music stops before movement counts against you
 
-export default function freeze({ n, stage, onEnd, hud, scene }: Game) {
+export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
   const hard = hardness(stage);
   backdrop(scene, 'disco', true);
   const party=Array.from({length:n},(_,p)=>discoGear(scene,p));
@@ -20,14 +21,14 @@ export default function freeze({ n, stage, onEnd, hud, scene }: Game) {
     start: audio().currentTime + COUNTDOWN, last: 0, done: false, dancing: true, phaseEnd: 7, phaseAt: 0,
     scores: [0, 0], rate: [0, 0], energy: players.map((p) => p.energy), moved: [false, false], nagged: [0, 0],
   };
-  music.start('dance', g.start, 0.9);
+  const soundtrack=startDanceTrack(g.start);cleanup(()=>soundtrack.stop());
 
   return () => {
     if (g.done) return;
     const t = audio().currentTime - g.start, dt = Math.max(1e-3, Math.min(0.05, t - g.last));
     g.last = t;
     hud('clock', String(Math.ceil(t < 0 ? -t : ROUND - t)));
-    if (t >= ROUND) { g.done = true; music.stop(); say('time_over'); return onEnd(g.scores.slice(0, n).map(Math.round)); }
+    if (t >= ROUND) { g.done = true; soundtrack.stop(); say('time_over'); return onEnd(g.scores.slice(0, n).map(Math.round)); }
 
     if (t >= g.phaseEnd) {
       if (!g.dancing)
@@ -39,7 +40,7 @@ export default function freeze({ n, stage, onEnd, hud, scene }: Game) {
       sfx(g.dancing ? 'zapThreeToneUp' : 'zapThreeToneDown', { vol: 0.8, jitter: 0 });
       hud.flash(g.dancing ? '#a78bfa' : '#38bdf8');
     }
-    music.gate(g.dancing && t >= 0);
+    soundtrack.gate(g.dancing && t >= 0);
     hud('big', t < 0 ? String(Math.ceil(-t)) : t - g.phaseAt < 1 ? (g.dancing ? 'Dance!' : 'Freeze!') : '');
 
     for (let p = 0; p < n; p++) {

@@ -34,7 +34,7 @@ export default function leaks({ n, stage, best, onEnd, hud, scene }: Game) {
     crack.enabled = ring.enabled = patch.enabled = false;
     return { on: false, x: 0, y: 0, part: 'hand', zone: 0, seam: false, gold: false, hold: 0, age: 0, sealed: 0, spray: 0, crack, ring, patch };
   });
-  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, centre(p)));
+  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, centre(p), 'diver'));
   const bursts = makeBursts(scene.root), passed = bestLine(hud, best);
   const g = { score: 0, water: 0, next: 0.6, wave: 0, sealed: 0, most: 0, fastest: 9, floods: 0, assist: 0, twist: false, finale: false, lastSeal: -9, streak: 0 };
   const finish = () => { music.stop(); const s = Math.round(g.score); onEnd(shared ? [s, s] : [s], Array.from({ length: n }, () => [`${g.sealed} sealed`, g.most >= 3 ? `${g.most} held at once` : '', g.fastest < 9 ? `Fastest patch ${g.fastest.toFixed(1)}s` : '', g.floods ? `Flooded ×${g.floods}` : 'Never flooded'].filter(Boolean))); };
