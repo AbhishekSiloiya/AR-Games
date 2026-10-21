@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { assessPose, gameSetup, jointName, estimatedReach, quickReadiness, standingPose, visibleJoint, type QuickReadiness } from './calibration.ts';
 import { cameraReach, captureStanding, feed, players, sim, trackingSeen } from './pose.ts';
 
-export type PlayerView = 'live' | 'classic' | 'cutout';
+export type PlayerView = 'live' | 'classic';
 export const samplePlayer = (i: number) => ({ present: players[i].present, body: players[i].body, seenAt: trackingSeen[i] });
 const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
 
@@ -70,7 +70,8 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
     };
     raf=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf);
   }, [game,n]);
-  const pilot=['slice','keepy','run'].includes(game);
+  const pilot=['slice','keepy','run','goalie','wipe','freeze'].includes(game);
+  const viewLabel=['run','goalie','wipe'].includes(game)?'Game + live preview':game==='freeze'?'You + disco gear':'See yourself';
   return <div className="player-setup">
     <header className="setup-heading"><div><p className="setup-eyebrow">GET READY · {title}</p><h1>Stand naturally. Let’s play.</h1></div><button className="ghost" onClick={onBack}>← Back</button></header>
     <div className="setup-workspace">
@@ -79,7 +80,8 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
         <h2>Just step into view</h2>
         <p>{config.upper?'Keep your shoulders and hands in view. No special pose needed.':'Step back enough to see your hands and feet. Relax your arms and face the camera.'}</p>
         <div className="joint-checks">{config.joints.filter(j=>j===11||(j>=15&&j%2===1)).map(j=><span key={j} className={status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'ready':''}>{status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'✓':'○'} {j===27?'Feet':`${jointName(j)}${j===0?'':'s'}`}</span>)}</div>
-        {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{game==='run'?'Runner + live preview':'See yourself'}</button><button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>Classic view</button>{game==='keepy'&&n===1&&<button aria-pressed={view==='cutout'} onClick={()=>onView('cutout')}>Player cut-out</button>}</fieldset>}
+        {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{viewLabel}</button><button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>Classic view</button></fieldset>}
+        {game==='jacks'&&<p className="player-style-note">Your character: a space ranger that follows your moves.</p>}
         <button className="primary" disabled={!status.usable} onClick={startGame}>Start game</button>
         <p className="dim">Starts automatically in about a second. You can stand anywhere in view — no need to match a pose.</p>
         {sim&&<button onClick={()=>ready.current()}>Continue in simulator</button>}

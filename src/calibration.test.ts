@@ -28,7 +28,7 @@ assert.equal(assessPose('run', edge, 1000, false).ok, true, 'normal motion outsi
 
 
 assert.equal(supportedView('slice',1,'cutout'), 'live');
-assert.equal(supportedView('keepy',1,'cutout'), 'cutout');
+assert.equal(supportedView('keepy',1,'cutout'), 'live');
 assert.equal(supportedView('keepy',2,'cutout'), 'live');
 assert.equal(standingPose('run',pose().body),true);
 const crouched=pose();crouched.body[25][0]=.65;crouched.body[26][0]=.35;

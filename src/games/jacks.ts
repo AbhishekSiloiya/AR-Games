@@ -4,10 +4,11 @@
 // wave resets. Between waves the game makes you breathe. Wave three is a boss.
 import type { Entity } from 'playcanvas';
 import { players } from '../pose.ts';
+import { spaceRanger } from '../space-ranger.ts';
 import { hardness } from '../meta.ts';
 import { jacker } from '../reps.ts';
 import { backdrop, flat, glowLook, node, shapes, show, tint } from '../engine.ts';
-import { PLAYER_COLORS, bestLine, bursts as makeBursts, figure, hitSound, hitStop, music, round, say, sfx, zoneHalf, zoneX, type Game } from '../kit.ts';
+import { PLAYER_COLORS, bestLine, bursts as makeBursts, hitSound, hitStop, music, round, say, sfx, zoneHalf, zoneX, type Game } from '../kit.ts';
 
 const ROUND = 70, REST = 4, BREACH = 1.0, TOP = 4.0, POOL = 40;
 const ROWS = ['#f472b6', '#fb923c', '#fde047', '#4ade80', '#38bdf8'];
@@ -16,7 +17,7 @@ type Invader = { on: boolean; zone: number; x: number; y: number; hp: number; ro
 export default function jacks({ n, stage, team, best, onEnd, hud, scene }: Game) {
   const hard = hardness(stage);
   backdrop(scene, 'orbit', true);
-  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: zoneX(n, p), y: -0.35, scale: 0.95 }));
+  const bodies = Array.from({ length: n }, (_, p) => spaceRanger(scene, p, { x: zoneX(n, p), y: -0.35, scale: 0.95 }));
   const round_ = shapes.circle(0.42, 20), eye = shapes.circle(0.1, 10), leg = shapes.quad(0.12, 0.3), white = flat('#ffffff'), ink = flat('#0f0a2a'), skin = flat('#ffffff');
   const invaders: Invader[] = Array.from({ length: POOL }, () => {
     const e = node(scene.root, undefined, undefined, [0, 0, 0.9]), parts = [node(e, round_, skin)], pupil = shapes.circle(0.05, 8);

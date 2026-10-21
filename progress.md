@@ -28,3 +28,14 @@ User feedback revision: make positioning quick and forgiving.
 - Live Slice uses conservative shoulder-based reach estimates; finale targets also follow each player's position.
 - Original Google Drive dependency reads stalled; verification ran on an identical temporary source copy at /tmp/ar-games-quick-test with freshly installed locked dependencies.
 - npm run check and npm run build passed. Updated browser suite passed all 17 routes, relaxed off-centre auto-start, manual start, missing-essential and full-body foot blocking, pilot views, recovery and two-player readiness with no console errors. Screenshots inspected. Independent review has no P1/P2 findings.
+
+User feedback revision: game-specific identity and player styles.
+- Approved: live camera + disco gear for Freeze; full animated space ranger for Jack Attack. Slice gets ninja gauntlets; Goalie gets keeper gloves/panelled football/stadium; Wipe gets foamy cleaning sponges and a spaceship window.
+- Slice and Freeze use fitted live mirror views. Goalie/Wipe retain their perspective/body-relative controls with a live player inset. Jack Attack uses a rounded articulated astronaut with compact visual proportions; exercise detection retains original landmarks.
+- Removed cut-out controls and normalized legacy camera cut-out preferences. Classic choices remain for live-view games. Freeze's live HUD moves down to leave the face clear; gameplay diagnostic stick figure is hidden.
+- Pure helper tests cover gear motion/camera alignment/head loss and ranger articulation/proportion isolation. npm run check and npm run build pass on source-identical /tmp/ar-games-quick-test; existing bundle-size and PlayCanvas worker warnings remain.
+- tools/test-game-identity.mjs passes five themed scenes, active football rendering, live insets, lost-head/recovery, ranger movement and two-player ranger/disco scenes with no console errors. Screenshots visually inspected. A reserved GLSL identifier caught in the first run was corrected and active-ball rendering verified.
+- Full 17-route setup regression passed after the visual pass. Final compatibility rerun also passed: seeded a legacy cut-out preference and verified migration alongside setup/loss/recovery/turn routing.
+- Independent final review found no P1/P2 findings. Standard web-game client ran; its state output shows the home screen. The focused fake-camera suites supply gameplay coverage using controlled landmarks.
+- Hardware acceptance remains: real camera accessory fit during fast motion, two-player readability and Android/iPad frame rate. Browser fixtures use synthetic camera/landmarks and cannot establish physical accuracy.
+- Smash demolition/gear and bespoke difficulty-stage design are later phases; current scoring/difficulty rules are unchanged.

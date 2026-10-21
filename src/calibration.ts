@@ -5,9 +5,10 @@ export function cameraLaunchArea(left: number, right: number, aspect: number, ra
   const half = Math.max(.1,(right-left)*width/2-radius);
   return { centre, half, left: centre-half, right: centre+half };
 }
-export function supportedView(id: string, n: number, view: 'live'|'classic'|'cutout') {
-  return view === 'cutout' && (id !== 'keepy' || n !== 1) ? 'live' : view;
+export function supportedView(_id: string, _n: number, view: 'live'|'classic'|'cutout'): 'live'|'classic' {
+  return view === 'cutout' ? 'live' : view;
 }
+
 const UPPER = [0, 11, 12, 13, 14, 15, 16];
 const FULL = [...UPPER, 23, 24, 25, 26, 27, 28];
 export const jointName = (j: number) => j === 0 ? 'Head' : j < 13 ? 'Shoulder' : j < 15 ? 'Elbow' : j < 17 ? 'Hand' : j < 25 ? 'Hip' : j < 27 ? 'Knee' : 'Foot';

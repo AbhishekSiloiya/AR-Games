@@ -327,7 +327,8 @@ function App() {
   // Pilot choices last for one round; the user's Tracking preference is restored in menus.
   useEffect(() => {
     const previous=tuning.look;
-    if (['slice','keepy'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':playerView==='cutout'&&n===1?'camera':'shadow';
+    if (['slice','keepy','freeze'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':'shadow';
+    else if (activeGame==='jacks') tuning.look='shadow';
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
   useEffect(() => {
@@ -525,8 +526,8 @@ function App() {
         );
       })()}
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
-      {screen.at === 'play' && screen.game.id === 'run' && playerView === 'live' && <div className="player-inset"><CameraView game="run" n={n} compact /><span>You · live</span></div>}
-      {screen.at === 'play' && <screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} />}
+      {screen.at === 'play' && ['run','goalie','wipe'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} compact /><span>You · live</span></div>}
+      {screen.at === 'play' && <div className={screen.game.id==='freeze'&&playerView==='live'?'live-dance':''}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
       {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
         <div className="pause">
@@ -592,10 +593,9 @@ function App() {
               <span className="label">Your look</span>
               <div className="seg">
                 <button aria-pressed={tuning.look === 'shadow'} onClick={() => setTracker('romp.look', 'shadow')}>Shadow</button>
-                <button aria-pressed={tuning.look === 'camera'} onClick={() => setTracker('romp.look', 'camera')}>Camera</button>
                 <button aria-pressed={tuning.look === 'mirror'} onClick={() => setTracker('romp.look', 'mirror')}>Mirror</button>
               </div>
-              <span className="dim">In full-body games. Shadow: you as a figure of light, hands and feet glowing — free, and the same for two players. Camera: your own picture lifted out of the room (one player; costs the tracker speed, and switches back to Shadow by itself if it cannot keep up). Mirror: the game played over your whole room, dimmed, with you in the light.</span>
+              <span className="dim">In full-body games. Shadow: a lightweight player silhouette for the other full-body games. Mirror: the game played over your whole room, dimmed, with you in the light.</span>
             </div>
             <div className="row">
               <span className="label">Model</span>
@@ -689,7 +689,7 @@ function App() {
           </div>
         </div>
       )}
-      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && <Presence small={screen.at === 'play'} />}
+      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && screen.at !== 'play' && <Presence small={false} />}
       {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
     </Shell.Provider>
   );

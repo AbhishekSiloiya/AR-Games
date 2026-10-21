@@ -220,3 +220,7 @@ th { color: var(--ink-dim); font-weight: 500; font-size: 1rem; } td.lead, .lead 
 
 .screen.library { overflow-y:auto; }
 .screen.library > * { flex-shrink:0; }
+
+/* Keep the live dancer’s face clear of persistent score and timer labels. */
+.live-dance .hud.clock, .live-dance .hud.score { top: auto; bottom: 1.6rem; }
+.live-dance .hud.hint { top: auto; bottom: 7.6rem; }

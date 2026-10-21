@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { rangerSegment, type RangerSegment } from './ranger-pose.ts';
+const out: RangerSegment = { x: 0, y: 0, length: 0, angle: 0, seen: false };
+const rig = [[1,2,1],[4,6,1]];
+assert.equal(rangerSegment(rig,0,1,out),out,'reuse frame storage');
+assert.equal(out.seen,true,'tracked segment is visible');
+assert.equal(out.x,2.5); assert.equal(out.y,4); assert.equal(out.length,5);
+assert.ok(Math.abs(out.angle - (Math.atan2(4,3)*180/Math.PI-90)) < 1e-8,'capsule local Y follows joints');
+rig[1][2]=.1;
+assert.equal(rangerSegment(rig,0,1,out).seen,false,'lost joint hides entire segment');
+rig[1][2]=1;
+assert.equal(rangerSegment(rig,0,1,out).seen,true,'reacquired joint recovers');
+assert.equal(rangerSegment(rig,0,20,out).seen,false,'missing joints do not create invalid transforms');
+rig[1]=[NaN,6,1]; assert.equal(rangerSegment(rig,0,1,out).seen,false);
+rig[1]=[1,2,1]; assert.equal(rangerSegment(rig,0,1,out).seen,false,'zero-length limbs are hidden');
+console.log('Ranger pose: orientation, reuse, loss and recovery pass.');
+
+const { rangerDisplayRig } = await import('./ranger-pose.ts');
+const display = Array.from({length:33},()=>[0,0,0,0,0]);
+const standing = Array.from({length:33},()=>[0,0,1,0,0]);
+standing[0][1]=.75; standing[27][1]=standing[28][1]=-3.8;
+assert.equal(rangerDisplayRig(standing,display),display,'visual rig reuses storage');
+assert.ok(display[27][1]>-3.1,'shorter visual legs leave boots in view');
+assert.equal(standing[27][1],-3.8,'visual proportions do not change jack detection');
+assert.ok(Math.abs(display[0][1]-.6)<1e-8,'head and limbs use consistent vertical proportions');

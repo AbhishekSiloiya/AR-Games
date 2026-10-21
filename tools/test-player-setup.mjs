@@ -8,12 +8,13 @@ const page=await context.newPage();
 page.setDefaultTimeout(15000);
 const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
 try {
-await page.addInitScript(()=>{Element.prototype.requestFullscreen=()=>Promise.resolve();const Native=window.Worker;window.__testWorkers=[];window.Worker=class extends Native {constructor(...args){super(...args);window.__testWorkers.push(this);}};});
+await page.addInitScript(()=>{localStorage.setItem('romp.look','camera');Element.prototype.requestFullscreen=()=>Promise.resolve();const Native=window.Worker;window.__testWorkers=[];window.Worker=class extends Native {constructor(...args){super(...args);window.__testWorkers.push(this);}};});
 // Static deployments have no optional /report collector; stub only that endpoint.
 await page.route('**/report',route=>route.fulfill({status:204,body:''}));
 await page.goto(process.env.AR_GAME_TEST_URL || 'http://127.0.0.1:5180/');
 await page.getByRole('button',{name:'Start',exact:true}).click();
 await page.getByRole('button',{name:/Tracking/}).waitFor({timeout:60000});
+assert.equal(await page.evaluate(()=>window.__romp.tuning.look),'shadow');
 await page.evaluate(async()=>{
  window.__testWorkers.forEach(w=>w.terminate());
  document.querySelector('video').requestVideoFrameCallback=()=>0;
@@ -64,8 +65,7 @@ await mode('moving');await page.waitForTimeout(1600);assert.equal((await state()
 await mode('neutral');await page.waitForFunction(()=>!JSON.parse(window.render_game_to_text()).trackingLost);
 await page.keyboard.press('Escape');await page.getByRole('button',{name:'Keep playing'}).click();assert.equal((await state()).paused,false);await home();
 await mode('noFeet');await setup('Keepy-Uppy');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/feet/);
-await page.getByRole('button',{name:'Player cut-out',exact:true}).click();await back();
-await mode('noHands');await setup('Slice');assert.equal(await page.getByRole('button',{name:'See yourself',exact:true}).getAttribute('aria-pressed'),'true');await back();
+assert.equal(await page.getByRole('button',{name:'Player cut-out',exact:true}).count(),0);await back();
 await mode('noFeet');await setup('Keepy-Uppy');await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
 await mode('neutral');await playing();await page.waitForTimeout(3500);await page.screenshot({path:out+'/keepy-live.png'});await home();
 await page.setViewportSize({width:1440,height:900});await mode('noHands');await setup('Run');

@@ -1,15 +1,17 @@
 // Freeze — dance while the music plays: the more you move, the more you score. When it cuts out, freeze.
 // Any wobble costs points; a perfectly still freeze pays a bonus. Works wherever you stand, so it is compact.
 import { players, tuning } from '../pose.ts';
+import { discoGear } from '../disco-gear.ts';
 import { hardness } from '../meta.ts';
-import { backdrop, lit, node, shapes, show, tint } from '../engine.ts';
+import { backdrop, lit, mirrorOn, node, shapes, show, tint } from '../engine.ts';
 import { COUNTDOWN, PLAYER_COLORS, audio, bursts as makeBursts, divider, music, say, scoreHud, sfx, zoneX, type Game } from '../kit.ts';
 
 const ROUND = 60, GRACE = 0.6; // seconds after the music stops before movement counts against you
 
 export default function freeze({ n, stage, onEnd, hud, scene }: Game) {
   const hard = hardness(stage);
-  backdrop(scene, 'disco');
+  backdrop(scene, 'disco', true);
+  const party=Array.from({length:n},(_,p)=>discoGear(scene,p));
   const orbMesh = shapes.facets(1.1, 1), orbLook = lit('#ffffff', { emissive: '#000000' });
   const orbs = Array.from({ length: n }, () => { const e = node(scene.root, orbMesh, orbLook); e.enabled = false; return { e, rx: 0, ry: 0 }; });
   divider(scene, n);
@@ -55,7 +57,8 @@ export default function freeze({ n, stage, onEnd, hud, scene }: Game) {
         if (t - g.nagged[p] > 0.5) { g.nagged[p] = t; sfx('error', { vol: 0.6 }); hud.shake(0.4); }
       }
       hud.p('h', p, t < 0 ? 'Dance, then freeze' : g.dancing ? (rate > 8 ? 'On fire!' : rate < 2 ? 'Move!' : '') : wobble ? 'You moved!' : g.moved[p] ? '' : 'Hold it…');
-      if (!show(orb.e, pl.present)) continue;
+      party[p](g.dancing,wobble,dt);
+      if (!show(orb.e, pl.present && !mirrorOn())) continue;
       const k = 1 + Math.min(rate, 15) / 10;
       orb.ry += dt * (0.3 + rate * 0.4) * 57.3; orb.rx += dt * rate * 0.2 * 57.3;
       orb.e.setLocalPosition(x, 0, 0);

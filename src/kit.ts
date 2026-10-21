@@ -2,6 +2,8 @@
 // (The React shell that mounts a game lives in stage.tsx; nothing here touches React.)
 import type { Entity, GraphNode } from 'playcanvas';
 import { cutout, playerCount, players, predict, sim, track, tuning, wantCutout } from './pose.ts';
+import { equipmentFactory, type Equipment } from './equipment.ts';
+import { toolRoll } from './gear-motion.ts';
 import { CUT } from './cut.ts';
 import { blip, say, sfx, whoosh } from './audio.ts';
 import { BODY_JOINTS, H, W, bodyLook, cutoutLook, feedUnit, flat, glowLook, instanced, node, mirrorOn, refreshCutouts, ribbon, shapes, show, trailLook, type Scene, type View } from './engine.ts';
@@ -116,25 +118,27 @@ const TRAIL = 12, SPAN = 5;
 export type StageHand = { p: number; x: number; y: number; px: number; py: number; speed: number; on: boolean; pts: Float32Array };
 
 // `map` places the zones; the default is the orthographic stage split into n columns.
-export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number; camera?: boolean };
+export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number; camera?: boolean; equipment?: Equipment };
 // `swing`: hand speed (stage units/s) that earns a whoosh the moment it is reached; 0 = silent hands.
 // `tones`: a colour per hand ([left, right]) instead of one per player — for games where which hand matters.
 export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX(n, p), hw: zoneHalf(n), hh: H / 2 }, swing = 6, tones?: string[]) {
   // Glass hands: a bead of light with a halo in the player's colour, and a trail that is brightest at the hand and
   // fades to nothing — light, not paint, so fast hands never hide what they are about to hit.
-  const bead = shapes.quad(2, 2);
+  const bead = shapes.quad(2, 2), makeEquipment=map.equipment?equipmentFactory(map.equipment):null;
   const all = Array.from({ length: n * 2 }, (_, i) => {
     const hex = tones ? tones[i & 1] : PLAYER_COLORS[i >> 1], trail = ribbon(scene.root, TRAIL, trailLook(hex)), cursor: Entity = node(scene.root, bead, glowLook(hex));
     cursor.setLocalScale(1, 1, 1);
+    const gear=makeEquipment?.(scene.root,i&1,hex);
     const pts = new Float32Array(TRAIL * 2);
-    return { trail, cursor, pts, age: new Float32Array(TRAIL), armed: true, pace: 0, state: { p: i >> 1, x: 0, y: 0, px: 0, py: 0, speed: 0, on: false, pts } as StageHand };
+    return { trail, cursor, gear, roll:0, pts, age: new Float32Array(TRAIL), armed: true, pace: 0, state: { p: i >> 1, x: 0, y: 0, px: 0, py: 0, speed: 0, on: false, pts } as StageHand };
   });
   const update = (dt: number) =>
     all.map((own, i) => {
       const { trail, cursor, pts, age, state: s } = own;
       const hand = players[s.p].hands[i & 1], was = s.on;
       s.on = players[s.p].present && hand.seen;
-      show(trail.entity, s.on); show(cursor, s.on);
+      show(trail.entity, s.on); show(cursor, s.on && !own.gear);
+      if (own.gear) show(own.gear,s.on);
       if (!s.on) return s;
       // The camera updates ~30x a second, the screen 60x: glide toward the latest reading so motion is continuous,
       // and take speed from the tracker (measured at camera rate) — never from per-frame screen deltas.
@@ -155,6 +159,11 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       cursor.setLocalPosition(s.x, s.y, 1);
       const swell = 0.95 + Math.min(0.7, own.pace * 0.04); // a fast hand burns brighter
       cursor.setLocalScale(swell, swell, 1);
+      if (own.gear) {
+        own.roll=toolRoll(own.roll,(s.x-s.px)/Math.max(.01,dt),(s.y-s.py)/Math.max(.01,dt),dt);
+        own.gear.setLocalPosition(s.x,s.y,1);own.gear.setLocalEulerAngles(0,0,own.roll);
+        own.gear.setLocalScale(.95,.95,.95);
+      }
       if (was) { pts.copyWithin(2, 0, (TRAIL - 1) * 2); age.copyWithin(1, 0, TRAIL - 1); for (let k = 1; k < TRAIL; k++) age[k] += dt; }
       else for (let k = 0; k < TRAIL; k++) { pts.set([s.x, s.y], k * 2); age[k] = k ? 1 : 0; }
       pts.set([s.x, s.y], 0);
@@ -179,7 +188,9 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       trail.commit();
       return s;
     });
-  return { update };
+  return { update, placeEquipment: (i: number,x: number,y: number,z=1) => {
+    all[i]?.gear?.setLocalPosition(x,y,z);
+  } };
 }
 
 // Did this hand's recent path pass within r of (x, y)? Looks back over the last few drawn positions (~100ms), not

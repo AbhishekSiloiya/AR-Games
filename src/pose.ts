@@ -71,7 +71,7 @@ export const tuning = {
   direct: stored('romp.frames') !== 'copied', // stream camera frames straight into the tracker (off = copy them out of the <video>, the old route)
   // How players are shown in full-body games: 'camera' = their own picture, lifted out of the room; 'shadow' = the same
   // shape filled with their colour; 'avatar' = a drawn character from the skeleton (no mask needed: the cheapest).
-  look: (['camera', 'mirror'].includes(stored('romp.look') ?? '') ? stored('romp.look') : 'shadow') as 'camera' | 'shadow' | 'mirror',
+  look: (stored('romp.look') === 'mirror' ? 'mirror' : 'shadow') as 'camera' | 'shadow' | 'mirror', // retire saved camera cut-out preferences
   fastCam: stored('romp.cam') !== 'standard', // take the camera's 60fps mode when it has one, even at a smaller picture
 };
 
