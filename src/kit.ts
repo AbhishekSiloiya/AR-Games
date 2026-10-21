@@ -116,7 +116,7 @@ const TRAIL = 12, SPAN = 5;
 export type StageHand = { p: number; x: number; y: number; px: number; py: number; speed: number; on: boolean; pts: Float32Array };
 
 // `map` places the zones; the default is the orthographic stage split into n columns.
-export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number };
+export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number; camera?: boolean };
 // `swing`: hand speed (stage units/s) that earns a whoosh the moment it is reached; 0 = silent hands.
 // `tones`: a colour per hand ([left, right]) instead of one per player — for games where which hand matters.
 export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX(n, p), hw: zoneHalf(n), hh: H / 2 }, swing = 6, tones?: string[]) {
@@ -142,7 +142,11 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       // How hard to chase the tracker depends on how far behind we are: close to it (a still or slow hand) the dot
       // moves gently, so tracker noise — and the 20-odd readings a second arriving as little steps — never shows;
       // far from it (a real swing) it goes almost at once. Steady at rest, immediate in motion.
-      const at = predict(hand), tx = map.cx(s.p) + at.x * map.hw, ty = (map.cy ?? 0) + at.y * map.hh, far = was ? Math.hypot(tx - s.x, ty - s.y) : 0;
+      const at = predict(hand), pl = players[s.p], rig = pl.rig[15 + (i & 1)], room = map.camera && mirrorOn() && !!rig;
+      const unit = feedUnit(pl.frame.aspect);
+      const tx = room ? (pl.frame.x - pl.frame.aspect / 2 + rig[0] * pl.frame.sw) * unit : map.cx(s.p) + at.x * map.hw;
+      const ty = room ? (.5 - pl.frame.y + rig[1] * pl.frame.sw) * unit : (map.cy ?? 0) + at.y * map.hh;
+      const far = was ? Math.hypot(tx - s.x, ty - s.y) : 0;
       const k = was ? 1 - Math.exp(-dt * (11 + 36 * Math.min(1, far / 1.1))) : 1;
       s.px = was ? s.x : tx;
       s.py = was ? s.y : ty;
@@ -159,6 +163,7 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       // through the fruit before it "counted" as fast. So also measure straight across the last few drawn positions
       // (net distance, so jitter around a still hand reads as nothing) and believe whichever is higher.
       const across = Math.hypot(pts[0] - pts[2 * SPAN], pts[1] - pts[2 * SPAN + 1]) / Math.max(0.03, age[SPAN]);
+      // Preserve body-relative swing sensitivity under true camera-coordinate rendering.
       s.speed = Math.max(Math.hypot(hand.vx * map.hw, hand.vy * map.hh), age[SPAN] < 0.25 ? across : 0);
       own.pace += (s.speed - own.pace) * Math.min(1, dt * 8); // the trail's width follows a calmed speed, or it flickers
       if (swing && own.armed && s.speed > swing) { own.armed = false; whoosh(Math.min(1, s.speed / swing / 3)); }

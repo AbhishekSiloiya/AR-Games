@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "check": "node src/check.ts && tsc",
+    "check": "node src/check.ts && node src/calibration.test.ts && tsc",
     "play": "vite preview --host --port 4173"
   },
   "dependencies": {

@@ -1,6 +1,8 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
+import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
 import { createRoot } from 'react-dom/client';
 import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
 import { report } from './report.ts';
@@ -50,7 +52,7 @@ const MODES = { solo: 'Solo', together: 'Together', turns: 'Take turns' } as con
 type Mode = keyof typeof MODES;
 type Reward = { stars: number; xp: number; newBest: boolean; levelUp: number; badges: string[]; challenges: string[] };
 type Round = { game: Game; stage: number; mode: string; turn: number; scores: number[]; points: number[]; rewards: Reward[]; notes: string[][] };
-type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at: 'brief'; game: Game; stage: number; mode: string } | ({ at: 'play' | 'next' | 'results' } & Round);
+type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at: 'brief'; game: Game; stage: number; mode: string } | ({ at: 'setup' | 'play' | 'next' | 'results' } & Round);
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties; // CSS custom properties for inline style
 const toneOf = (g: Game) => vars({ '--a': g.tone[0], '--b': g.tone[1] });
@@ -277,6 +279,8 @@ function App() {
   const [mode, setMode] = useState<Mode>('solo');
   const [fx, setFx] = useState(effects.on);
   const [paused, setPaused] = useState(false);
+  const [trackingLost, setTrackingLost] = useState(false);
+  const [playerView, setPlayerView] = useState<PlayerView>('live');
   const [coop, setCoop] = useState(true); // two players: one team by default — it is what brings a couple back; rivals by choice
   const n = mode === 'together' ? 2 : 1; // bodies tracked at once; "turns" is two people, one at a time
   const energy0 = useRef([0, 0]);
@@ -289,7 +293,7 @@ function App() {
   }, []);
 
   // Pause: stop the frame loop (Shell context) and the audio clock, so rhythm games freeze too.
-  const shell = useMemo(() => ({ paused, pause: () => { setPaused(true); void audio().suspend(); } }), [paused]);
+  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void audio().suspend(); } }), [paused, trackingLost]);
   const resume = () => { setPaused(false); void audio().resume(); };
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && shell.pause();
@@ -297,8 +301,45 @@ function App() {
     return () => removeEventListener('keydown', key);
   }, [shell]);
 
+  const activeGame = screen.at === 'play' ? screen.game.id : '';
+  useEffect(() => {
+    if (!activeGame) { setTrackingLost(false); return; }
+    if (sim) return;
+    let lostSince: number|null = null, recoveredSince: number|null = null, lost = false;
+    let previous: number[][][] = [], last=performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now(), ok = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false).ok).every(Boolean);
+      const gate = trackingGate(lostSince,ok,now); lostSince=gate.since;
+      if (!lost && gate.lost) {lost=true;setTrackingLost(true);}
+      if (lost) {
+        const steady=ok&&Array.from({length:n},(_,i)=>standingPose(activeGame,players[i].body)&&stablePose(activeGame,players[i].body,previous[i]??[],now-last)).every(Boolean);
+        const hold=readiness(recoveredSince,steady,now);recoveredSince=hold.since;
+        if (hold.ready) {lost=false;lostSince=recoveredSince=null;setTrackingLost(false);}
+      }
+      previous=players.slice(0,n).map(p=>p.body.map(q=>[...q]));last=now;
+    },100);
+    return ()=>clearInterval(timer);
+  }, [activeGame,n,screen.at === 'play' ? screen.turn : -1]);
+  useEffect(() => {
+    if (screen.at !== 'play') return;
+    if (paused || trackingLost) void audio().suspend(); else void audio().resume();
+  }, [paused,trackingLost,screen.at]);
+  // Pilot choices last for one round; the user's Tracking preference is restored in menus.
+  useEffect(() => {
+    const previous=tuning.look;
+    if (['slice','keepy'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':playerView==='cutout'&&n===1?'camera':'shadow';
+    return ()=>{tuning.look=previous;};
+  }, [activeGame,playerView,n]);
+  useEffect(() => {
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,coordinates:'camera: mirrored x right, y down; stage: x right, y up'});
+    Object.assign(window,{render_game_to_text:render});
+    return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
+  }, [screen,n,paused,trackingLost,playerView]);
+
   const update = (next: typeof db) => { save(next); setDb(next); };
   const go = (s: Screen) => {
+    setPaused(false);
+    if (s.at === 'setup') setPlayerView(v=>supportedView(s.game.id,n,v));
     if (s.at === 'play') energy0.current = players.map((p) => p.energy);
     if (s.at === 'brief') s.game.Play.warm(); // fetch the renderer and this game's code while the player reads how to play
     setScreen(s);
@@ -369,7 +410,7 @@ function App() {
     else if (scores.length === 2 && scores[0] === scores[1] && !team) say('its_a_tie');
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
-  const play = (game: Game, stage: number, gameMode: string) => go({ at: 'play', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
+  const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
   const cycle = (slot: number) => setWho((w) => w.map((v, i) => (i === slot ? (v + 1) % db.profiles.length : v)));
   const rename = (slot: number) => {
     const old = name(slot), next = prompt('Name', old)?.trim();
@@ -385,7 +426,7 @@ function App() {
   return (
     <Shell.Provider value={shell}>
       <video className={screen.at === 'tracking' ? 'mirror bright' : 'mirror'} ref={video} muted playsInline />
-      {screen.at !== 'tracking' && <Backdrop ingame={screen.at === 'play'} />}
+      {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
         <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
           <Logo huge />
@@ -398,7 +439,7 @@ function App() {
         </div>
       )}
       {screen.at === 'home' && (
-        <div className="screen">
+        <div className="screen library">
           <div className="row">
             <Logo />
             <p className="dim num grow" style={{ paddingLeft: '1rem' }}><Fps /></p>
@@ -483,7 +524,10 @@ function App() {
           </div>
         );
       })()}
+      {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
+      {screen.at === 'play' && screen.game.id === 'run' && playerView === 'live' && <div className="player-inset"><CameraView game="run" n={n} compact /><span>You · live</span></div>}
       {screen.at === 'play' && <screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} />}
+      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand tall with your hands and required body parts in view. Hold steady for two seconds.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
         <div className="pause">
           <div className="panel">
@@ -500,7 +544,7 @@ function App() {
         <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <h1>{name(0)} scored <span className="crown num">{screen.scores[0]}</span></h1>
           <h2>{name(1)}, you are up! {name(0)}, step out of view.</h2>
-          <button className="primary giant" onClick={() => go({ ...screen, at: 'play' })}>Ready</button>
+          <button className="primary giant" onClick={() => go({ ...screen, at: 'setup' })}>Ready</button>
         </div>
       )}
       {screen.at === 'results' && (
@@ -645,8 +689,8 @@ function App() {
           </div>
         </div>
       )}
-      {screen.at !== 'start' && screen.at !== 'tracking' && <Presence small={screen.at === 'play'} />}
-      {((screen.at !== 'play' && screen.at !== 'start') || paused) && <HandCursor />}
+      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && <Presence small={screen.at === 'play'} />}
+      {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }

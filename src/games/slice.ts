@@ -8,8 +8,9 @@
 // sync) or rivals. Either way each player is quietly helped when fruit keeps getting past them: never shown, never said.
 import { Quat, Vec3, type Entity } from 'playcanvas';
 import { hardness } from '../meta.ts';
-import { sim } from '../pose.ts';
-import { backdrop, clippable, fitted, flat, instanced, node, setClip, shapes, show, tint } from '../engine.ts';
+import { cameraReach, players, sim } from '../pose.ts';
+import { cameraLaunchArea } from '../calibration.ts';
+import { backdrop, clippable, fitted, flat, instanced, mirrorOn, node, setClip, shapes, show, tint } from '../engine.ts';
 import { H, PLAYER_COLORS, bestLine, bursts as makeBursts, comboText, divider, hands as makeHands, hitSound, hitStop, music, round, say, scoreHud, segDist, sfx, swept, zoneHalf, zoneX, type Game, type StageHand } from '../kit.ts';
 
 const R = 0.75, GRAVITY = -9, FRENZY = 10, FINALE = 4.5, DEG = 180 / Math.PI;
@@ -62,7 +63,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
   const [fruit, bomb, star, banana] = await Promise.all([
     Promise.all(FRUIT.map((f) => fitted(`/assets/food/${f.url}.glb`, R * f.size))), fitted('/assets/kit/bomb.glb', R * 2.1), fitted('/assets/kit/star.glb', R * 1.8), fitted('/assets/food/banana.glb', R * 2.4),
   ]);
-  backdrop(scene, 'dojo');
+  backdrop(scene, 'dojo', true);
   // Juice stays on the wall: every cut leaves a stain and a few drops that soak away over some seconds.
   const SPLATS = 72, stains = instanced(scene.root, shapes.blob(1), SPLATS, 0.999), wet = Array.from({ length: SPLATS }, () => ({ life: 0, x: 0, y: 0, size: 0 }));
   let nextStain = 0;
@@ -103,7 +104,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     chain: [0, 1, 2, 3].map(() => ({ n: 0, until: 0, x: 0, y: 0 })), // per hand: fruit cut in one continuous swing
     inside: [0, 1, 2, 3].map(() => false), burst: -1,
   };
-  const hands = makeHands(scene, n), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
+  const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true }), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
   if (sim) Object.assign(window, { __slice: { pieces } }); // test hook: a headless probe watches every piece, every frame
   const total = () => (team ? g.scores[0] : Math.max(g.scores[0], g.scores[1]));
   const notes = () => Array.from({ length: n }, (_, p) => [g.bestSlash[p] >= 3 ? `Best slash: ${g.bestSlash[p]} fruit` : '', g.bestCombo[p] >= 5 ? `Longest combo ×${g.bestCombo[p]}` : '', g.crits[p] ? `${g.crits[p]} critical${g.crits[p] > 1 ? 's' : ''}` : ''].filter(Boolean));
@@ -119,10 +120,13 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     if (g.lives <= 0) { say('game_over'); finish(); }
   };
 
+  let launchSeat=0;
   const launch = (piece: Piece, z: number, shot: Shot) => {
     const side = shot.at, floaty = rules.gravity, help = 1 - 0.18 * g.assist[z]; // helped players get slower, higher-hanging fruit
+    const owner=team?launchSeat++%n:z, reach=cameraReach[owner];
+    const area=mirrorOn()&&reach ? cameraLaunchArea(reach.left,reach.right,players[owner].frame.aspect,R) : null;
     Object.assign(piece, {
-      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x: (team ? 0 : zoneX(n, z)) + side * (team ? H * 0.8 : zoneHalf(n)) * 0.78, y: -H / 2 - R,
+      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x: area ? area.centre+side*area.half*.85 : (team ? 0 : zoneX(n, z)) + side * (team ? H * 0.8 : zoneHalf(n)) * 0.78, y: -H / 2 - R,
       vx: -side * (0.4 + Math.random() * 0.8) * help, vy: ((piece.kind === 'star' ? 11.5 : 10) + Math.random() * 1.6) * (shot.lift ?? 1) * Math.sqrt(floaty) * (0.96 + 0.04 * help), rx: Math.random() * 360, ry: Math.random() * 360,
     });
     if (piece.kind === 'power') piece.power = (['frenzy', 'double', 'freeze'] as Power[])[Math.floor(Math.random() * 3)];
