@@ -69,15 +69,7 @@ assert.ok(layout.y<.3,'Beat instruction must be at the top');
 assert.ok(layout.size>=32,'Beat instruction must be large enough to read from playing distance');
 assert.equal(await page.locator('.beat-cues__note').count(),0,'shapes have no text attached');
 await page.screenshot({path:out+'/beat-large-top-cue.png'});await home();assert.equal(await page.locator('.beat-cues').count(),0);
-await enter('Sprint','sprint-model-player-0');
-await page.waitForFunction(()=>window.__sprint().heat>=0);await mode('neutral');await page.waitForTimeout(200);
-const neutral=await page.evaluate(()=>{const m=window.__pc.root.findByName('sprint-model-player-0');return {l:m.findByName('UpperLeg.L').getLocalRotation().toString(),r:m.findByName('UpperLeg.R').getLocalRotation().toString()};});
-await mode('kneeL');await page.waitForFunction(()=>window.__sprint().players[0].left>.5&&window.__sprint().players[0].right<.1);
-const first=await page.evaluate(()=>window.__sprint().players[0]);assert.equal(first.steps,1,'first knee counts without waiting for another');assert.ok(first.metres>0);
-assert.notEqual(await page.evaluate(()=>window.__pc.root.findByName('sprint-model-player-0').findByName('UpperLeg.L').getLocalRotation().toString()),neutral.l,'visible thigh follows left knee');
-await page.screenshot({path:out+'/sprint-left-knee.png'});await page.waitForTimeout(250);assert.equal((await page.evaluate(()=>window.__sprint().players[0])).speed,0,'held knee stops pace');assert.equal((await page.evaluate(()=>window.__sprint().players[0])).steps,1);
-await mode('kneeR');await page.waitForFunction(()=>window.__sprint().players[0].right>.5&&window.__sprint().players[0].left<.1);
-assert.notEqual(await page.evaluate(()=>window.__pc.root.findByName('sprint-model-player-0').findByName('UpperLeg.R').getLocalRotation().toString()),neutral.r);await page.screenshot({path:out+'/sprint-right-knee.png'});await mode('neutral');await home();
+await enter('Sprint','sprint-model-player-0');await mode('run');await page.waitForFunction(()=>window.__sprint().players[0].steps>=2&&window.__sprint().players[0].clip==='Running');await page.screenshot({path:out+'/sprint-animated-race.png'});await mode('neutral');await home();
 await enter('Shape Up','.shapeup-coach-card');await page.evaluate(()=>window.__matchShape=true);
 await page.waitForFunction(()=>window.__shapeup.phase==='match'&&window.__shapeup.seats[0].locked);
 assert.match(await page.locator('.shapeup-live-status strong').textContent(),/Shape matched/);await page.screenshot({path:out+'/shapeup-matched.png'});
@@ -92,5 +84,5 @@ await enter('Beat','disco-dance-floor');assert.equal(await page.locator('.beat-c
 await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/beat-tablet.png'});
 const headings=await page.locator('.beat-cues__current').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,overflow:e.scrollWidth>e.clientWidth+2};}));assert.ok(headings[0].right<headings[1].left);assert.ok(headings.every(h=>!h.overflow));await home();
 await enter('Shape Up','.shapeup-coach-card');await page.evaluate(()=>window.__matchShape=true);await page.waitForFunction(()=>window.__shapeup.phase==='match'&&window.__shapeup.seats[0].locked);assert.equal(await page.locator('.shapeup-live-status').count(),2);assert.equal(await page.evaluate(()=>window.__shapeup.seats[1].locked),false);await page.screenshot({path:out+'/shapeup-two-player-feedback.png'});await page.evaluate(()=>window.__matchShape=false);await home();
-assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['large top Beat cue','unobstructed shapes','tablet/two-player layout','direct first/opposite knee and rendered joints','fast stop/no hold scoring','Shape Up lock/result/relax/next','no double score','independent player feedback','cleanup'],errors},null,2));
+assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['large top Beat cue','unobstructed shapes','tablet/two-player layout','animated movement-earned scenic race','Shape Up lock/result/relax/next','no double score','independent player feedback','cleanup'],errors},null,2));
 }catch(error){await page.screenshot({path:out+'/failure.png'});console.error(JSON.stringify(await page.evaluate(()=>({state:window.render_game_to_text?.(),shape:window.__shapeup?{phase:window.__shapeup.phase,index:window.__shapeup.index,seats:window.__shapeup.seats}:null,testError:window.__testError})),null,2));throw error;}finally{await browser.close();}

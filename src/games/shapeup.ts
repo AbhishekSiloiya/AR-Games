@@ -2,7 +2,7 @@
 // an independent match figure and score; both see the same poses and timing.
 import { hardness } from '../meta.ts';
 import { players, poseMatch as match, sim, trackingSeen } from '../pose.ts';
-import { shapeClock, shapeDuration, shapeSeat, shapeTrackedBody, stepShape } from '../shapeup-rules.ts';
+import { shapeClock, shapeDuration, shapeSeat, shapeTrackedBody, shapeRank, stepShape } from '../shapeup-rules.ts';
 import { backdrop, mirrorOn } from '../engine.ts';
 import { shapeupOverlay } from '../shapeup-overlay.ts';
 import { hitSound, music, round, sfx, type Game } from '../kit.ts';
@@ -30,7 +30,7 @@ export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
   const seats = Array.from({ length: n }, shapeSeat);
   const matchSeconds = PER_POSE - 1.1;
   let clock = shapeClock(-1, matchSeconds, POSES_PER_ROUND);
-  const tick = round(hud, shapeDuration(matchSeconds, POSES_PER_ROUND), () => { music.stop(); onEnd(seats.map(s => s.score)); });
+  const tick = round(hud, shapeDuration(matchSeconds, POSES_PER_ROUND), () => { music.stop(); onEnd(seats.map(s => s.score), seats.map(s => {const medal=shapeRank(s.stars);return [`${medal.medal} · ${medal.rank}`,`${s.stars}/24 quest stars`,`${s.path.filter(stars=>stars>=2).length}/8 poses matched`,`Best chain ×${s.bestCombo}`];})); });
   music.start('dance', undefined, .5);
   const fresh = (p: number) => players[p].present && (sim || (trackingSeen[p] > 0 && performance.now() - trackingSeen[p] <= 600));
   if (sim || import.meta.env.DEV) {
@@ -52,6 +52,7 @@ export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
       const quality = valid ? match(mine, pose) : 0;
       const update = stepShape(previous, i, clock.phase, quality, valid, t, clock.remaining);
       const seat = seats[p] = update.state;
+      coach.quest(p, seat, i, clock.phase);
       if (update.justLocked) hitSound('confirmation', seat.streak * 2, .65);
       if (update.scored && seat.verdict === 'perfect') hitSound('powerUp', seat.streak * 2, .6);
       else if (update.scored && (seat.verdict === 'unmatched' || seat.verdict === 'absent')) sfx('impactWood_heavy', {vol:.25});
@@ -61,7 +62,7 @@ export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
       else if (clock.phase === 'result' || clock.phase === 'done') {
         feedback = seat.verdict;
         status = seat.verdict === 'perfect' ? '✓ Perfect match!' : seat.verdict === 'matched' ? '✓ Shape matched!' : seat.verdict === 'partial' ? 'Nearly there!' : seat.verdict === 'absent' ? 'We lost your pose' : 'Try the next one';
-        detail = seat.verdict === 'absent' ? 'Step back into view' : `${seat.quality}% · ${i === POSES_PER_ROUND-1 ? 'Last pose complete' : 'Take a breath'}`;
+        detail = seat.verdict === 'absent' ? 'Step back into view' : `${seat.quality}% · ${'★'.repeat(Math.max(0,seat.path[i])) || 'Keep exploring'}${i === POSES_PER_ROUND-1 ? ` · ${shapeRank(seat.stars).medal} finish!` : ''}`;
       } else if (!valid) {feedback='absent';status='Step into view';detail='Keep your body visible';}
       else if (seat.locked) {feedback='matched';status='✓ Shape matched!';detail='You’ve got it — you can relax';}
       else if (seat.holdSince !== null) {feedback='hold';status='Hold that shape…';detail='Just a moment — almost matched';}

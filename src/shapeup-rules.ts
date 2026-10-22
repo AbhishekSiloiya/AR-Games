@@ -16,10 +16,16 @@ export function shapeClock(t:number,matchSeconds:number,count=8){
   const phase:ShapePhase=into+1e-7<matchSeconds?'match':into+1e-7<matchSeconds+SHAPE_RESULT?'result':'rest';
   return {phase,index,remaining:Math.max(0,(phase==='match'?matchSeconds:phase==='result'?matchSeconds+SHAPE_RESULT:cycle)-into),duration};
 }
-export type ShapeSeat={index:number;score:number;streak:number;best:number;holdSince:number|null;locked:boolean;judged:boolean;quality:number;verdict:'waiting'|'matched'|'perfect'|'partial'|'unmatched'|'absent'};
-export const shapeSeat=():ShapeSeat=>({index:-1,score:0,streak:0,best:0,holdSince:null,locked:false,judged:false,quality:0,verdict:'waiting'});
+export function poseStars(quality:number,present:boolean,locked:boolean){
+  return !present||!Number.isFinite(quality)||quality<60?0:!locked?1:quality>=90?3:quality>=80?2:1;
+}
+export function shapeRank(stars:number){
+  return stars>=20?{medal:"Gold",rank:"Pose master"}:stars>=14?{medal:"Silver",rank:"Shape explorer"}:stars>=8?{medal:"Bronze",rank:"Pose builder"}:{medal:"Practice",rank:"Keep exploring"};
+}
+export type ShapeSeat={stars:number;combo:number;bestCombo:number;path:number[];rewardPoints:number;milestone:number;index:number;score:number;streak:number;best:number;holdSince:number|null;locked:boolean;judged:boolean;quality:number;verdict:'waiting'|'matched'|'perfect'|'partial'|'unmatched'|'absent'};
+export const shapeSeat=():ShapeSeat=>({stars:0,combo:0,bestCombo:0,path:Array(8).fill(-1),rewardPoints:0,milestone:0,index:-1,score:0,streak:0,best:0,holdSince:null,locked:false,judged:false,quality:0,verdict:'waiting'});
 export function stepShape(previous:ShapeSeat,index:number,phase:ShapePhase,quality:number,present:boolean,now:number,remaining:number){
-  const state:ShapeSeat=previous.index===index?{...previous}:{...shapeSeat(),index,score:previous.score,streak:previous.streak};
+  const state:ShapeSeat=previous.index===index?{...previous,path:[...previous.path]}:{...shapeSeat(),index,score:previous.score,streak:previous.streak,stars:previous.stars,combo:previous.combo,bestCombo:previous.bestCombo,path:[...previous.path]};
   let justLocked=false,scored=false;
   if(phase==='match'){
     if(!present){state.holdSince=null;state.locked=false;state.best=0;}
@@ -30,7 +36,12 @@ export function stepShape(previous:ShapeSeat,index:number,phase:ShapePhase,quali
     }
   }else if((phase==='result'||phase==='rest'||phase==='done')&&!state.judged){
     const result=shapeVerdict(state.best,state.streak,present);state.judged=true;scored=true;
-    state.quality=result.quality;state.score+=result.points;state.streak=result.streak;
+    state.quality=result.quality;state.streak=result.streak;
+    const stars=poseStars(result.quality,present,state.locked);
+    state.path[index]=stars;state.stars+=stars;
+    state.combo=stars>=2?state.combo+1:0;state.bestCombo=Math.max(state.bestCombo,state.combo);
+    state.milestone=state.combo===3?20:state.combo===5?35:state.combo===8?60:0;
+    state.rewardPoints=result.points+state.milestone;state.score+=state.rewardPoints;
     state.verdict=!present?'absent':state.locked?(result.quality>=90?'perfect':'matched'):result.quality>=60?'partial':'unmatched';
   }
   return {state,justLocked,scored};

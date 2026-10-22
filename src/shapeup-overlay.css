@@ -14,7 +14,7 @@
 .shapeup-coach-classic .shapeup-reference {height:clamp(145px,20vw,265px);}
 @media(max-height:600px){.shapeup-coach-card {top:5.3rem;padding:.65rem;}.shapeup-reference {height:85px;}.shapeup-verdict {margin-top:.3rem;}.shapeup-coach-classic .shapeup-coach-card{top:16%;}}
 
-.shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-coach-card {width:clamp(100px,12vw,175px);padding:.65rem;}
+.shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-coach-card {top:max(18%,calc(8.8rem + 8px));width:clamp(100px,12vw,175px);padding:.65rem;}
 .shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-reference {height:clamp(78px,10vw,132px);}
 
 /* Clear feedback stays below the live player's torso, rather than covering their face. */
@@ -28,3 +28,21 @@
 .shapeup-coach-card[data-phase=rest] .shapeup-reference {opacity:.18;}
 .shapeup-coach-card[data-phase=result] .shapeup-reference {opacity:.55;}
 @media(max-height:500px){.shapeup-live-status{bottom:.6rem;padding:.5rem .9rem;}.shapeup-live-status strong{font-size:1rem;}.shapeup-live-status span{font-size:.7rem;margin-top:.2rem;}}
+
+/* Eight tangible stops, one shared goal; progress lives above the camera play space. */
+.shapeup-ar-stage .hud.score {display:none;}
+.shapeup-quest {position:absolute;top:.8rem;left:calc((var(--seat) + .5) / var(--players) * 100%);transform:translateX(-50%);width:min(520px,calc(100% / var(--players) - 2rem));box-sizing:border-box;padding:.65rem 1rem;border:1px solid #f5d68a55;border-radius:1rem;background:#102332eb;color:#eefaff;}
+.shapeup-quest-header,.shapeup-quest-totals {display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.shapeup-quest-header strong {font-size:clamp(.8rem,1.1vw,1.05rem);letter-spacing:.1em;}.shapeup-quest-header>span {font-size:clamp(.6rem,.85vw,.85rem);color:#c1d7e0;}
+.shapeup-quest-path {display:flex;justify-content:space-between;gap:.35rem;margin:.5rem 0;}
+.shapeup-quest-step {position:relative;display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;padding:.2rem 0;border:1px solid #accbd933;border-radius:.6rem;color:#87a5b5;background:#213544;}
+.shapeup-quest-step b {font-size:clamp(.75rem,1vw,1rem);line-height:1;}.shapeup-quest-step small {font-size:clamp(.58rem,.85vw,.85rem);line-height:1.25;white-space:nowrap;}
+.shapeup-quest-step[data-state=current] {color:#f9edc0;border-color:#f5d68a;box-shadow:0 0 14px #f5d68a20;}.shapeup-quest-step[data-state=earned] {color:#ffe29a;border-color:#c6e7ba55;background:#27463d;}
+.shapeup-quest-totals {font-size:clamp(.58rem,.85vw,.85rem);color:#b8d4df;}.shapeup-quest-totals strong {font-size:clamp(.8rem,1.15vw,1.15rem);color:#ffe09a;}
+.shapeup-reward {position:absolute;bottom:8rem;left:calc((var(--seat) + .5) / var(--players) * 100%);transform:translateX(-50%);max-width:calc(100% / var(--players) - 2rem);box-sizing:border-box;padding:.55rem 1rem;border-radius:1rem;background:#302e1cf0;border:1px solid #ffe59988;color:#ffe6a8;font-size:clamp(.9rem,1.6vw,1.45rem);font-weight:800;text-align:center;text-shadow:0 2px 3px #0005;}
+.shapeup-reward[hidden] {display:none;}.shapeup-reward.celebrate {animation:shapeup-star-reward 650ms cubic-bezier(.2,.8,.2,1) both;}
+.shapeup-reward[data-stars="0"] {color:#d0dfe8;border-color:#91acbb66;background:#192c3bee;}
+@keyframes shapeup-star-reward {from{opacity:0;translate:0 12px;scale:.85;}60%{opacity:1;scale:1.04;}to{opacity:1;translate:0 0;scale:1;}}
+@media(max-height:600px){.shapeup-quest{top:.4rem;padding:.4rem .65rem;}.shapeup-quest-path{margin:.25rem 0;}.shapeup-quest-step{padding:.12rem 0;}.shapeup-quest-header>span{font-size:.58rem;}.shapeup-reward{bottom:6rem;padding:.4rem .7rem;font-size:.9rem;}}
+@media(max-width:700px){.shapeup-coach[data-players="2"] .shapeup-quest{width:calc(50% - 1rem);padding:.4rem;}.shapeup-coach[data-players="2"] .shapeup-quest-header>span{display:none;}.shapeup-coach[data-players="2"] .shapeup-quest-path{gap:.15rem;}.shapeup-coach[data-players="2"] .shapeup-quest-step small{font-size:.5rem;}.shapeup-coach[data-players="2"] .shapeup-quest-totals{flex-wrap:wrap;gap:.1rem .4rem;}}
+@media(prefers-reduced-motion:reduce){.shapeup-reward.celebrate{animation:none;}}

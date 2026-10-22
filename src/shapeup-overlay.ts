@@ -1,5 +1,5 @@
 import './shapeup-overlay.css';
-import type { ShapePhase } from './shapeup-rules.ts';
+import type { ShapePhase, ShapeSeat } from './shapeup-rules.ts';
 const NS='http://www.w3.org/2000/svg';
 const JOINTS=[[-.75,2],[0,0],[.75,2],[0,0],[-.4,0],[0,0],[.4,0],[0,0]];
 const LENGTHS=[1.1,1,1.1,1,1.5,1.4,1.5,1.4];
@@ -8,6 +8,17 @@ export function shapeupOverlay(n:number,live:boolean){
   const host=document.querySelector<HTMLElement>('.stage');
   const root=document.createElement('div');root.className=`shapeup-coach${live?'':' shapeup-coach-classic'}`;root.dataset.players=String(n);
   host?.classList.add('shapeup-ar-stage');host?.append(root);
+  const quests=Array.from({length:n},(_,p)=>{
+    const quest=document.createElement('section');quest.className='shapeup-quest';quest.dataset.player=String(p);quest.style.setProperty('--seat',String(p));quest.style.setProperty('--players',String(n));quest.setAttribute('aria-label',`Player ${p+1} eight-pose quest`);
+    const header=document.createElement('div');header.className='shapeup-quest-header';
+    const title=document.createElement('strong');title.textContent=n===2?`P${p+1} · POSE QUEST`:'POSE QUEST';
+    const goal=document.createElement('span');goal.textContent='8 poses · collect 24 stars';header.append(title,goal);
+    const path=document.createElement('div');path.className='shapeup-quest-path';
+    const steps=Array.from({length:8},(_,i)=>{const step=document.createElement('span');step.className='shapeup-quest-step';const number=document.createElement('b');number.textContent=String(i+1);const stars=document.createElement('small');stars.textContent='·';step.append(number,stars);path.append(step);return {step,stars};});
+    const totals=document.createElement('div');totals.className='shapeup-quest-totals';const earned=document.createElement('strong'),combo=document.createElement('span'),score=document.createElement('span');totals.append(earned,combo,score);quest.append(header,path,totals);
+    const reward=document.createElement('div');reward.className='shapeup-reward';reward.hidden=true;reward.dataset.player=String(p);reward.style.setProperty('--seat',String(p));reward.style.setProperty('--players',String(n));reward.setAttribute('role','status');
+    root.append(quest,reward);return {quest,steps,earned,combo,score,reward,celebrated:-1};
+  });
   const cards=Array.from({length:n},(_,p)=>{
     const card=document.createElement('section');card.className='shapeup-coach-card';card.dataset.player=String(p);card.style.setProperty('--seat',String(p));card.style.setProperty('--players',String(n));
     card.setAttribute('aria-label',`Player ${p+1} pose coach`);
@@ -46,6 +57,18 @@ export function shapeupOverlay(n:number,live:boolean){
       if(c.detail.textContent!==verdict)c.detail.textContent=verdict;
       c.status.dataset.feedback=feedback;c.card.dataset.phase=phase;c.card.dataset.feedback=feedback;
       c.card.dataset.ready=String(feedback==='matched'||feedback==='perfect');c.card.dataset.match=String(quality);c.card.dataset.pose=String(index);c.card.dataset.remaining=remaining.toFixed(2);
+    },
+    quest(p:number,state:ShapeSeat,index:number,phase:ShapePhase){
+      const q=quests[p];q.earned.textContent=`★ ${state.stars} / 24`;q.combo.textContent=state.combo?`CHAIN ×${state.combo}`:'Match to build a chain';q.score.textContent=`${state.score} points`;
+      q.quest.dataset.stars=String(state.stars);q.quest.dataset.combo=String(state.combo);q.quest.dataset.score=String(state.score);
+      q.steps.forEach((item,i)=>{const earned=state.path[i];item.step.dataset.state=earned>=0?'earned':i===index?'current':'next';item.stars.textContent=earned<0?'·':earned===0?'—':'★'.repeat(earned);item.step.setAttribute('aria-label',`Pose ${i+1}: ${earned<0?'upcoming':`${earned} stars`}`);});
+      if(state.judged&&q.celebrated!==index){
+        q.celebrated=index;q.reward.dataset.stars=String(state.path[index]);q.reward.dataset.milestone=String(state.milestone);
+        q.reward.textContent=state.path[index]>0?`${'★'.repeat(state.path[index])}  +${state.rewardPoints} points${state.milestone?` · CHAIN ×${state.combo} +${state.milestone} bonus!`:''}`:'A new pose. A new chance.';
+        q.reward.classList.remove('celebrate');void q.reward.offsetWidth;q.reward.classList.add('celebrate');
+        if(state.path[index]>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches)q.steps[index].step.animate([{transform:'scale(1)'},{transform:'scale(1.2)',offset:.4},{transform:'scale(1)'}],{duration:550});
+      }
+      q.reward.hidden=phase!=='result'&&phase!=='rest';
     },
     dispose(){root.remove();host?.classList.remove('shapeup-ar-stage');},
   };

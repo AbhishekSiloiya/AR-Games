@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {partyMotion,stepParty,partyReward} from './freeze-party-rules.ts';
+const party=partyMotion();stepParty(party,true,.05);assert.ok(party.angle>0&&party.lightTime>0,'dance spins ball and sweeps lights');
+const angle=party.angle,time=party.lightTime;stepParty(party,false,.05);assert.equal(party.angle,angle);assert.equal(party.lightTime,time,'freeze holds all party motion');
+stepParty(party,true,.05);assert.ok(party.angle>angle,'dance resumes from held position');
+assert.equal(partyReward(party,0,7,true,true),true,'successful present player celebrates');
+assert.equal(partyReward(party,0,7,true,true),false,'same freeze rewards once');
+assert.equal(partyReward(party,1,7,false,true),false,'absent player earns no celebration');
+assert.equal(partyReward(party,1,7,true,false),false,'moving player earns no celebration');
+assert.equal(partyReward(party,1,7,true,true),true,'second player has independent celebration');
+console.log('Freeze party: motion hold/resume, successful presence, independent once-only rewards pass.');

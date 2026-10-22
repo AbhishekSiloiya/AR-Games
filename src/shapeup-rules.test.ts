@@ -50,3 +50,32 @@ for(const [joint,axis,value]of [[15,0,-.01],[16,1,1.01],[27,0,Infinity],[28,1,Na
 const forgiving=trackedBody();for(const q of forgiving)q[2]=.35;assert.equal(shapeTrackedBody(forgiving),true,'confidence boundary stays forgiving');
 const advisoryHead=trackedBody();advisoryHead[0]=[];assert.equal(shapeTrackedBody(advisoryHead),true,'head is not part of limb-angle matching');
 console.log('Shape Up tracking: required wrists/legs, confidence, finite coordinates and framing pass.');
+const { poseStars, shapeRank } = await import('./shapeup-rules.ts');
+assert.equal(poseStars(59,true,false),0);assert.equal(poseStars(60,true,false),1);
+assert.equal(poseStars(79,true,false),1);assert.equal(poseStars(80,true,true),2);
+assert.equal(poseStars(89,true,true),2);assert.equal(poseStars(90,true,true),3);
+assert.equal(poseStars(100,false,true),0);assert.equal(poseStars(95,true,false),1,'unstable pose stays a partial reward');
+let quest=shapeSeat();
+for(let index=0;index<3;index++){
+  quest=stepShape(quest,index,'match',95,true,index*7,4).state;
+  quest=stepShape(quest,index,'match',95,true,index*7+.31,3.69).state;
+  quest=stepShape(quest,index,'result',95,true,index*7+4,0).state;
+}
+assert.equal(quest.stars,9);assert.equal(quest.combo,3);assert.equal(quest.bestCombo,3);
+assert.equal(quest.milestone,20,'third match earns one milestone bonus');
+const questPoints=quest.score;quest=stepShape(quest,2,'rest',95,true,19.4,1).state;
+assert.equal(quest.score,questPoints);assert.equal(quest.stars,9,'no duplicate stars or bonus');
+quest=stepShape(quest,3,'match',65,true,24,.2).state;quest=stepShape(quest,3,'result',65,true,25,0).state;
+assert.equal(quest.combo,0);assert.equal(quest.stars,10);assert.equal(quest.path[3],1);
+const rival=stepShape(shapeSeat(),0,'result',100,false,4,0).state;assert.equal(rival.stars,0);assert.equal(quest.stars,10,'separate quest progress');
+assert.equal(shapeRank(24).medal,'Gold');assert.equal(shapeRank(14).medal,'Silver');assert.equal(shapeRank(8).medal,'Bronze');
+console.log('Pose Quest: reward thresholds, stable match, milestones once, combo reset and separate progress pass.');
+let master=shapeSeat();let bonuses=0;
+for(let index=0;index<8;index++){
+  master=stepShape(master,index,'match',95,true,index*7,4).state;
+  master=stepShape(master,index,'match',95,true,index*7+.31,3.69).state;
+  master=stepShape(master,index,'result',95,true,index*7+4,0).state;bonuses+=master.milestone;
+}
+assert.equal(master.stars,24);assert.equal(master.combo,8);assert.equal(bonuses,115,'3/5/8 chain milestones each awarded once');
+assert.deepEqual(master.path,Array(8).fill(3));assert.equal(shapeRank(master.stars).rank,'Pose master');
+assert.equal(stepShape(master,7,'done',95,true,60,0).state.score,master.score,'final quest summary cannot award again');

@@ -1,3 +1,4 @@
+import { freezeParty } from '../freeze-party.ts';
 import { startDanceTrack } from '../dance-music.ts';
 // Freeze — dance while the music plays: the more you move, the more you score. When it cuts out, freeze.
 // Any wobble costs points; a perfectly still freeze pays a bonus. Works wherever you stand, so it is compact.
@@ -12,6 +13,7 @@ const ROUND = 60, GRACE = 0.6; // seconds after the music stops before movement 
 export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
   const hard = hardness(stage);
   backdrop(scene, 'disco', true);
+  const partyLayer=freezeParty(scene,n);
   const party=Array.from({length:n},(_,p)=>discoGear(scene,p));
   const orbMesh = shapes.facets(1.1, 1), orbLook = lit('#ffffff', { emissive: '#000000' });
   const orbs = Array.from({ length: n }, () => { const e = node(scene.root, orbMesh, orbLook); e.enabled = false; return { e, rx: 0, ry: 0 }; });
@@ -21,6 +23,8 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
     start: audio().currentTime + COUNTDOWN, last: 0, done: false, dancing: true, phaseEnd: 7, phaseAt: 0,
     scores: [0, 0], rate: [0, 0], energy: players.map((p) => p.energy), moved: [false, false], nagged: [0, 0],
   };
+  Object.assign(window,{__freeze:{get time(){return g.last;},get dancing(){return g.dancing;},get phaseEnd(){return g.phaseEnd;},get scores(){return [...g.scores];},party:partyLayer.state}});
+  cleanup(()=>{delete (window as Window&{__freeze?:unknown}).__freeze;});
   const soundtrack=startDanceTrack(g.start);cleanup(()=>soundtrack.stop());
 
   return () => {
@@ -32,7 +36,7 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
 
     if (t >= g.phaseEnd) {
       if (!g.dancing)
-        for (let p = 0; p < n; p++) if (players[p].present && !g.moved[p]) { g.scores[p] += 15; bursts.burst(zoneX(n, p), 0, 0.5, '#7dd3fc', 40, 9); }
+        for (let p = 0; p < n; p++) if (players[p].present && !g.moved[p]) { g.scores[p] += 15; partyLayer.celebrate(p,g.phaseAt,players[p].present,!g.moved[p]); bursts.burst(zoneX(n, p), 0, 0.5, '#7dd3fc', 40, 9); }
       g.dancing = !g.dancing;
       g.phaseAt = t;
       g.phaseEnd = t + (g.dancing ? 4 + Math.random() * 5 : (2.5 + Math.random() * 2) * Math.sqrt(hard));
@@ -68,6 +72,7 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
       tint(orb.e, g.dancing ? PLAYER_COLORS[p] : wobble ? '#ef4444' : '#7dd3fc', 'diffuse');
       tint(orb.e, g.dancing ? '#000000' : wobble ? '#7f1d1d' : '#0c4a6e', 'emissive');
     }
+    partyLayer.update(g.dancing&&t>=0,dt);
     bursts.update(dt);
     scoreHud(hud, n, g.scores);
   };
