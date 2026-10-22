@@ -1,0 +1,18 @@
+.shapeup-coach { position:absolute;inset:0;pointer-events:none;z-index:2;color:#f3fbff;font-family:inherit; }
+.shapeup-coach-card { position:absolute;top:6.9rem;right:calc((1 - (var(--seat) + 1) / var(--players)) * 100% + 1.2rem);width:clamp(126px,15vw,206px);box-sizing:border-box;padding:1rem;border:1px solid #a0f3df4d;border-radius:1.15rem;background:linear-gradient(155deg,#172a39ee,#101c2be8);box-shadow:0 8px 28px #0003; }
+.shapeup-coach-label {margin:0 0 .35rem;color:#9ad7cd;font-size:clamp(.55rem,.8vw,.72rem);font-weight:700;letter-spacing:.12em;}
+.shapeup-coach-card h2 {margin:0;font-size:clamp(.85rem,1.3vw,1.2rem);line-height:1.18;}
+.shapeup-reference {display:block;width:100%;height:clamp(100px,12vw,158px);margin:.2rem 0;}
+.shapeup-coach-footer {display:flex;align-items:center;gap:.55rem;}
+.shapeup-countdown {width:clamp(42px,4.5vw,58px);flex-shrink:0;overflow:visible;}
+.shapeup-dial-track,.shapeup-dial-arc {fill:none;stroke-width:4;}.shapeup-dial-track {stroke:#ffffff18;}.shapeup-dial-arc {stroke:#f4d18a;stroke-linecap:round;transform:rotate(-90deg);transform-origin:32px 32px;}
+.shapeup-dial-number {fill:#fff3d4;font:600 21px system-ui,sans-serif;}
+.shapeup-match {display:block;font-size:clamp(.68rem,1vw,.95rem);line-height:1.2;}.shapeup-round {display:block;margin-top:.35rem;font-size:clamp(.5rem,.7vw,.65rem);letter-spacing:.08em;color:#a7bcc9;}
+.shapeup-verdict {margin:.55rem 0 0;font-size:clamp(.65rem,.9vw,.85rem);line-height:1.25;color:#b7f5df;min-height:1.25em;}
+.shapeup-coach-card[data-ready=true] {border-color:#92f5d1;}.shapeup-ar-stage .hud.hint,.shapeup-ar-stage .hud.clock {display:none;}
+.shapeup-coach-classic .shapeup-coach-card {top:20%;width:clamp(170px,23vw,310px);right:calc((1 - (var(--seat) + .5) / var(--players)) * 100%);transform:translateX(50%);}
+.shapeup-coach-classic .shapeup-reference {height:clamp(145px,20vw,265px);}
+@media(max-height:600px){.shapeup-coach-card {top:5.3rem;padding:.65rem;}.shapeup-reference {height:85px;}.shapeup-verdict {margin-top:.3rem;}.shapeup-coach-classic .shapeup-coach-card{top:16%;}}
+
+.shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-coach-card {width:clamp(100px,12vw,175px);padding:.65rem;}
+.shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-reference {height:clamp(78px,10vw,132px);}

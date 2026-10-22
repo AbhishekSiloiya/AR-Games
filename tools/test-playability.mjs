@@ -52,15 +52,15 @@ async function enter(name,entity){
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
- await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
+ if(entity.startsWith('.'))await page.locator(entity).first().waitFor();else await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
  await page.waitForTimeout(4500);
- assert.equal(await page.evaluate(name=>window.__pc.root.findByName(name).enabled,entity),true);
+ if(!entity.startsWith('.'))assert.equal(await page.evaluate(name=>window.__pc.root.findByName(name).enabled,entity),true);
 }
 async function home(){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();}
 
 await enter('Slice','hand-highlight-0');assert.equal(await page.evaluate(()=>!!window.__pc.root.findByName('equipment-ninja-0')),false);await page.screenshot({path:out+'/slice-responsive-hands.png'});await home();
-for(const [game,entity,file] of [['Leaks','costume-diver-0','leaks-diver'],['Forge','costume-smith-0','forge-smith'],['Sprint','scenic-riverside-track','sprint-riverside'],['Jab','equipment-boxing-0','jab-boxing-gloves'],['Beat','disco-dance-floor','beat-disco'],['Shape Up','shapeup-target-0','shapeup-solo']]){
- await enter(game,entity);await page.locator('.player-inset').waitFor();await page.screenshot({path:out+'/'+file+'.png'});await home();
+for(const [game,entity,file] of [['Leaks','costume-diver-0','leaks-diver'],['Forge','forge-model-player-0','forge-smith'],['Sprint','scenic-riverside-track','sprint-riverside'],['Jab','equipment-boxing-0','jab-boxing-gloves'],['Beat','disco-dance-floor','beat-disco'],['Shape Up','.shapeup-coach-card','shapeup-solo']]){
+ await enter(game,entity);if(game!=='Shape Up')await page.locator('.player-inset').waitFor();await page.screenshot({path:out+'/'+file+'.png'});await home();
 }
 await enter('Freeze','disco-player-0');await page.waitForTimeout(1000);await page.screenshot({path:out+'/freeze-fashion.png'});await home();
 await enter('Jack Attack','space-ranger-0');await mode('neutral');await page.waitForTimeout(400);await mode('armUp');
@@ -69,6 +69,6 @@ await page.waitForFunction(()=>window.__pc.root.findByName('arm-shot-beam-0')?.e
 await enter('Keepy-Uppy','keepy-toy-0');
 await page.waitForFunction(()=>Array.from({length:14},(_,i)=>{const e=window.__pc.root.findByName('keepy-toy-'+i),panels=window.__pc.root.findByName('keepy-beach-panels-'+i);return e?.enabled&&panels?.enabled&&e.getLocalPosition().y<3;}).some(Boolean),null,{timeout:35000});await page.screenshot({path:out+'/keepy-balloons-and-balls.png'});await home();
 await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;});
-await enter('Shape Up','shapeup-target-1');assert.equal(await page.evaluate(()=>window.__pc.root.findByName('shapeup-live-pose-1').enabled),true);await page.screenshot({path:out+'/shapeup-two-players.png'});
+await enter('Shape Up','.shapeup-coach-card');assert.equal(await page.locator('.shapeup-coach-card').count(),2);await page.screenshot({path:out+'/shapeup-two-players.png'});
 assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['responsive Slice highlights','diver and smith','scenic Sprint','boxing gloves','disco floor','fashion gear','arm shots without feet','more Keepy toys','two-player Shape Up','universal tracked camera'],errors,screenshots:out},null,2));
 } finally {await browser.close();}

@@ -76,9 +76,9 @@ await page.screenshot({path:out+'/armour-breaking.png'});
 for(let k=0;k<6;k++)for(let attempts=0;(await bossState()).armour[k]>0&&attempts<5;attempts++){
  const at=await page.evaluate(k=>{const a=window.__smashBoss.bosses[0].armour[k];return {x:a.x*1.05,y:a.y*1.05};},k);await punch(0,at.x,at.y);
 }
-assert.ok((await bossState()).armour.every(hp=>hp===0),'all six plates break via hand input');await page.waitForTimeout(1100);await page.screenshot({path:out+'/core-exposed.png'});
+assert.ok((await bossState()).armour.every(hp=>hp===0),'all six plates break via hand input');assert.ok(await page.evaluate(()=>window.__smashBoss.bosses[0].parts.every(q=>q.motion)),'robot structure tears away with armour');await page.waitForTimeout(1100);await page.screenshot({path:out+'/core-exposed.png'});
 while(!(await bossState()).defeated)await punch(0,0,.55*1.05);
-await page.screenshot({path:out+'/robot-demolished.png'});assert.ok((await bossState()).score>=28);
+assert.equal(await page.evaluate(()=>window.__smashBoss.bosses[0].embers.filter(q=>q.motion).length),8,'core explodes into moving debris');await page.screenshot({path:out+'/robot-demolished.png'});assert.ok((await bossState()).score>=28);
 await page.waitForFunction(()=>window.__smashBoss.bosses[0].wave===1&&!window.__smashBoss.bosses[0].state.defeated,null,{timeout:10000});assert.ok((await bossState()).armour[0]>initial.armour[0],'next robot is tougher');await home();
 await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;window.__bossAims=[];});await enter('Smash','smash-robot-1');
 await page.waitForFunction(()=>Number(document.querySelector('.hud.clock').textContent)<45,null,{timeout:15000});await punch(0,-4,.35*.92);

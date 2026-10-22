@@ -8,8 +8,9 @@ import type { Entity } from 'playcanvas';
 import { players, tuning } from '../pose.ts';
 import { hardness } from '../meta.ts';
 import { squatDepth } from '../reps.ts';
+import { modelPlayer } from '../model-player.ts';
 import { FLOOR, ROOM, clearing, fade, fitted, flat, glowAs, glowLook, lit, node, shade, shapes, show, tint, type View } from '../engine.ts';
-import { bestLine, bursts as makeBursts, figure, hitSound, hitStop, music, round, say, sfx, zoneX, type Game } from '../kit.ts';
+import { bestLine, bursts as makeBursts, hitSound, hitStop, music, round, say, sfx, zoneX, type Game } from '../kit.ts';
 
 const ROUND = 75, WINDOW = 2.6, QUENCH = 3.5;
 const HEAT_HEX = ['#3f3f46', '#7f1d1d', '#dc2626', '#fb923c', '#fde047', '#fffbeb']; // cold steel → white hot
@@ -18,13 +19,19 @@ type Smithy = { x: number; who: number[]; phase: 'heat' | 'strike' | 'quench'; h
 export const view: View = ROOM;
 
 export default async function forge({ n, stage, team, best, onEnd, hud, scene }: Game) {
+  let disposed=false;scene.cleanup(()=>{disposed=true;});
   const hard = hardness(stage), C = '/assets/camp/';
   // A smithy at the edge of the woods at dusk: a hut behind, the forge fire, the anvil, a quench barrel, tools about.
   await clearing(scene, true);
+  if(disposed)return()=>{};
   const [anvil, hammerModel, fire, hut, barrel, grind, chest, bench] = await Promise.all([fitted(C + 'workbench-anvil.glb', 2.7, true), fitted(C + 'tool-hammer-upgraded.glb', 2.4), fitted(C + 'campfire-pit.glb', 2.6, true), fitted(C + 'structure.glb', 10, true), fitted(C + 'barrel-open.glb', 1.9, true), fitted(C + 'workbench-grind.glb', 2.6, true), fitted(C + 'chest.glb', 1.8, true), fitted(C + 'workbench.glb', 2.8, true)]);
+  if(disposed)return()=>{};
   const put = (template: Entity, x: number, z: number, ry = 0) => { const e = template.clone() as Entity; e.setLocalPosition(x, FLOOR, z); e.setLocalEulerAngles(0, ry, 0); scene.root.addChild(e); return e; };
-  const shared = n === 2 && team, spots = shared ? [-5.4, 5.4] : n === 2 ? [-6.2, 1.8] : [-3.6];
-  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: spots[p], y: 0.05, scale: 1.1 }, 'smith'));
+  const shared = n === 2 && team, spots = shared ? [-3.3, 3.3] : n === 2 ? [-4.1, 3.9] : [-1.3];
+  const models = await Promise.all(Array.from({length:n},(_,p)=>modelPlayer(scene,{name:`forge-model-player-${p}`,x:spots[p],y:FLOOR,z:-.35,height:n===1?4.2:3.8,yaw:shared&&p===1?-35:35,color:p?'#38bdf8':'#fb923c'})));
+  const bodies=models.filter(model=>model!==null);
+  if(disposed||bodies.length!==n)return()=>{};
+  const actors=Array.from({length:n},()=>({depth:0,strike:0,blades:0}));
   const dark = shade(), steel = lit('#d4d4d8', { emissive: '#ffffff', glow: 1 }), rail = flat('#18181b', { opacity: 0.8 }), fill = flat('#fb923c'), ember = glowLook('#fb923c', 1);
   put(hut, shared || n === 1 ? 0.5 : 0, -7.5, 0); put(bench, n === 1 ? 7 : 0, -4.5, -20); put(chest, n === 1 ? -7.5 : 0, -3.5, 30);
   const smithies: Smithy[] = (shared ? [{ x: 0, who: [0, 1] }] : Array.from({ length: n }, (_, p) => ({ x: n === 2 ? zoneX(n, p) + 2.2 : 2.6, who: [p] }))).map(({ x, who }) => {
@@ -37,6 +44,8 @@ export default async function forge({ n, stage, team, best, onEnd, hud, scene }:
     return { x, who, phase: 'heat', heat: 0, timer: 0, blade: 0, hold: 0, swing: 0, blades: 0, perfect: 0, longest: 0, nag: 0, bladeE, glowE, hammer, meter, fireGlow, risen: [] };
   });
   const bursts = makeBursts(scene.root), passed = bestLine(hud, best), scores = [0, 0];
+  const diagnostics=()=>({players:actors.map((actor,p)=>({depth:actor.depth,clip:bodies[p].clip,strike:actor.strike})),smithies:smithies.map(s=>({phase:s.phase,heat:s.heat,blades:s.blades}))});
+  Object.assign(window,{__forge:diagnostics});scene.cleanup(()=>{if((window as unknown as {__forge?:unknown}).__forge===diagnostics)delete(window as unknown as {__forge?:unknown}).__forge;});
   const tick = round(hud, ROUND, () => {
     music.stop();
     onEnd(shared ? [scores[0], scores[0]] : scores.slice(0, n), Array.from({ length: n }, (_, p) => { const s = smithies[shared ? 0 : p]; return [`${s.blades} blade${s.blades === 1 ? '' : 's'} forged`, s.perfect ? `${s.perfect} perfect strike${s.perfect > 1 ? 's' : ''}` : '', `Longest hold ${s.longest.toFixed(1)}s`].filter(Boolean); }));
@@ -46,7 +55,6 @@ export default async function forge({ n, stage, team, best, onEnd, hud, scene }:
   return (rawDt: number) => {
     const dt = Math.min(rawDt, 0.05), t = tick(rawDt);
     if (t === null) return;
-    for (const b of bodies) b.update();
     let hottest = 0;
     for (const s of smithies) {
       const crew = s.who.map((p) => players[p]), depths = crew.map((pl) => (pl.present ? squatDepth(pl.lift) : 0)), down = Math.min(...depths), need = (2.4 + s.blade * 0.55) * Math.sqrt(hard), own = shared ? 0 : s.who[0];
@@ -85,6 +93,14 @@ export default async function forge({ n, stage, team, best, onEnd, hud, scene }:
       s.hammer.setLocalEulerAngles(0, 0, s.phase === 'strike' ? 38 + Math.sin(t * 20) * 3 : s.swing > 0 ? -62 * Math.sin(Math.min(1, (1 - s.swing) * 2.2) * Math.PI * 0.5) + 30 * (1 - s.swing) : 30);
       s.meter.setLocalScale(1, Math.max(0.01, s.heat), 1); s.meter.setLocalPosition(2.1, 3.3 - 1.6 * (1 - s.heat), 0.31); tint(s.meter, s.phase === 'strike' ? '#fffbeb' : '#fb923c'); fade(s.meter, 1);
       for (const p of s.who) hud.p('h', p, t < 0 ? 'Squat and hold to heat the blade' : s.phase === 'strike' ? 'Drive up!' : s.phase === 'quench' ? `Rest · shake your legs out · ${Math.ceil(s.timer)}` : down > 0.35 ? `Hold it… ${Math.round(s.heat * 100)}%` : 'Sink into a squat');
+      for(const p of s.who) {
+        const body=bodies[p], actor=actors[p], player=players[p];body.show(player.present);
+        actor.depth+=(squatDepth(player.lift)-actor.depth)*Math.min(1,dt*12);
+        if(s.blades>actor.blades){actor.blades=s.blades;actor.strike=.72;body.play('Punch',1.2,true);}
+        if(actor.strike>0){actor.strike=Math.max(0,actor.strike-dt);body.play('Punch',1.2);}
+        else if(t>=0&&s.phase!=='quench'&&actor.depth>.015)body.pose('Sitting',actor.depth*.95);
+        else body.play('Idle',.8);
+      }
     }
     for (let p = 0; p < (shared ? 1 : n); p++) hud.p('s', p, players[p].present ? String(Math.round(scores[p])) : 'Step into view');
     bursts.update(dt);

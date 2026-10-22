@@ -1,3 +1,4 @@
+import { beatCues } from '../beat-cues.ts';
 import { discoStage } from '../disco-stage.ts';
 // Beat — moves fall to the line in time with the music: left up, right up, both up, squat, jump.
 // Each move has its own lane and shape; landing it close to the beat is "Perfect" and scores double.
@@ -32,6 +33,7 @@ const chart = (hard: number) => {
 
 export default function beat({ n, stage, onEnd, hud, scene }: Game) {
   const notes = chart(hardness(stage));
+  const cues=beatCues(scene,notes,n);
   const danceFloor=discoStage(scene);
   const mesh = { disc: shapes.circle(0.55, 24), wide: shapes.quad(3.4, 0.55), tri: shapes.circle(0.7, 3) }, looks = MOVES.map((m) => flat(m.color, { opacity: 1 }));
   // One marker per note per player, made up front and hidden until its note is on screen.
@@ -85,7 +87,10 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
           else if (note.state[p] === 1) score(note, p, due);
         }
         const m = marks[i][p], hit = note.state[p] === 2;
-        if (!show(m, note.at - t < FALL && due > -WINDOW - 0.15)) continue;
+        const visible=show(m, note.at - t < FALL && due > -WINDOW - 0.15);
+        const x=laneX(p,move.lane), y=HIT_Y+((note.at-t)/FALL)*(H/2-HIT_Y);
+        cues.note(i,p,visible,x,y,move.color,hit);
+        if (!visible) continue;
         m.setLocalPosition(laneX(p, move.lane), HIT_Y + ((note.at - t) / FALL) * (H / 2 - HIT_Y), 0);
         m.setLocalScale(hit ? 1.4 : 1, hit ? 1.4 : 1, 1);
         fade(m, hit ? 0.3 : 1);
@@ -99,8 +104,11 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
         g.combo[p] = 0; g.said[p] = 'Miss'; g.saidUntil[p] = t + 0.45;
       }
     });
-    for (let p = 0; p < n; p++)
+    for (let p = 0; p < n; p++) {
+      const upcoming=notes.find(note=>!note.judged&&note.state[p]<2);
+      cues.current(p,upcoming?.move,zoneX(n,p)-(n===2&&p===1?.7:0),HIT_Y-.7,upcoming?MOVES[upcoming.move].color:'#ffffff',upcoming?upcoming.at-t:Infinity);
       hud.p('h', p, t < 0 ? 'Move on the beat' : g.saidUntil[p] > t ? g.said[p] : next ? MOVES[next.move].hint : comboText(g.combo[p]));
+    }
     bursts.update(dt);
     scoreHud(hud, n, g.scores);
   };

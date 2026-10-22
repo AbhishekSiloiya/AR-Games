@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "check": "node src/check.ts && node src/calibration.test.ts && node src/gear-motion.test.ts && node src/ranger-pose.test.ts && node src/arm-shot.test.ts && node src/shapeup-rules.test.ts && node src/demolition-rules.test.ts && tsc",
+    "check": "node src/check.ts && node src/calibration.test.ts && node src/gear-motion.test.ts && node src/ranger-pose.test.ts && node src/arm-shot.test.ts && node src/shapeup-rules.test.ts && node src/demolition-rules.test.ts && node src/wreckage.test.ts && tsc",
     "play": "vite preview --host --port 4173"
   },
   "dependencies": {

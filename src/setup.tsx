@@ -74,7 +74,7 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
     raf=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf);
   }, [game,n]);
   const pilot=true;
-  const viewLabel=game==='freeze'?'You + disco gear':['slice','keepy'].includes(game)?'See yourself':'Game + live tracking';
+  const viewLabel=game==='shapeup'?'You + pose coach':game==='freeze'?'You + disco gear':['slice','keepy'].includes(game)?'See yourself':'Game + live tracking';
   return <div className="player-setup">
     <header className="setup-heading"><div><p className="setup-eyebrow">GET READY · {title}</p><h1>Stand naturally. Let’s play.</h1></div><button className="ghost" onClick={onBack}>← Back</button></header>
     <div className="setup-workspace">

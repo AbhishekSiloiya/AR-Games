@@ -327,7 +327,7 @@ function App() {
   // Pilot choices last for one round; the user's Tracking preference is restored in menus.
   useEffect(() => {
     const previous=tuning.look;
-    if (['slice','keepy','freeze'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':'shadow';
+    if (['slice','keepy','freeze','shapeup'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':'shadow';
     else if (activeGame) tuning.look='shadow';
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
@@ -340,7 +340,7 @@ function App() {
   const update = (next: typeof db) => { save(next); setDb(next); };
   const go = (s: Screen) => {
     setPaused(false);
-    if (s.at === 'setup') setPlayerView(v=>supportedView(s.game.id,n,v));
+    if (s.at === 'setup') setPlayerView(v=>s.game.id==='shapeup'?'live':supportedView(s.game.id,n,v));
     if (s.at === 'play') energy0.current = players.map((p) => p.energy);
     if (s.at === 'brief') s.game.Play.warm(); // fetch the renderer and this game's code while the player reads how to play
     setScreen(s);
@@ -526,7 +526,7 @@ function App() {
         );
       })()}
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
-      {screen.at === 'play' && !['slice','keepy','freeze'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
+      {screen.at === 'play' && !['slice','keepy','freeze','shapeup'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
       {screen.at === 'play' && <div className={screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
       {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
