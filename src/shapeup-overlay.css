@@ -16,3 +16,15 @@
 
 .shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-coach-card {width:clamp(100px,12vw,175px);padding:.65rem;}
 .shapeup-coach[data-players="2"]:not(.shapeup-coach-classic) .shapeup-reference {height:clamp(78px,10vw,132px);}
+
+/* Clear feedback stays below the live player's torso, rather than covering their face. */
+.shapeup-live-status {position:absolute;bottom:1.15rem;left:calc((var(--seat) + .5) / var(--players) * 100%);transform:translateX(-50%);width:max-content;max-width:calc(100% / var(--players) - 2rem);box-sizing:border-box;padding:.85rem 1.5rem;border:1px solid #ffffff35;border-radius:1rem;background:#102332ed;box-shadow:0 5px 24px #0003;text-align:center;color:#ecf6ff;}
+.shapeup-live-status strong {display:block;font-size:clamp(1.05rem,2.1vw,1.9rem);line-height:1.15;}
+.shapeup-live-status span {display:block;margin-top:.35rem;font-size:clamp(.72rem,1.05vw,1rem);line-height:1.25;color:#bfd5df;}
+.shapeup-live-status[data-feedback=matched],.shapeup-live-status[data-feedback=perfect] {background:#103c35ed;border-color:#96f1c9;color:#b3ffde;}
+.shapeup-live-status[data-feedback=hold] {border-color:#f4d18a;color:#ffe5ae;}
+.shapeup-live-status[data-feedback=partial],.shapeup-live-status[data-feedback=unmatched],.shapeup-live-status[data-feedback=absent] {border-color:#f4c18a;color:#ffdfba;}
+.shapeup-live-status[data-feedback=rest] {background:#1c2945ed;border-color:#9bb9ed;color:#d9e6ff;}
+.shapeup-coach-card[data-phase=rest] .shapeup-reference {opacity:.18;}
+.shapeup-coach-card[data-phase=result] .shapeup-reference {opacity:.55;}
+@media(max-height:500px){.shapeup-live-status{bottom:.6rem;padding:.5rem .9rem;}.shapeup-live-status strong{font-size:1rem;}.shapeup-live-status span{font-size:.7rem;margin-top:.2rem;}}

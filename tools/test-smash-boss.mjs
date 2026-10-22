@@ -54,7 +54,19 @@ async function enter(name,entity){
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
  await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
- await page.waitForTimeout(4500);
+ if(name==='Smash'){
+  await page.waitForFunction(()=>window.__smashBoss.time>.1&&!window.__smashBoss.bosses[0].ready,null,{timeout:60000});
+  const unready=await page.evaluate(()=>{const b=window.__smashBoss.bosses[0];return {x:b.pose.x,y:b.pose.y+.35*b.pose.scale,armour:[...b.state.armour],score:b.score,t:window.__smashBoss.time};});
+  await aim(0,unready.x,unready.y,false);
+  await page.waitForFunction(t=>window.__smashBoss.time>t+.1,unready.t,{timeout:10000});
+  const shotAt=await page.evaluate(()=>window.__smashBoss.time);await aim(0,unready.x,unready.y,true);
+  await page.waitForFunction(t=>window.__smashBoss.time>t+.15,shotAt,{timeout:10000});
+  assert.equal(await page.evaluate(()=>window.__smashBoss.bosses[0].ready),false,'test punch occurs before robot settles');
+  const protectedState=await page.evaluate(()=>{const b=window.__smashBoss.bosses[0];return {armour:[...b.state.armour],score:b.score};});
+  assert.deepEqual(protectedState.armour,unready.armour,'real hand contact cannot damage arriving robot');assert.equal(protectedState.score,unready.score);
+  await aim(0,unready.x,unready.y,false);
+  await page.waitForFunction(()=>window.__smashBoss.bosses.every(b=>b.ready),null,{timeout:60000});
+ }
  assert.equal(await page.evaluate(name=>window.__pc.root.findByName(name).enabled,entity),true);
 }
 async function home(){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();}
@@ -66,6 +78,22 @@ const bossState=()=>page.evaluate(()=>{const b=window.__smashBoss.bosses[0];retu
 await enter('Smash','smash-robot-0');await page.locator('.player-inset').waitFor();await page.screenshot({path:out+'/robot-armour.png'});
 await page.waitForFunction(()=>Number(document.querySelector('.hud.clock').textContent)<45,null,{timeout:15000});
 const initial=await bossState();
+// Cargo travels through warning and approach before becoming a hittable side target.
+await page.waitForFunction(()=>window.__smashBoss.incoming.some(q=>q.state.phase==='warning'),null,{timeout:60000});
+let cargo=await page.evaluate(()=>{const q=window.__smashBoss.incoming.find(q=>q.state.phase==='warning');return {x:q.x,y:q.y};});
+const beforeCargoHits=await page.evaluate(()=>window.__smashBoss.incoming.reduce((n,q)=>n+q.state.hits,0));await aim(0,cargo.x,cargo.y,false);
+await page.waitForFunction(()=>window.__smashBoss.incoming.some(q=>q.state.phase==='approach'&&q.state.age<.2),null,{timeout:60000});
+await aim(0,cargo.x,cargo.y,true);
+await page.waitForFunction(()=>window.__smashBoss.incoming.some(q=>q.state.phase==='approach'&&q.state.age>.3),null,{timeout:15000});
+assert.equal(await page.evaluate(()=>window.__smashBoss.incoming.reduce((n,q)=>n+q.state.hits,0)),beforeCargoHits,'distant approaching cargo cannot score; swept hands may still hit visible robot armour');
+await aim(0,cargo.x,cargo.y,false);
+await page.waitForFunction(()=>window.__smashBoss.incoming.some(q=>q.state.phase==='ready'),null,{timeout:30000});
+cargo=await page.evaluate(()=>{const q=window.__smashBoss.incoming.find(q=>q.state.phase==='ready');return {x:q.x,y:q.y,kind:q.kind};});
+const beforeCargo=(await bossState()).score;await page.screenshot({path:out+'/incoming-cargo.png'});await punch(0,cargo.x,cargo.y);
+assert.equal((await bossState()).score-beforeCargo,cargo.kind==='crate'?3:2,'settled cargo scores once through real hand contact');
+assert.ok(await page.evaluate(()=>window.__smashBoss.incoming.some(q=>q.state.phase==='broken'&&q.shards.every(s=>s.motion))),'cargo splits into moving debris');
+const cargoScore=(await bossState()).score;await aim(0,cargo.x,cargo.y,true);await page.waitForTimeout(250);assert.equal((await bossState()).score,cargoScore,'split cargo cannot score twice');await aim(0,cargo.x,cargo.y);
+
 await punch(0,0,.55*1.05);assert.equal((await bossState()).core,initial.core,'core remains protected before all armour breaks');
 // Start fast away from the robot, then reach armour without slowing: exactly one impact.
 await aim(0,-3,2.3*1.05);await page.waitForTimeout(500);const before=(await bossState()).armour[0];
@@ -76,12 +104,19 @@ await page.screenshot({path:out+'/armour-breaking.png'});
 for(let k=0;k<6;k++)for(let attempts=0;(await bossState()).armour[k]>0&&attempts<5;attempts++){
  const at=await page.evaluate(k=>{const a=window.__smashBoss.bosses[0].armour[k];return {x:a.x*1.05,y:a.y*1.05};},k);await punch(0,at.x,at.y);
 }
-assert.ok((await bossState()).armour.every(hp=>hp===0),'all six plates break via hand input');assert.ok(await page.evaluate(()=>window.__smashBoss.bosses[0].parts.every(q=>q.motion)),'robot structure tears away with armour');await page.waitForTimeout(1100);await page.screenshot({path:out+'/core-exposed.png'});
+assert.ok((await bossState()).armour.every(hp=>hp===0),'all six plates break via hand input');assert.ok(await page.evaluate(()=>window.__smashBoss.bosses[0].parts.every(q=>q.motion)),'robot structure tears away with armour');assert.ok(await page.evaluate(()=>{const b=window.__smashBoss.bosses[0];return b.parts.every(q=>q.e.parent!==b.root); }),'detached structure no longer inherits robot recoil');await page.waitForTimeout(1100);await page.screenshot({path:out+'/core-exposed.png'});
 while(!(await bossState()).defeated)await punch(0,0,.55*1.05);
 assert.equal(await page.evaluate(()=>window.__smashBoss.bosses[0].embers.filter(q=>q.motion).length),8,'core explodes into moving debris');await page.screenshot({path:out+'/robot-demolished.png'});assert.ok((await bossState()).score>=28);
-await page.waitForFunction(()=>window.__smashBoss.bosses[0].wave===1&&!window.__smashBoss.bosses[0].state.defeated,null,{timeout:10000});assert.ok((await bossState()).armour[0]>initial.armour[0],'next robot is tougher');await home();
+await page.waitForFunction(()=>window.__smashBoss.bosses[0].wave===1&&!window.__smashBoss.bosses[0].state.defeated,null,{timeout:10000});assert.ok((await bossState()).armour[0]>initial.armour[0],'next robot is tougher');
+assert.ok(await page.evaluate(()=>{const b=window.__smashBoss.bosses[0];const scaleMatches=(e,expected)=>{const s=e.getLocalScale();return Math.abs(s.x-expected[0])<1e-6&&Math.abs(s.y-expected[1])<1e-6&&Math.abs(s.z-expected[2])<1e-6;};return b.parts.every(q=>q.e.parent===b.root&&q.motion===null&&scaleMatches(q.e,q.homeScale))&&b.armour.every(a=>a.shards.every(q=>q.e.parent===b.root&&!q.motion&&!q.e.enabled&&scaleMatches(q.e,q.homeScale)))&&b.embers.every(q=>q.e.parent===b.root&&!q.motion&&!q.e.enabled&&scaleMatches(q.e,[.16,.16,.12]));}),'rebuild restores all loose-piece parents, scales, visibility and pool state');await home();
 await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;window.__bossAims=[];});await enter('Smash','smash-robot-1');
 await page.waitForFunction(()=>Number(document.querySelector('.hud.clock').textContent)<45,null,{timeout:15000});await punch(0,-4,.35*.92);
 const scores=await page.evaluate(()=>window.__smashBoss.bosses.map(b=>b.score));assert.ok(scores[0]>0);assert.equal(scores[1],0,'players have independent collision zones and scores');await page.screenshot({path:out+'/two-player-robots.png'});
-assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['protected core','sustained-speed contact','single impact per swing','six plates break','core defeat','tougher rebuild','two-player score isolation','live tracking inset'],errors,screenshots:out},null,2));
+assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['arrival collision gate','incoming cargo protection/contact/split','protected core','sustained-speed contact','single impact per swing','six plates break','core defeat','tougher rebuild','two-player score isolation','live tracking inset'],errors,screenshots:out},null,2));
+}catch(error){
+ try{
+  const diagnostic=await page.evaluate(()=>({clock:document.querySelector('.hud.clock')?.textContent,testError:window.__testError,time:window.__smashBoss?.time,bosses:window.__smashBoss?.bosses.map(b=>({ready:b.ready,arrivalStart:b.arrivalStart,pose:b.pose,armour:b.state.armour,core:b.state.core,defeated:b.state.defeated,score:b.score,rebuild:b.rebuild})),incoming:window.__smashBoss?.incoming.map(q=>({phase:q.state.phase,age:q.state.age,hits:q.state.hits,p:q.p,x:q.x,y:q.y}))}));
+  fs.writeFileSync(out+'/failure-state.json',JSON.stringify({error:String(error),errors,diagnostic},null,2));await page.screenshot({path:out+'/failure.png'});console.error(JSON.stringify(diagnostic));
+ }catch(diagnosticError){console.error('Unable to capture diagnostics',diagnosticError);}
+ throw error;
 }finally{await browser.close();}

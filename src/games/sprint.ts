@@ -3,9 +3,10 @@
 // past at exactly the speed you are making. Heat two adds hurdles — jump them, or throw both arms up to vault if you
 // would rather not jump — and the last heat pays double. A marker on the track runs at the pace of your best ever.
 // Two players: a team adds its metres together; rivals race side by side.
-import { isAir, players } from '../pose.ts';
+import { isAir, players, sim, trackingSeen } from '../pose.ts';
 import { hardness } from '../meta.ts';
-import { squatDepth, stepper } from '../reps.ts';
+import { squatDepth } from '../reps.ts';
+import { sprintCanVault, sprintMotion } from '../sprint-motion.ts';
 import { fade, flat, node, shapes, show } from '../engine.ts';
 import { scenicTrack } from '../scenic-track.ts';
 import { modelPlayer } from '../model-player.ts';
@@ -21,6 +22,15 @@ export default async function sprint({ n, stage, team, best, onEnd, hud, scene }
   const models = await Promise.all(Array.from({ length: n }, (_, p) => modelPlayer(scene,{name:`sprint-model-player-${p}`,x:zoneX(n,p),y:LINE-.2,z:.5,height:3.5,yaw:180,color:PLAYER_COLORS[p]})));
   const bodies=models.filter(model=>model!==null);
   if(disposed||bodies.length!==n)return()=>{};
+  // Keep the authored mesh/skeleton, but copy knees directly instead of waiting for a free-running clip.
+  // Its native thigh/shin joints bend in depth, unlike a flat mannequin. All joints are cached once per round.
+  const legs=bodies.map(body=>{
+    body.anim.baseLayer!.play('Idle');
+    body.pose('Idle',0);
+    return ['UpperLeg.L','LowerLeg.L','UpperLeg.R','LowerLeg.R','UpperArm.L','UpperArm.R'].map(name=>{
+      const joint=body.model.findByName(name);return joint?{joint,neutral:joint.getLocalRotation().clone()}:null;
+    });
+  });
   const bar = shapes.quad(1, 0.22), post = shapes.quad(0.1, 0.9), barLook = flat('#f43f5e', { opacity: 1 }), postLook = flat('#f8fafc', { opacity: 1 });
   const hurdles = Array.from({ length: n }, (_, p) => Array.from({ length: 3 }, () => {
     const e = node(scene.root, undefined, undefined, [zoneX(n, p), 0, 0.3]);
@@ -30,9 +40,9 @@ export default async function sprint({ n, stage, team, best, onEnd, hud, scene }
   }));
   const ghost = best > 0 ? node(scene.root, shapes.quad(zoneHalf(n) * 1.5, 0.08), flat('#fde047', { opacity: 0.8 })) : null;
   const bursts = makeBursts(scene.root), passed = bestLine(hud, best);
-  const runners = Array.from({ length: n }, () => ({ step: stepper(), speed: 0, metres: 0, steps: 0, top: 0, cleared: 0, stumble: 0, nextHurdle: 2 }));
+  const runners = Array.from({ length: n }, () => ({ motion:sprintMotion(), left:0,right:0,speed: 0, metres: 0, steps: 0, top: 0, cleared: 0, stumble: 0, nextHurdle: 2 }));
   const g = { heat: -1, resting: false, scenery:0 };
-  const diagnostics=()=>({heat:g.heat,resting:g.resting,scenery:g.scenery,players:runners.map((runner,p)=>({steps:runner.steps,cadence:runner.speed/STRIDE,speed:runner.speed,metres:runner.metres,clip:bodies[p].clip}))});
+  const diagnostics=()=>({heat:g.heat,resting:g.resting,scenery:g.scenery,players:runners.map((runner,p)=>({steps:runner.steps,cadence:runner.speed/STRIDE,speed:runner.speed,metres:runner.metres,left:runner.left,right:runner.right,clip:bodies[p].clip}))});
   Object.assign(window,{__sprint:diagnostics});scene.cleanup(()=>{if((window as unknown as {__sprint?:unknown}).__sprint===diagnostics)delete(window as unknown as {__sprint?:unknown}).__sprint;});
   const total = () => (team ? runners.reduce((a, r) => a + r.metres, 0) : Math.max(...runners.map((r) => r.metres)));
   const tick = round(hud, LENGTH, () => {
@@ -51,15 +61,22 @@ export default async function sprint({ n, stage, team, best, onEnd, hud, scene }
 
     let pace = 0;
     runners.forEach((r, p) => {
-      const pl = players[p], body = bodies[p], { steps, cadence } = r.step(pl.present?pl.rig:[], Math.max(0, t));
+      const pl = players[p], body = bodies[p], active=pl.present&&t>=0&&!resting;
+      const {steps,cadence,left,right}=r.motion(pl.present?pl.rig:[],t,active);r.left=left;r.right=right;
       r.stumble = Math.max(0, r.stumble - dt);
-      const want = pl.present && t >= 0 && !resting ? cadence * STRIDE * (r.stumble > 0 ? 0.4 : 1) : 0;
-      r.speed += (want - r.speed) * Math.min(1, dt * 4);
-      r.metres += r.speed * dt * (final ? 2 : 1); r.top = Math.max(r.top, r.speed); pace += r.speed / n;
+      const penalty=r.stumble>0?.4:1;
+      r.speed=cadence*STRIDE*penalty;
+      // Metres are paid once per actual knee-lift edge. Idle scenery and held/repeated frames award nothing.
+      r.metres+=steps*STRIDE*penalty*(final?2:1);r.top=Math.max(r.top,r.speed);pace+=r.speed/n;
       body.show(pl.present);
       body.place(zoneX(n,p)+Math.max(-.65,Math.min(.65,pl.lean*.4)),LINE-.2+Math.max(0,pl.lift)*1.6);
-      if(!isAir(pl)&&!resting&&pl.lift<-.35)body.pose('Sitting',squatDepth(pl.lift));
-      else body.play(isAir(pl)?'Jump':resting||t<0||r.speed<.5?'Idle':'Running',isAir(pl)?1:Math.max(.65,Math.min(2.4,r.speed/4.3)));
+      if(isAir(pl))body.pose('Jump',.5);
+      else if(!resting&&pl.lift<-.35)body.pose('Sitting',squatDepth(pl.lift));
+      else {
+        body.pose('Idle',0);
+        const angles=[-left*76,left*94,-right*76,right*94,(right-left)*38,(left-right)*38];
+        legs[p].forEach((bone,i)=>{if(bone){bone.joint.setLocalRotation(bone.neutral);bone.joint.rotateLocal(angles[i],0,0);}});
+      }
       if (steps && t >= 0 && !resting) { r.steps += steps; bursts.burst(body.at.x, LINE - 0.2, 0.4, '#fed7aa', 4, 2.5); sfx('footstep_concrete', { vol: 0.2 + Math.min(0.3, r.speed / 20) }); }
 
       // Hurdles, from the second heat: they come out of the distance at the speed you are running.
@@ -67,7 +84,7 @@ export default async function sprint({ n, stage, team, best, onEnd, hud, scene }
       for (const h of hurdles[p]) {
         if (!show(h.e, h.s >= 0)) continue;
         h.s += (0.12 + r.speed * 0.055) * dt;
-        const at = depth(Math.min(1.15, h.s)), over = isAir(pl) || (pl.hands[0].seen && pl.hands[1].seen && pl.hands[0].y > 0.6 && pl.hands[1].y > 0.6); // a jump, or both arms thrown up
+        const at = depth(Math.min(1.15, h.s)), fresh=pl.present&&(sim||trackingSeen[p]>0&&performance.now()-trackingSeen[p]<=600), over=sprintCanVault(fresh,isAir(pl),pl.rig,pl.hands); // a visible jump, or both arms thrown up
         h.e.setLocalPosition(body.at.x, at.y, 0.3); h.e.setLocalScale(at.size * 3.4, at.size * 1.6, 1); fade(h.e, Math.min(1, h.s * 4));
         if (!h.judged && h.s > 0.9) {
           h.judged = true;

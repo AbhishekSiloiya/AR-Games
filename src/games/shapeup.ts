@@ -2,12 +2,12 @@
 // an independent match figure and score; both see the same poses and timing.
 import { hardness } from '../meta.ts';
 import { players, poseMatch as match, sim, trackingSeen } from '../pose.ts';
-import { shapeVerdict } from '../shapeup-rules.ts';
+import { shapeClock, shapeDuration, shapeSeat, shapeTrackedBody, stepShape } from '../shapeup-rules.ts';
 import { backdrop, mirrorOn } from '../engine.ts';
 import { shapeupOverlay } from '../shapeup-overlay.ts';
 import { hitSound, music, round, sfx, type Game } from '../kit.ts';
 
-const D = Math.PI / 180, SHOW = 1.1, POSES_PER_ROUND = 8; // SHOW = seconds the verdict stays up
+const D = Math.PI / 180, POSES_PER_ROUND = 8;
 const LEGS = [-95, -90, -85, -90];
 // Limb angles in degrees, screen space (0 = pointing right, 90 = up), in pose.ts LIMBS order:
 // screen-left upper arm, forearm, screen-right upper arm, forearm, then thigh, shin for each leg.
@@ -27,44 +27,47 @@ export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
   const coach = shapeupOverlay(n, mirrorOn());
   scene.cleanup(() => coach.dispose());
   const order = [...POSES].sort(() => Math.random() - 0.5);
-  const seats = Array.from({ length: n }, () => ({ score: 0, best: 0, streak: 0, verdict: '' }));
-  let judged = -1;
-  const tick = round(hud, POSES_PER_ROUND * PER_POSE, () => { music.stop(); onEnd(seats.map(s => s.score)); });
+  const seats = Array.from({ length: n }, shapeSeat);
+  const matchSeconds = PER_POSE - 1.1;
+  let clock = shapeClock(-1, matchSeconds, POSES_PER_ROUND);
+  const tick = round(hud, shapeDuration(matchSeconds, POSES_PER_ROUND), () => { music.stop(); onEnd(seats.map(s => s.score)); });
   music.start('dance', undefined, .5);
   const fresh = (p: number) => players[p].present && (sim || (trackingSeen[p] > 0 && performance.now() - trackingSeen[p] <= 600));
   if (sim || import.meta.env.DEV) {
-    Object.assign(window, { __shapeup: { seats, order, perPose: PER_POSE } });
+    Object.assign(window, { __shapeup: { seats, order, perPose: matchSeconds + 2.7, matchSeconds, get phase(){return clock.phase;}, get index(){return clock.index;}, get remaining(){return clock.remaining;} } });
     scene.cleanup(() => { delete (window as Window & { __shapeup?: unknown }).__shapeup; });
   }
 
   return (rawDt: number) => {
     const t = tick(rawDt);
     if (t === null) return;
-    const i = Math.floor(Math.max(0, t) / PER_POSE), into = Math.max(0, t) - i * PER_POSE;
-    const [name, pose] = order[i % order.length], matching = into < PER_POSE - SHOW;
-    const remaining = Math.max(0, PER_POSE - SHOW - into), fraction = remaining / (PER_POSE - SHOW);
-    music.intensity(.4 + (1 - fraction) * .5);
-    seats.forEach((seat, p) => {
+    clock = shapeClock(t, matchSeconds, POSES_PER_ROUND);
+    const i = clock.index, [name, pose] = order[i % order.length];
+    const fraction = clock.phase === 'match' ? clock.remaining / matchSeconds : clock.phase === 'rest' ? clock.remaining / 1.5 : 0;
+    music.intensity(clock.phase === 'match' ? .5 : .25);
+    seats.forEach((previous, p) => {
       const present = fresh(p);
       const mine = players[p].angles ?? (sim && players[p].hands[1].y > .5 ? pose : STAND);
-      const valid = present && mine.length === 8 && mine.every(Number.isFinite);
+      const valid = present && (sim || shapeTrackedBody(players[p].body)) && mine.length === 8 && mine.every(Number.isFinite);
       const quality = valid ? match(mine, pose) : 0;
-      if (t < 0) seat.verdict = 'Watch the pose. Be the pose.';
-      else if (matching) {
-        if (into > PER_POSE - SHOW - .6 && valid) seat.best = Math.max(seat.best, quality);
-        seat.verdict = 'Make it yours';
-      } else if (judged !== i) {
-        const result = shapeVerdict(seat.best, seat.streak, valid);
-        seat.streak = result.streak; seat.score += result.points; seat.best = 0;
-        seat.verdict = result.quality >= 90 ? `Perfect! ${result.quality}%` : result.quality >= 60 ? `Nice! ${result.quality}%${seat.streak > 1 ? ` · streak ×${seat.streak}` : ''}` : valid ? `Try the next one · ${result.quality}%` : 'Step into view for the next pose';
-        if (result.quality >= 60) {
-          hitSound(result.quality >= 90 ? 'powerUp' : 'confirmation', seat.streak * 2, .6);
-        } else sfx('impactWood_heavy', {vol:.35});
-      }
-      coach.update(p, pose, name, quality, remaining, fraction, i, valid, t < 0, seat.verdict);
+      const update = stepShape(previous, i, clock.phase, quality, valid, t, clock.remaining);
+      const seat = seats[p] = update.state;
+      if (update.justLocked) hitSound('confirmation', seat.streak * 2, .65);
+      if (update.scored && seat.verdict === 'perfect') hitSound('powerUp', seat.streak * 2, .6);
+      else if (update.scored && (seat.verdict === 'unmatched' || seat.verdict === 'absent')) sfx('impactWood_heavy', {vol:.25});
+      let feedback = 'matching', status = 'Find the shape', detail = 'Copy the reference — hold it briefly';
+      if (clock.phase === 'countdown') {feedback='countdown';status='Get ready';detail='Your first pose is coming';}
+      else if (clock.phase === 'rest') {feedback='rest';status='Relax & reset';detail=`Next pose in ${Math.ceil(clock.remaining)}…`;}
+      else if (clock.phase === 'result' || clock.phase === 'done') {
+        feedback = seat.verdict;
+        status = seat.verdict === 'perfect' ? '✓ Perfect match!' : seat.verdict === 'matched' ? '✓ Shape matched!' : seat.verdict === 'partial' ? 'Nearly there!' : seat.verdict === 'absent' ? 'We lost your pose' : 'Try the next one';
+        detail = seat.verdict === 'absent' ? 'Step back into view' : `${seat.quality}% · ${i === POSES_PER_ROUND-1 ? 'Last pose complete' : 'Take a breath'}`;
+      } else if (!valid) {feedback='absent';status='Step into view';detail='Keep your body visible';}
+      else if (seat.locked) {feedback='matched';status='✓ Shape matched!';detail='You’ve got it — you can relax';}
+      else if (seat.holdSince !== null) {feedback='hold';status='Hold that shape…';detail='Just a moment — almost matched';}
+      coach.update(p, pose, name, clock.phase === 'result' || clock.phase === 'rest' ? seat.quality : seat.locked ? seat.best : quality, clock.remaining, fraction, i, valid, clock.phase === 'countdown', detail, clock.phase, feedback, status);
       hud.p('h', p, '');
       hud.p('s', p, present ? String(seat.score) : 'Step into view');
     });
-    if (t >= 0 && !matching) judged = i;
   };
 }
