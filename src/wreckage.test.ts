@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { debrisStep, throwDebris } from './wreckage.ts';
+const bit=throwDebris(0,1,0,1,4);
+const start={...bit};for(let i=0;i<20;i++)debrisStep(bit,.016,3);
+assert.ok(bit.x>start.x+.5&&bit.z>start.z,'chunks fly visibly out and toward camera');
+assert.notEqual(bit.angle,start.angle,'chunks tumble');
+for(let i=0;i<300;i++)debrisStep(bit,.016,3);
+const support=Math.abs(Math.sin(bit.angle*Math.PI/180))*bit.halfWidth+Math.abs(Math.cos(bit.angle*Math.PI/180))*bit.halfHeight;
+assert.ok(bit.y-support>=-3.201&&bit.x<=3,'whole scrap remains above floor, not just its center');
+const torso=throwDebris(0,1,0,1,4,.8,1.1);for(let i=0;i<300;i++)debrisStep(torso,.016,3);
+const extent=Math.abs(Math.sin(torso.angle*Math.PI/180))*.8+Math.abs(Math.cos(torso.angle*Math.PI/180))*1.1;assert.ok(torso.y-extent>=-3.201,'rotated torso does not sink through floor');
+assert.ok(Number.isFinite(bit.y+bit.vy));
+console.log('Wreckage: visible launch, tumble, bounded floor and stable settling pass.');

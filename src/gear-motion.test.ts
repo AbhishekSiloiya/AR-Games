@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { toolRoll, headAnchor } from './gear-motion.ts';
+assert.equal(toolRoll(0,0,0,.016),0);
+assert.ok(toolRoll(0,3,0,.016)>0);
+assert.ok(toolRoll(0,-3,0,.016)<0);
+assert.ok(Math.abs(toolRoll(0,100,0,1))<=24,'tools never flip during a fast swing');
+assert.ok(Math.abs(toolRoll(20,0,0,.016))<20,'gear eases back when still');
+const body=Array.from({length:33},()=>[.5,.5,1]);
+body[0]=[.5,.18,1];body[11]=[.4,.35,1];body[12]=[.6,.35,1];
+const anchor=headAnchor(body,16/9);
+assert.ok(anchor && Math.abs(anchor.x)<1e-8);
+assert.ok(anchor && anchor.y>0 && anchor.scale>0);
+body[0][2]=0;assert.equal(headAnchor(body,16/9),null,'lost head hides accessories');
+console.log('Gear motion: stable rotation, fitted camera alignment and lost-head hiding pass.');

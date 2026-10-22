@@ -1,79 +1,74 @@
-// Sprint — run on the spot, knees up. Three 14-second heats with a breather between them (the game makes you take it:
-// intervals are the workout, and players feel less tired than they are). Your pace is your cadence; the stadium rushes
-// past at exactly the speed you are making. Heat two adds hurdles — jump them, or throw both arms up to vault if you
-// would rather not jump — and the last heat pays double. A marker on the track runs at the pace of your best ever.
-// Two players: a team adds its metres together; rivals race side by side.
-import { isAir, players } from '../pose.ts';
-import { hardness } from '../meta.ts';
-import { stepper } from '../reps.ts';
-import { backdrop, fade, flat, node, shapes, show } from '../engine.ts';
-import { bestLine, bursts as makeBursts, figure, hitSound, hitStop, music, round, say, sfx, zoneHalf, zoneX, type Game } from '../kit.ts';
+// Sprint — a short scenic race. The authored running loop supplies a clear character,
+// while fresh jogging/arm-pump edges earn distance, stars, checkpoints and turbo.
+import { Mesh } from 'playcanvas';
+import { players, sim, trackingSeen } from '../pose.ts';
+import { app, flat, node, own, shapes, show } from '../engine.ts';
+import { scenicTrack } from '../scenic-track.ts';
+import { modelPlayer } from '../model-player.ts';
+import { jogDetector, raceAdvance, raceMedal, raceState } from '../scenic-race.ts';
+import { PLAYER_COLORS, bestLine, bursts as makeBursts, hitSound, music, round, sfx, zoneX, type Game } from '../kit.ts';
+import '../sprint-race.css';
+const LENGTH=45,LINE=-3.2;
+const atDepth=(s:number)=>{const k=s**2.4;return {y:.35+(LINE-.35)*k,size:.12+.88*k};};
 
-const HEAT = 14, REST = 7, HEATS = 3, LENGTH = HEAT * HEATS + REST * (HEATS - 1), STRIDE = 1.9, HORIZON = 0.35, LINE = -3.2;
-// A thing on the track at depth s (0 = the horizon, 1 = at your feet): where it is on the stage, and how big.
-const depth = (s: number) => { const k = s ** 2.4; return { y: HORIZON + (LINE - HORIZON) * k, size: 0.12 + 0.88 * k }; };
-
-export default function sprint({ n, stage, team, best, onEnd, hud, scene }: Game) {
-  const hard = hardness(stage), world = backdrop(scene, 'track', true);
-  const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: zoneX(n, p), y: 0.35, scale: 1.05 }));
-  const bar = shapes.quad(1, 0.22), post = shapes.quad(0.1, 0.9), barLook = flat('#f43f5e', { opacity: 1 }), postLook = flat('#f8fafc', { opacity: 1 });
-  const hurdles = Array.from({ length: n }, (_, p) => Array.from({ length: 3 }, () => {
-    const e = node(scene.root, undefined, undefined, [zoneX(n, p), 0, 0.3]);
-    node(e, bar, barLook, [0, 0.55, 0]); node(e, post, postLook, [-0.5, 0.1, 0]); node(e, post, postLook, [0.5, 0.1, 0]);
-    e.enabled = false;
-    return { e, s: -1, judged: false };
-  }));
-  const ghost = best > 0 ? node(scene.root, shapes.quad(zoneHalf(n) * 1.5, 0.08), flat('#fde047', { opacity: 0.8 })) : null;
-  const bursts = makeBursts(scene.root), passed = bestLine(hud, best);
-  const runners = Array.from({ length: n }, () => ({ step: stepper(), speed: 0, metres: 0, steps: 0, top: 0, cleared: 0, stumble: 0, nextHurdle: 2 }));
-  const g = { heat: -1, resting: false };
-  const total = () => (team ? runners.reduce((a, r) => a + r.metres, 0) : Math.max(...runners.map((r) => r.metres)));
-  const tick = round(hud, LENGTH, () => {
-    music.stop();
-    const scores = team ? runners.map(() => Math.round(total())) : runners.map((r) => Math.round(r.metres));
-    onEnd(scores, runners.map((r) => [`Top speed ${r.top.toFixed(1)} m/s`, `${r.steps} steps`, r.cleared ? `${r.cleared} hurdles cleared` : ''].filter(Boolean)));
+export default async function sprint({n,team,best,onEnd,hud,scene}:Game){
+  let disposed=false;scene.cleanup(()=>{disposed=true;});
+  const world=scenicTrack(scene,n);
+  const models=await Promise.all(Array.from({length:n},(_,p)=>modelPlayer(scene,{name:`sprint-model-player-${p}`,x:zoneX(n,p),y:LINE-.2,z:.5,height:3.5,yaw:180,color:PLAYER_COLORS[p]})));
+  const bodies=models.filter(body=>body!==null);if(disposed||bodies.length!==n)return()=>{};
+  bodies.forEach(body=>{body.play('Running',1,true);body.anim.baseLayer!.play('Running');});
+  const stage=document.querySelector('.stage'),overlay=document.createElement('div');overlay.className='sprint-race';overlay.dataset.players=String(n);stage?.append(overlay);stage?.classList.add('scenic-race-stage');
+  scene.cleanup(()=>{overlay.remove();stage?.classList.remove('scenic-race-stage');});
+  const cards=Array.from({length:n},(_,p)=>{
+    const card=document.createElement('section');card.className='sprint-race__card';card.dataset.player=String(p);card.style.setProperty('--seat',String(p));
+    const title=document.createElement('strong');title.className='sprint-race__title';title.textContent=n===1?'SCENIC STAR RACE':`RUNNER ${p+1} · CHASE THE STARS`;
+    const stats=document.createElement('div');stats.className='sprint-race__stats';const distance=document.createElement('b'),stars=document.createElement('span');stats.append(distance,stars);
+    const action=document.createElement('p');action.className='sprint-race__action';
+    const charge=document.createElement('progress');charge.max=3;charge.setAttribute('aria-label',`Player ${p+1} turbo charge`);
+    const next=document.createElement('small');card.append(title,stats,action,charge,next);overlay.append(card);return {card,distance,stars,action,charge,next};
   });
-  music.start('run');
-
-  return (rawDt: number) => {
-    const dt = Math.min(rawDt, 0.05), t = tick(rawDt);
-    if (t === null) return;
-    const slot = Math.max(0, t) % (HEAT + REST), heat = Math.min(HEATS - 1, Math.floor(Math.max(0, t) / (HEAT + REST))), resting = t >= 0 && slot >= HEAT && heat < HEATS - 1, final = heat === HEATS - 1;
-    if (t >= 0 && heat !== g.heat) { g.heat = heat; hud.banner(final ? 'Final heat · double metres!' : heat ? 'Heat two · hurdles!' : 'Knees up!', 1600); say(final ? 'final_round' : 'go'); sfx('zapThreeToneUp', { vol: 0.6 }); }
-    if (resting !== g.resting) { g.resting = resting; if (resting) { hud.banner('Breathe', 1800); sfx('zapThreeToneDown', { vol: 0.5 }); } }
-
-    let pace = 0;
-    runners.forEach((r, p) => {
-      const pl = players[p], body = bodies[p], pads = body.update(), { steps, cadence } = r.step(pl.rig, Math.max(0, t));
-      r.stumble = Math.max(0, r.stumble - dt);
-      const want = pl.present && t >= 0 && !resting ? cadence * STRIDE * (r.stumble > 0 ? 0.4 : 1) : 0;
-      r.speed += (want - r.speed) * Math.min(1, dt * 4);
-      r.metres += r.speed * dt * (final ? 2 : 1); r.top = Math.max(r.top, r.speed); pace += r.speed / n;
-      if (steps && t >= 0 && !resting) { r.steps += steps; const foot = pads.find((pad) => pad.part === 'foot' && pad.seen); bursts.burst(foot?.x ?? body.at.x, LINE - 0.2, 0.4, '#fed7aa', 4, 2.5); sfx('footstep_concrete', { vol: 0.2 + Math.min(0.3, r.speed / 20) }); }
-
-      // Hurdles, from the second heat: they come out of the distance at the speed you are running.
-      if (heat >= 1 && !resting && t >= 0 && (r.nextHurdle -= dt) <= 0) { const free = hurdles[p].find((h) => h.s < 0); r.nextHurdle = (3.6 + Math.random() * 1.6) / Math.sqrt(hard); if (free && r.speed > 1) Object.assign(free, { s: 0, judged: false }); }
-      for (const h of hurdles[p]) {
-        if (!show(h.e, h.s >= 0)) continue;
-        h.s += (0.12 + r.speed * 0.055) * dt;
-        const at = depth(Math.min(1.15, h.s)), over = isAir(pl) || (pl.hands[0].seen && pl.hands[1].seen && pl.hands[0].y > 0.6 && pl.hands[1].y > 0.6); // a jump, or both arms thrown up
-        h.e.setLocalPosition(body.at.x, at.y, 0.3); h.e.setLocalScale(at.size * 3.4, at.size * 1.6, 1); fade(h.e, Math.min(1, h.s * 4));
-        if (!h.judged && h.s > 0.9) {
-          h.judged = true;
-          if (over) { r.cleared++; r.metres += 5; hitSound('phaseJump', r.cleared, 0.5); hud.pop(body.at.x, LINE + 1.4, 'Cleared! +5 m', '#a3e635'); }
-          else { r.stumble = 0.9; sfx('impactWood_heavy', { vol: 0.7 }); hud.shake(0.6); hud.pop(body.at.x, LINE + 1.4, 'Clipped it!', '#ef4444'); bursts.burst(body.at.x, LINE + 0.4, 0.5, '#f43f5e', 18, 7); hitStop(60); }
-        }
-        if (h.s > 1.12) h.s = -1;
-      }
-      hud.p('s', team ? 0 : p, !pl.present ? 'Step into view' : `${Math.round(team ? total() : r.metres)} m`);
-      hud.p('h', p, t < 0 ? 'Run on the spot, knees up' : resting ? `Breathe · next heat in ${Math.ceil(HEAT + REST - slot)}` : `${r.speed.toFixed(1)} m/s${final ? ' · ×2' : ''}`);
+  const starMesh=own(new Mesh(app.graphicsDevice)),positions=[0,0,0],normals=[0,0,1],indices:number[]=[];
+  for(let k=0;k<=10;k++){const a=Math.PI/2+k*Math.PI/5,r=k%2?.14:.34;positions.push(Math.cos(a)*r,Math.sin(a)*r,0);normals.push(0,0,1);if(k)indices.push(0,k,k+1);}
+  starMesh.setPositions(positions);starMesh.setNormals(normals);starMesh.setIndices(indices);starMesh.update();
+  const gold=flat('#ffe071'),mint=flat('#7df4df'),trailLook=flat('#93e7ff',{opacity:.65});
+  const runners=Array.from({length:n},(_,p)=>{
+    const gate=node(scene.root);gate.name=`sprint-checkpoint-${p}`;
+    for(const side of [-1,1]){const post=node(gate,shapes.quad(.10,2.2),mint,[side*1.7,1.1,0]);post.setLocalEulerAngles(0,0,side*-6);}
+    node(gate,shapes.quad(3.5,.16),mint,[0,2.2,0]);
+    const stars=Array.from({length:3},(_,i)=>{const e=node(scene.root,starMesh,gold);e.name=`sprint-star-${p}-${i}`;return e;});
+    const aura=node(scene.root,shapes.ring(.5,.58,28),trailLook,[zoneX(n,p),LINE,.8]);aura.setLocalScale(1.7,.28,1);
+    return {state:raceState(),detect:jogDetector(),speed:0,moving:false,source:'none',gate,stars,aura};
+  });
+  const bursts=makeBursts(scene.root),passed=bestLine(hud,best);let scenery=0,time=-3,started=false;
+  const total=()=>team?runners.reduce((sum,r)=>sum+r.state.metres,0):Math.max(...runners.map(r=>r.state.metres));
+  const tick=round(hud,LENGTH,()=>{music.stop();onEnd(runners.map(r=>Math.round(team?total():r.state.metres)),runners.map(r=>[`${raceMedal(team?total():r.state.metres)} · Scenic star race`,`${r.state.stars} stars · ${r.state.checkpoints} checkpoints`,`${r.state.boosts} turbo boosts`,`${r.state.steps} movement beats`]));});
+  const diagnostics=()=>({time,heat:time<0?-1:0,resting:false,scenery,players:runners.map((r,p)=>({...r.state,speed:r.speed,moving:r.moving,source:r.source,clip:bodies[p].clip,animationTime:bodies[p].anim.baseLayer!.activeStateCurrentTime}))});
+  Object.assign(window,{__sprint:diagnostics});scene.cleanup(()=>{delete(window as Window&{__sprint?:unknown}).__sprint;});music.start('run');
+  return(rawDt:number)=>{
+    const dt=Math.min(.05,rawDt),t=tick(rawDt);if(t===null)return;time=t;
+    if(t>=0&&!started){started=true;hud.banner('Chase the stars!',1200);}
+    let average=0;
+    runners.forEach((r,p)=>{
+      const pl=players[p],fresh=pl.present&&(sim||trackingSeen[p]>0&&performance.now()-trackingSeen[p]<600);
+      const motion=r.detect(pl.rig,t,sim?Math.floor(t*60):trackingSeen[p],fresh&&t>=0,pl.frame?.y??0,pl.frame?.sw??.2);
+      const previous=r.state;r.state=raceAdvance(previous,motion.beat,dt);r.moving=motion.moving;r.source=motion.source;
+      r.speed=motion.pace*2.2*(r.state.boost>0?1.6:1);average+=r.speed/n;
+      const body=bodies[p];body.show(pl.present);body.place(zoneX(n,p)+Math.max(-.5,Math.min(.5,pl.lean*.35)),LINE-.2);
+      // Keep the visible warm-up jog alive. This animation never awards distance or stars.
+      body.play('Running',t<0?.8:motion.moving?Math.min(2.4,.95+motion.pace*.22+(r.state.boost>0?.25:0)):.85);
+      if(r.state.steps>previous.steps){bursts.burst(body.at.x,LINE,.6,r.state.boost>0?'#93e7ff':'#ffe071',5,3);sfx('footstep_concrete',{vol:.25});}
+      if(r.state.stars>previous.stars){bursts.burst(body.at.x,LINE+1.7,.8,'#ffe071',16,5);hud.pop(body.at.x,LINE+1.8,`★ ${r.state.stars}`,'#ffe071');hitSound('select',r.state.stars,.45);}
+      if(r.state.checkpoints>previous.checkpoints){hud.pop(body.at.x,1.1,'CHECKPOINT!','#7df4df');sfx('confirmation',{vol:.6});}
+      if(r.state.boosts>previous.boosts){hud.pop(body.at.x,.6,'TURBO!','#93e7ff');sfx('powerUp',{vol:.6});}
+      const gate=atDepth((r.state.metres%30)/30);r.gate.setLocalPosition(zoneX(n,p),gate.y,.2);r.gate.setLocalScale(gate.size,gate.size,1);
+      r.stars.forEach((e,i)=>{const s=((r.state.metres/6+i)/3)%1,pos=atDepth(s);e.setLocalPosition(zoneX(n,p)+Math.sin(i*2.1)*.8*pos.size,pos.y+.7*pos.size,1);e.setLocalScale(pos.size,pos.size,1);e.setLocalEulerAngles(0,0,t*65+i*35);});
+      show(r.aura,r.state.boost>0&&motion.moving);r.aura.setLocalPosition(body.at.x,LINE,.8);
+      const card=cards[p],boosting=r.state.boost>0&&motion.moving;
+      card.distance.textContent=`${Math.round(team?total():r.state.metres)} m`;card.stars.textContent=`★ ${r.state.stars}`;
+      card.action.textContent=!fresh?'Step into view':t<0?'Get ready to chase stars':boosting?'TURBO · KEEP IT GOING!':motion.moving?'Great pace — chase the next star!':'Jog or pump your arms to accelerate';
+      card.charge.value=r.state.boost>0?3:r.state.charge;card.next.textContent=`${Math.ceil(30-r.state.metres%30)} m to checkpoint · ${r.state.boost>0?`${Math.ceil(r.state.boost)}s turbo`:'3 stars charge turbo'}`;
+      card.card.dataset.boost=String(boosting);card.card.dataset.stars=String(r.state.stars);hud.p('s',p,`${Math.round(team?total():r.state.metres)} m`);hud.p('h',p,'');
     });
-    world.drive(runners.reduce((a, r) => a + r.metres, 0) / n);
-    if (pace > 3 && Math.random() < pace * dt * 2) bursts.burst((Math.random() - 0.5) * 14, HORIZON + Math.random() * 2, -1, '#ffffff', 1, 0.5); // the air going past
-    // Your best ever, as a line on the track: ahead of you, it is further up the track; behind, it slides off the bottom.
-    if (ghost) { const lead = (best * Math.max(0, t)) / LENGTH - total(), s = 1 - Math.max(-0.2, Math.min(0.95, lead / 40)) - 0.05; const at = depth(Math.min(1.1, s)); if (show(ghost, t > 0 && s < 1.1)) { ghost.setLocalPosition(0, at.y, 0.2); ghost.setLocalScale(at.size * (n === 1 ? 1 : 2), at.size, 1); } }
-    bursts.update(dt);
-    passed(total());
-    music.intensity(resting ? 0.2 : 0.35 + Math.min(0.65, pace / 9));
+    scenery+=dt*(4+average*1.4);world.drive(scenery,dt);bursts.update(dt);passed(total());music.intensity(.35+Math.min(.65,average/12));
   };
 }

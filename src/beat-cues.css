@@ -1,0 +1,21 @@
+.beat-cues { position:absolute; inset:0; z-index:2; pointer-events:none; overflow:hidden; font-family:inherit; }
+.beat-cues [hidden] { display:none; }
+.beat-stage .hud.hint {display:none;}
+.beat-cues__current {position:absolute;top:13%;left:50%;transform:translateX(-50%);width:72%;box-sizing:border-box;text-align:center;padding:.6rem 1rem .7rem;border-bottom:3px solid var(--cue-color);background:linear-gradient(90deg,#100c2b00,#100c2bf2 15%,#100c2bf2 85%,#100c2b00);color:white;}
+.beat-cues__player {display:block;font:700 11px system-ui,sans-serif;letter-spacing:.15em;color:var(--cue-color);margin-bottom:4px;}
+.beat-cues__heading {display:flex;align-items:center;justify-content:center;gap:.8rem;line-height:1.06;}
+.beat-cues__icon {color:var(--cue-color);font:800 clamp(26px,3.3vw,48px) system-ui,sans-serif;white-space:nowrap;}
+.beat-cues__action {font-size:clamp(32px,4vw,58px);font-weight:800;white-space:nowrap;text-shadow:0 2px 8px #0008;}
+.beat-cues__when {display:block;margin-top:.6rem;font:700 clamp(10px,1vw,14px) system-ui,sans-serif;letter-spacing:.09em;}
+.beat-cues__result {position:absolute;top:100%;left:0;width:100%;padding-top:.3rem;font-size:clamp(18px,2vw,28px);font-weight:700;text-shadow:0 2px 4px #000;}
+.beat-cues__current[data-timing=now] {background:linear-gradient(90deg,#100c2b00,#33234cf5 15%,#33234cf5 85%,#100c2b00);}
+.beat-cues__current[data-timing=now] .beat-cues__when {color:#ffe071;}
+.beat-cues__legend {position:absolute;bottom:10px;left:12px;max-width:72%;padding:7px 10px;border-radius:10px;background:rgba(12,10,38,.92);color:white;font:10px/1.3 system-ui,sans-serif;}
+.beat-cues__legend>strong {display:block;letter-spacing:.04em;margin-bottom:4px;}
+.beat-cues__key {display:flex;flex-wrap:wrap;gap:3px 12px;}
+.beat-cues__key span {white-space:nowrap;}
+.beat-cues[data-players="2"] .beat-cues__current {left:calc((var(--seat) + .5) * 50%);width:46%;}
+.beat-cues[data-players="2"] .beat-cues__action {font-size:clamp(24px,2.7vw,42px);}
+.beat-cues[data-players="2"] .beat-cues__icon {font-size:clamp(20px,2.5vw,36px);}
+@media(max-width:800px){.beat-cues__heading {gap:.4rem;}.beat-cues__current {padding:.35rem .3rem .5rem;}.beat-cues__player {font-size:9px;margin-bottom:3px;}.beat-cues__when {font-size:9px;margin-top:.35rem;}.beat-cues[data-players="2"] .beat-cues__action {font-size:clamp(17px,3.1vw,25px);}.beat-cues[data-players="2"] .beat-cues__icon {font-size:17px;}.beat-cues__legend {font-size:9px;}}
+@media(max-height:550px){.beat-cues__current {top:18%;}.beat-cues__player {display:none;}.beat-cues__action {font-size:clamp(24px,4vw,38px);}.beat-cues__when {margin-top:3px;}.beat-stage .hud.clock {top:.3rem;min-width:3.8rem;height:3.8rem;font-size:1.9rem;}}

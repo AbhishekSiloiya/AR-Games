@@ -1,6 +1,8 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
+import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
 import { createRoot } from 'react-dom/client';
 import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
 import { report } from './report.ts';
@@ -27,21 +29,21 @@ const GAMES: Game[] = [
   { id: 'run', name: 'Run', icon: '🏃', tone: ['#ff8a3d', '#ff3d6e'], blurb: 'Endless runner. Lean, jump, duck.', how: 'Lean left or right to change lane. Jump the barrels and duck the beams. Never run into a crate stack. Grab coins and power-ups in the lanes.', maxPlayers: 2, Play: Run },
   { id: 'slice', name: 'Slice', icon: '🍉', tone: ['#3ddc84', '#0e9aa7'], blurb: 'Cut the fruit, dodge the bombs.', how: 'Swipe fast through the fruit. One swing through three or more pays extra, and so does a really hard cut. Glowing bananas are power-ups. Never touch a bomb.', maxPlayers: 2, Play: Slice, team: true,
     modes: [{ id: '', name: 'Arcade', blurb: '60 seconds, power-ups, bombs cost points' }, { id: 'classic', name: 'Classic', blurb: 'Three lives. Drop a fruit or hit a bomb and lose one' }, { id: 'zen', name: 'Zen', blurb: '90 calm seconds, no bombs. A good cool-down' }] },
-  { id: 'keepy', name: 'Keepy-Uppy', icon: '🎈', tone: ['#f472b6', '#7c3aed'], blurb: 'Keep the balloon off the floor.', how: 'Bump the balloon with anything. Headers, knees and kicks pay more than hands. Do not use the same part twice running. Together, pass it across the line: every crossing is a rally point.', maxPlayers: 2, Play: Keepy, team: true, crew: true,
+  { id: 'keepy', name: 'Keepy-Uppy', icon: '🎈', tone: ['#f472b6', '#7c3aed'], blurb: 'Keep the balloon off the floor.', how: 'Keep the balloons and beach balls airborne with anything. Headers, knees and kicks pay more than hands. Do not use the same part twice running. Together, pass it across the line: every crossing is a rally point.', maxPlayers: 2, Play: Keepy, team: true, crew: true,
     modes: [{ id: '', name: 'Arcade', blurb: '60 seconds, more balloons, wind, and a storm to pop at the end' }, { id: 'classic', name: 'Classic', blurb: 'Three lives. Every balloon that lands costs one' }] },
   { id: 'leaks', name: 'Leaks', icon: '💦', tone: ['#22d3ee', '#1d4ed8'], blurb: 'Plug the cracks with your whole body.', how: 'Cover a crack with a hand, a foot, a knee or your head. Hold it until the ring closes. Several open at once, so spread out. Do not let the water reach the top.', maxPlayers: 2, Play: Leaks, team: true, crew: true },
-  { id: 'sprint', name: 'Sprint', icon: '⚡', tone: ['#fb923c', '#be123c'], blurb: 'Knees up. Three heats, flat out.', how: 'Run on the spot with your knees up: your pace is your speed. Three 14-second heats with a breather between. Jump the hurdles, or throw both arms up to vault. The last heat pays double.', maxPlayers: 2, Play: Sprint, team: true },
-  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Every jumping jack fires the cannon.', how: 'Each jumping jack shoots the lowest invader. Feet apart as well makes it a full jack: two shots. Arms alone still count, so stepping jacks are fine. Do not let them reach you. Breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
+  { id: 'sprint', name: 'Sprint', icon: '⚡', tone: ['#fb923c', '#be123c'], blurb: 'A scenic race. Chase stars. Go turbo.', how: 'Race for 45 seconds. Jog on the spot or pump your arms to accelerate. Collect stars, pass checkpoints and build a turbo boost. Keep moving to earn distance; the runner’s warm-up animation earns no points. Race solo, as a team or side by side.', maxPlayers: 2, Play: Sprint, team: true },
+  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Raise your arms. Aim. Fire.', how: 'Raise either hand to fire along that arm. Lower it to reload, then raise again. Point left or right to aim. No jumping needed. Clear the invaders and breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
   { id: 'forge', name: 'Forge', icon: '🔨', tone: ['#f59e0b', '#7f1d1d'], blurb: 'Hold the squat. Strike when it glows.', how: 'Sink into a squat and hold it to heat the blade. Deeper heats faster. When it glows white, drive up hard to strike. Rest while it is quenched. Every blade wants a longer hold.', maxPlayers: 2, Play: Forge, team: true },
   { id: 'lumber', name: 'Lumberjack', icon: '🪓', tone: ['#65a30d', '#713f12'], blurb: 'Chop along the stripe.', how: 'Wind up high on one side and chop down across your body to the other, along the stripe on the log. Chop hard for a clean split. The stripe changes sides. Thick logs take two.', maxPlayers: 2, Play: Lumber, team: true },
-  { id: 'smash', name: 'Smash', icon: '📦', tone: ['#fbbf24', '#c2570c'], blurb: 'Knock the crate tower down.', how: 'Swing your hands through the crates. Knock every one off the platform. Clear it for a bonus and a taller tower.', maxPlayers: 2, Play: Smash },
+  { id: 'smash', name: 'Smash', icon: '🤖', tone: ['#fbbf24', '#c2570c'], blurb: 'Demolish the robot. Expose its core.', how: 'Punch the armour plates. The yellow ring marks a weak spot that takes extra damage. Break all six plates, then strike the glowing core. Slow your hand between punches to reload. Each demolished robot brings a tougher one.', maxPlayers: 2, Play: Smash },
   { id: 'goalie', name: 'Goalie', icon: '🧤', tone: ['#38bdf8', '#2f55e0'], blurb: 'Get a hand to every shot.', how: 'The ring shows where the shot will land. Get a glove there in time. Swat it and it flies. Gold balls are fast and worth 3.', maxPlayers: 2, Play: Goalie },
   { id: 'jab', name: 'Jab', icon: '🥊', tone: ['#ff5a76', '#a3154a'], blurb: 'Punch the pads, duck the bar.', how: 'Punch each pad with the hand on its side. Gold pads want the opposite hand. Punch hard for extra. Squat when the bar comes.', maxPlayers: 2, Play: Jab },
   { id: 'beat', name: 'Beat', icon: '🎵', tone: ['#c084fc', '#6d28d9'], blurb: 'Hit the moves on the beat.', how: 'Hold the move as its shape reaches the line. Left hand up, right hand up, both up, squat, or jump. On the beat is Perfect.', maxPlayers: 2, Play: Beat },
   { id: 'rocket', name: 'Rocket', icon: '🚀', tone: ['#818cf8', '#3b2fb0'], blurb: 'Every squat is a burn.', how: 'Squat to fire the engine. Deeper squats burn harder. Stop and gravity wins. Highest altitude is your score.', maxPlayers: 2, Play: Rocket },
-  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Move as much as you can while the music plays. When it stops, freeze. Any wobble costs points. A still freeze pays a bonus.', maxPlayers: 2, Play: Freeze },
+  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Dance under the disco ball while the music and lights move. When they stop, freeze. Any wobble costs points. Hold still to earn a bonus and a party celebration when the music returns.', maxPlayers: 2, Play: Freeze },
   { id: 'wipe', name: 'Wipe', icon: '🧽', tone: ['#fde047', '#d97706'], blurb: 'Scrub the screen clean.', how: 'Sweep both hands across the grime. It creeps back, so keep moving. Clear your whole side for a bonus and a tougher layer.', maxPlayers: 2, Play: Wipe },
-  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Match the pose in time.', how: 'A shape flies toward you. Make it with your whole body before it lands. Needs room for both arms, so play solo or take turns.', maxPlayers: 1, Play: ShapeUp },
+  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Watch yourself live and copy the pose reference. Hold a good match briefly to lock it. Earn up to three stars per pose and chain matches for combo rewards. Relax during the reset countdown, then try the next pose. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
 ];
 const NAMES = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
 const BADGE_ICON: Record<string, string> = { first: '👟', explorer: '🧭', century: '💯', double: '🔥', streak3: '📅', streak7: '🗓️', streak30: '⚡', stars10: '⭐', stars40: '🌟', stars100: '🌌', flawless: '💎', summit: '🏔️', five: '🖐️', level5: '💪', level10: '🏅', early: '🌅', squats: '🦵', runner: '🏁' };
@@ -50,7 +52,7 @@ const MODES = { solo: 'Solo', together: 'Together', turns: 'Take turns' } as con
 type Mode = keyof typeof MODES;
 type Reward = { stars: number; xp: number; newBest: boolean; levelUp: number; badges: string[]; challenges: string[] };
 type Round = { game: Game; stage: number; mode: string; turn: number; scores: number[]; points: number[]; rewards: Reward[]; notes: string[][] };
-type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at: 'brief'; game: Game; stage: number; mode: string } | ({ at: 'play' | 'next' | 'results' } & Round);
+type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at: 'brief'; game: Game; stage: number; mode: string } | ({ at: 'setup' | 'play' | 'next' | 'results' } & Round);
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties; // CSS custom properties for inline style
 const toneOf = (g: Game) => vars({ '--a': g.tone[0], '--b': g.tone[1] });
@@ -123,7 +125,7 @@ function CountUp({ to }: { to: number }) {
   useEffect(() => {
     const t0 = performance.now();
     let raf = requestAnimationFrame(function step(now) {
-      const k = Math.min(1, (now - t0) / 900);
+      const k = Math.max(0, Math.min(1, (now - t0) / 900));
       setV(Math.round(to * (1 - (1 - k) ** 3)));
       if (k < 1) raf = requestAnimationFrame(step);
     });
@@ -277,6 +279,8 @@ function App() {
   const [mode, setMode] = useState<Mode>('solo');
   const [fx, setFx] = useState(effects.on);
   const [paused, setPaused] = useState(false);
+  const [trackingLost, setTrackingLost] = useState(false);
+  const [playerView, setPlayerView] = useState<PlayerView>('live');
   const [coop, setCoop] = useState(true); // two players: one team by default — it is what brings a couple back; rivals by choice
   const n = mode === 'together' ? 2 : 1; // bodies tracked at once; "turns" is two people, one at a time
   const energy0 = useRef([0, 0]);
@@ -289,7 +293,7 @@ function App() {
   }, []);
 
   // Pause: stop the frame loop (Shell context) and the audio clock, so rhythm games freeze too.
-  const shell = useMemo(() => ({ paused, pause: () => { setPaused(true); void audio().suspend(); } }), [paused]);
+  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void audio().suspend(); } }), [paused, trackingLost]);
   const resume = () => { setPaused(false); void audio().resume(); };
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && shell.pause();
@@ -297,8 +301,46 @@ function App() {
     return () => removeEventListener('keydown', key);
   }, [shell]);
 
+  const activeGame = screen.at === 'play' ? screen.game.id : '';
+  useEffect(() => {
+    if (!activeGame) { setTrackingLost(false); return; }
+    if (sim) return;
+    let lostSince: number|null = null, recoveredSince: number|null = null, lost = false;
+    let previous: number[][][] = [], last=performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now(), ok = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false).ok).every(Boolean);
+      const gate = trackingGate(lostSince,ok,now); lostSince=gate.since;
+      if (!lost && gate.lost) {lost=true;setTrackingLost(true);}
+      if (lost) {
+        const steady=ok&&Array.from({length:n},(_,i)=>standingPose(activeGame,players[i].body)&&stablePose(activeGame,players[i].body,previous[i]??[],now-last)).every(Boolean);
+        const hold=readiness(recoveredSince,steady,now,1000);recoveredSince=hold.since;
+        if (hold.ready) {lost=false;lostSince=recoveredSince=null;setTrackingLost(false);}
+      }
+      previous=players.slice(0,n).map(p=>p.body.map(q=>[...q]));last=now;
+    },100);
+    return ()=>clearInterval(timer);
+  }, [activeGame,n,screen.at === 'play' ? screen.turn : -1]);
+  useEffect(() => {
+    if (screen.at !== 'play') return;
+    if (paused || trackingLost) void audio().suspend(); else void audio().resume();
+  }, [paused,trackingLost,screen.at]);
+  // Pilot choices last for one round; the user's Tracking preference is restored in menus.
+  useEffect(() => {
+    const previous=tuning.look;
+    if (['slice','keepy','freeze','shapeup'].includes(activeGame)) tuning.look=playerView==='live'?'mirror':'shadow';
+    else if (activeGame) tuning.look='shadow';
+    return ()=>{tuning.look=previous;};
+  }, [activeGame,playerView,n]);
+  useEffect(() => {
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,coordinates:'camera: mirrored x right, y down; stage: x right, y up'});
+    Object.assign(window,{render_game_to_text:render});
+    return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
+  }, [screen,n,paused,trackingLost,playerView]);
+
   const update = (next: typeof db) => { save(next); setDb(next); };
   const go = (s: Screen) => {
+    setPaused(false);
+    if (s.at === 'setup') setPlayerView(v=>s.game.id==='shapeup'?'live':supportedView(s.game.id,n,v));
     if (s.at === 'play') energy0.current = players.map((p) => p.energy);
     if (s.at === 'brief') s.game.Play.warm(); // fetch the renderer and this game's code while the player reads how to play
     setScreen(s);
@@ -369,7 +411,7 @@ function App() {
     else if (scores.length === 2 && scores[0] === scores[1] && !team) say('its_a_tie');
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
-  const play = (game: Game, stage: number, gameMode: string) => go({ at: 'play', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
+  const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
   const cycle = (slot: number) => setWho((w) => w.map((v, i) => (i === slot ? (v + 1) % db.profiles.length : v)));
   const rename = (slot: number) => {
     const old = name(slot), next = prompt('Name', old)?.trim();
@@ -385,7 +427,7 @@ function App() {
   return (
     <Shell.Provider value={shell}>
       <video className={screen.at === 'tracking' ? 'mirror bright' : 'mirror'} ref={video} muted playsInline />
-      {screen.at !== 'tracking' && <Backdrop ingame={screen.at === 'play'} />}
+      {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
         <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
           <Logo huge />
@@ -398,7 +440,7 @@ function App() {
         </div>
       )}
       {screen.at === 'home' && (
-        <div className="screen">
+        <div className="screen library">
           <div className="row">
             <Logo />
             <p className="dim num grow" style={{ paddingLeft: '1rem' }}><Fps /></p>
@@ -483,7 +525,10 @@ function App() {
           </div>
         );
       })()}
-      {screen.at === 'play' && <screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} />}
+      {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
+      {screen.at === 'play' && !['slice','keepy','freeze','shapeup'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
+      {screen.at === 'play' && <div className={screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
+      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
         <div className="pause">
           <div className="panel">
@@ -500,7 +545,7 @@ function App() {
         <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <h1>{name(0)} scored <span className="crown num">{screen.scores[0]}</span></h1>
           <h2>{name(1)}, you are up! {name(0)}, step out of view.</h2>
-          <button className="primary giant" onClick={() => go({ ...screen, at: 'play' })}>Ready</button>
+          <button className="primary giant" onClick={() => go({ ...screen, at: 'setup' })}>Ready</button>
         </div>
       )}
       {screen.at === 'results' && (
@@ -548,10 +593,9 @@ function App() {
               <span className="label">Your look</span>
               <div className="seg">
                 <button aria-pressed={tuning.look === 'shadow'} onClick={() => setTracker('romp.look', 'shadow')}>Shadow</button>
-                <button aria-pressed={tuning.look === 'camera'} onClick={() => setTracker('romp.look', 'camera')}>Camera</button>
                 <button aria-pressed={tuning.look === 'mirror'} onClick={() => setTracker('romp.look', 'mirror')}>Mirror</button>
               </div>
-              <span className="dim">In full-body games. Shadow: you as a figure of light, hands and feet glowing — free, and the same for two players. Camera: your own picture lifted out of the room (one player; costs the tracker speed, and switches back to Shadow by itself if it cannot keep up). Mirror: the game played over your whole room, dimmed, with you in the light.</span>
+              <span className="dim">In full-body games. Shadow: a lightweight player silhouette for the other full-body games. Mirror: the game played over your whole room, dimmed, with you in the light.</span>
             </div>
             <div className="row">
               <span className="label">Model</span>
@@ -645,8 +689,8 @@ function App() {
           </div>
         </div>
       )}
-      {screen.at !== 'start' && screen.at !== 'tracking' && <Presence small={screen.at === 'play'} />}
-      {((screen.at !== 'play' && screen.at !== 'start') || paused) && <HandCursor />}
+      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && screen.at !== 'play' && <Presence small={false} />}
+      {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }

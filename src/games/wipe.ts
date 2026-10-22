@@ -1,7 +1,7 @@
 // Wipe — the screen is filthy; scrub it clean with both hands. Grime creeps back, faster every layer.
 // Clear your whole side for a bonus and a fresh, tougher layer. Reach is body-relative, so it is compact.
 import { hardness } from '../meta.ts';
-import { backdrop, instanced, shapes } from '../engine.ts';
+import { backdrop, flat, instanced, lit, node, shapes } from '../engine.ts';
 import { bursts as makeBursts, divider, hands as makeHands, music, round, scoreHud, sfx, type Game } from '../kit.ts';
 
 const ROUND = 60, COLS = 16, ROWS = 8, SCRUB = 1.15; // SCRUB = radius a hand cleans, in tiles
@@ -10,14 +10,19 @@ const LAYERS = ['#78716c', '#57534e', '#7c2d12', '#365314', '#1e3a8a'];
 export default function wipe({ n, stage, onEnd, hud, scene }: Game) {
   const hard = hardness(stage); // grime comes back sooner on higher stages
   music.start('calm', undefined, 0.6);
-  backdrop(scene, 'tiles');
+  backdrop(scene, 'orbit');
+  // A spaceship viewport: clear the grime to reveal the stars through the glass.
+  const frameLook=lit('#b8d2dc',{emissive:'#1c425b',glow:.2}), rivet=lit('#526e84');
+  node(scene.root,shapes.quad(15.8,7.9),flat('#7dd3fc',{opacity:.09}),[0,-.4,-.2]);
+  for (const [x,y,w,h] of [[-7.95,-.4,.22,8.2],[7.95,-.4,.22,8.2],[0,3.65,16.1,.22],[0,-4.45,16.1,.22]]) node(scene.root,shapes.box(w,h,.22),frameLook,[x,y,.3]);
+  for (let k=0;k<9;k++) for(const y of [-4.43,3.64]) node(scene.root,shapes.sphere(.06,8),rivet,[(k-4)*1.8,y,.45]);
   const tiles = Array.from({ length: COLS * ROWS }, (_, i) => {
     const x = (i % COLS) - COLS / 2 + 0.5, y = Math.floor(i / COLS) - ROWS / 2 + 0.5 - 0.4;
     return { x, y, zone: n === 2 && x > 0 ? 1 : 0, dirt: 1, cleanFor: 0 };
   });
-  const grime = instanced(scene.root, shapes.quad(0.96, 0.96), COLS * ROWS, 0.92);
+  const grime = instanced(scene.root, shapes.blob(.6,14), COLS * ROWS, 0.92);
   const g = { scores: [0, 0], layer: [0, 0], said: [0, 0], painted: [-1, -1] };
-  const hands = makeHands(scene, n, undefined, 0), bursts = makeBursts(scene.root);
+  const hands = makeHands(scene, n, {cx:(p)=>n===1?0:(p-.5)*8,hw:8/n,hh:4.5,equipment:'sponge'}, 0), bursts = makeBursts(scene.root);
   divider(scene, n, '#fafafa', 0.5, 0.06);
   const tick = round(hud, ROUND, () => onEnd(g.scores.slice(0, n)));
 
@@ -47,7 +52,7 @@ export default function wipe({ n, stage, onEnd, hud, scene }: Game) {
         tiles.forEach((tile) => tile.zone === p && ((tile.dirt = 1), (tile.cleanFor = 0)));
         sfx('confirmation'); hud.flash('#e0f2fe');
       }
-      hud.p('h', p, t < 0 ? 'Scrub it clean' : g.said[p] > t ? 'Sparkling! +20' : `${Math.round(100 - (100 * left[p]) / total[p])}% clean`);
+      hud.p('h', p, t < 0 ? 'Scrub it clean' : g.said[p] > t ? 'Sparkling! +20' : `Window ${g.layer[p]+1} · ${Math.round(100 - (100 * left[p]) / total[p])}% clean`);
     }
     bursts.update(dt);
     scoreHud(hud, n, g.scores);

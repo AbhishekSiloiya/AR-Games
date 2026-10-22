@@ -1,7 +1,10 @@
+import { trackedCostume, type Costume } from './tracked-costume.ts';
 // What every game shares: the round clock, sound, the players' hands, bursts, and the small geometry of hit-testing.
 // (The React shell that mounts a game lives in stage.tsx; nothing here touches React.)
 import type { Entity, GraphNode } from 'playcanvas';
 import { cutout, playerCount, players, predict, sim, track, tuning, wantCutout } from './pose.ts';
+import { equipmentFactory, type Equipment } from './equipment.ts';
+import { toolRoll } from './gear-motion.ts';
 import { CUT } from './cut.ts';
 import { blip, say, sfx, whoosh } from './audio.ts';
 import { BODY_JOINTS, H, W, bodyLook, cutoutLook, feedUnit, flat, glowLook, instanced, node, mirrorOn, refreshCutouts, ribbon, shapes, show, trailLook, type Scene, type View } from './engine.ts';
@@ -116,25 +119,27 @@ const TRAIL = 12, SPAN = 5;
 export type StageHand = { p: number; x: number; y: number; px: number; py: number; speed: number; on: boolean; pts: Float32Array };
 
 // `map` places the zones; the default is the orthographic stage split into n columns.
-export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number };
+export type HandMap = { cx: (p: number) => number; hw: number; hh: number; cy?: number; camera?: boolean; equipment?: Equipment };
 // `swing`: hand speed (stage units/s) that earns a whoosh the moment it is reached; 0 = silent hands.
 // `tones`: a colour per hand ([left, right]) instead of one per player — for games where which hand matters.
 export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX(n, p), hw: zoneHalf(n), hh: H / 2 }, swing = 6, tones?: string[]) {
   // Glass hands: a bead of light with a halo in the player's colour, and a trail that is brightest at the hand and
   // fades to nothing — light, not paint, so fast hands never hide what they are about to hit.
-  const bead = shapes.quad(2, 2);
+  const bead = shapes.quad(2, 2), makeEquipment=map.equipment?equipmentFactory(map.equipment):null;
   const all = Array.from({ length: n * 2 }, (_, i) => {
     const hex = tones ? tones[i & 1] : PLAYER_COLORS[i >> 1], trail = ribbon(scene.root, TRAIL, trailLook(hex)), cursor: Entity = node(scene.root, bead, glowLook(hex));
-    cursor.setLocalScale(1, 1, 1);
+    cursor.name=`hand-highlight-${i}`;cursor.setLocalScale(1, 1, 1);
+    const gear=makeEquipment?.(scene.root,i&1,hex);
     const pts = new Float32Array(TRAIL * 2);
-    return { trail, cursor, pts, age: new Float32Array(TRAIL), armed: true, pace: 0, state: { p: i >> 1, x: 0, y: 0, px: 0, py: 0, speed: 0, on: false, pts } as StageHand };
+    return { trail, cursor, gear, roll:0, pts, age: new Float32Array(TRAIL), armed: true, pace: 0, state: { p: i >> 1, x: 0, y: 0, px: 0, py: 0, speed: 0, on: false, pts } as StageHand };
   });
   const update = (dt: number) =>
     all.map((own, i) => {
       const { trail, cursor, pts, age, state: s } = own;
       const hand = players[s.p].hands[i & 1], was = s.on;
       s.on = players[s.p].present && hand.seen;
-      show(trail.entity, s.on); show(cursor, s.on);
+      show(trail.entity, s.on); show(cursor, s.on && !own.gear);
+      if (own.gear) show(own.gear,s.on);
       if (!s.on) return s;
       // The camera updates ~30x a second, the screen 60x: glide toward the latest reading so motion is continuous,
       // and take speed from the tracker (measured at camera rate) — never from per-frame screen deltas.
@@ -142,7 +147,11 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       // How hard to chase the tracker depends on how far behind we are: close to it (a still or slow hand) the dot
       // moves gently, so tracker noise — and the 20-odd readings a second arriving as little steps — never shows;
       // far from it (a real swing) it goes almost at once. Steady at rest, immediate in motion.
-      const at = predict(hand), tx = map.cx(s.p) + at.x * map.hw, ty = (map.cy ?? 0) + at.y * map.hh, far = was ? Math.hypot(tx - s.x, ty - s.y) : 0;
+      const at = predict(hand), pl = players[s.p], rig = pl.rig[15 + (i & 1)], room = map.camera && mirrorOn() && !!rig;
+      const unit = feedUnit(pl.frame.aspect);
+      const tx = room ? (pl.frame.x - pl.frame.aspect / 2 + rig[0] * pl.frame.sw) * unit : map.cx(s.p) + at.x * map.hw;
+      const ty = room ? (.5 - pl.frame.y + rig[1] * pl.frame.sw) * unit : (map.cy ?? 0) + at.y * map.hh;
+      const far = was ? Math.hypot(tx - s.x, ty - s.y) : 0;
       const k = was ? 1 - Math.exp(-dt * (11 + 36 * Math.min(1, far / 1.1))) : 1;
       s.px = was ? s.x : tx;
       s.py = was ? s.y : ty;
@@ -151,6 +160,11 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       cursor.setLocalPosition(s.x, s.y, 1);
       const swell = 0.95 + Math.min(0.7, own.pace * 0.04); // a fast hand burns brighter
       cursor.setLocalScale(swell, swell, 1);
+      if (own.gear) {
+        own.roll=toolRoll(own.roll,(s.x-s.px)/Math.max(.01,dt),(s.y-s.py)/Math.max(.01,dt),dt);
+        own.gear.setLocalPosition(s.x,s.y,1);own.gear.setLocalEulerAngles(0,0,own.roll);
+        own.gear.setLocalScale(.95,.95,.95);
+      }
       if (was) { pts.copyWithin(2, 0, (TRAIL - 1) * 2); age.copyWithin(1, 0, TRAIL - 1); for (let k = 1; k < TRAIL; k++) age[k] += dt; }
       else for (let k = 0; k < TRAIL; k++) { pts.set([s.x, s.y], k * 2); age[k] = k ? 1 : 0; }
       pts.set([s.x, s.y], 0);
@@ -159,6 +173,7 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       // through the fruit before it "counted" as fast. So also measure straight across the last few drawn positions
       // (net distance, so jitter around a still hand reads as nothing) and believe whichever is higher.
       const across = Math.hypot(pts[0] - pts[2 * SPAN], pts[1] - pts[2 * SPAN + 1]) / Math.max(0.03, age[SPAN]);
+      // Preserve body-relative swing sensitivity under true camera-coordinate rendering.
       s.speed = Math.max(Math.hypot(hand.vx * map.hw, hand.vy * map.hh), age[SPAN] < 0.25 ? across : 0);
       own.pace += (s.speed - own.pace) * Math.min(1, dt * 8); // the trail's width follows a calmed speed, or it flickers
       if (swing && own.armed && s.speed > swing) { own.armed = false; whoosh(Math.min(1, s.speed / swing / 3)); }
@@ -174,7 +189,9 @@ export function hands(scene: Scene, n: number, map: HandMap = { cx: (p) => zoneX
       trail.commit();
       return s;
     });
-  return { update };
+  return { update, placeEquipment: (i: number,x: number,y: number,z=1) => {
+    all[i]?.gear?.setLocalPosition(x,y,z);
+  } };
 }
 
 // Did this hand's recent path pass within r of (x, y)? Looks back over the last few drawn positions (~100ms), not
@@ -202,8 +219,9 @@ export function segDist(px: number, py: number, ax: number, ay: number, bx: numb
 // the shoulders sits; `scale` is stage units per shoulder-width (1.2 fits a standing adult, arms up, into the stage).
 export type Pad = { part: 'hand' | 'head' | 'elbow' | 'knee' | 'foot'; side: number; x: number; y: number; vx: number; vy: number; seen: boolean };
 const PADS: [Pad['part'], number, number[]][] = [['hand', 0, [15, 19]], ['hand', 1, [16, 20]], ['head', 0, [0]], ['elbow', 0, [13]], ['elbow', 1, [14]], ['knee', 0, [25]], ['knee', 1, [26]], ['foot', 0, [27, 31]], ['foot', 1, [28, 32]]];
-export function figure(scene: Scene, p: number, at: { x: number; y: number; scale: number }) {
+export function figure(scene: Scene, p: number, at: { x: number; y: number; scale: number }, costume?: Costume|'none') {
   const hex = PLAYER_COLORS[p], group = node(scene.root, undefined, undefined, [at.x, at.y, 0.6]);
+  const updateCostume=costume&&costume!=='none'?trackedCostume(group,costume,p):null;
   const pads: Pad[] = PADS.map(([part, side]) => ({ part, side, x: 0, y: 0, vx: 0, vy: 0, seen: false }));
   const inRoom = mirrorOn(), wantsPicture = tuning.look === 'camera' && !sim && !inRoom;
   const window_ = shapes.quad(CUT.left * 2 + 1, CUT.up + CUT.down + 1), lift = (CUT.up - CUT.down) / 2;
@@ -220,7 +238,7 @@ export function figure(scene: Scene, p: number, at: { x: number; y: number; scal
 
   const update = () => {
     const pl = players[p], rig = pl.rig, on = pl.present && rig.length === 33;
-    show(spot, on && !inRoom);
+    show(spot, on && !inRoom && costume!=='none');
     if (!show(group, on)) { show(ground, false); for (const pad of pads) pad.seen = false; return pads; }
     if (!inRoom) { // true to the room: sideways from your place, up and down with your body
       const f = pl.frame, off = sim ? pl.lean * 1.5 : (f.x / f.aspect - seatAt) * W * 0.9;
@@ -232,7 +250,9 @@ export function figure(scene: Scene, p: number, at: { x: number; y: number; scal
     // The picture, if there is one to show this frame (one player, mask arriving); otherwise the shadow body.
     const pictured = !!picture && tuning.look === 'camera' && cutout.slots === 1 && refreshCutouts() > 0;
     if (picture && show(picture, pictured)) { cut!.setParameter('uSlot', [0, 1, 0, 0]); cut!.setParameter('uTime', performance.now() / 1000); }
-    show(ground, !inRoom);
+    show(ground, !inRoom && costume!=='none');
+    if(costume)body.enabled=false;
+    if(updateCostume)updateCostume(rig);
     BODY_JOINTS.forEach((j, i) => { joints[i * 2] = rig[j][0]; joints[i * 2 + 1] = rig[j][1] - lift; seen[i] = rig[j][2]; });
     look.setParameter('uJ[0]', joints); look.setParameter('uSeen[0]', seen); look.setParameter('uTips', pictured || inRoom ? 1 : 0);
     PADS.forEach(([, , js], i) => {

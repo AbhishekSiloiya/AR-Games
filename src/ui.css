@@ -185,3 +185,45 @@ th { color: var(--ink-dim); font-weight: 500; font-size: 1rem; } td.lead, .lead 
 .presence span:empty { display: none; }
 .presence.small { opacity: 0.65; }
 .presence.small canvas { width: 5.6rem; height: 3.15rem; }
+
+/* Guided camera setup: a fitted live picture, large prompts and one clear action. */
+.player-setup { position:fixed; inset:0; z-index:3; padding:clamp(1rem,3vw,2.8rem); background:#101522; overflow:auto; display:flex; flex-direction:column; gap:1.5rem; animation:screen-in 250ms ease-out both; }
+.setup-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.setup-heading h1 { font-size:clamp(1.8rem,3vw,3rem); }
+.setup-eyebrow { color:#86dfd4; font-size:.95rem; letter-spacing:.1em; margin-bottom:.5rem; }
+.setup-workspace { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,28%); gap:clamp(1rem,3vw,3rem); align-items:center; }
+.setup-camera { position:relative; background:#0d1723; border-radius:1.2rem; overflow:hidden; box-shadow:0 0 0 1px #344354; }
+.camera-view { display:block; width:100%; aspect-ratio:16/9; }
+.camera-label { position:absolute; top:1rem; left:1rem; font-size:.8rem; padding:.4rem .7rem; border-radius:.4rem; background:#101522c9; color:#e2f5f1; }
+.setup-prompt { position:relative; padding:1rem 1.5rem; background:#13212e; text-align:center; pointer-events:none; }
+.setup-prompt strong { display:block; font-size:clamp(1.05rem,1.7vw,1.6rem); text-wrap:balance; }
+.setup-progress { height:5px; max-width:24rem; margin:1rem auto 0; border-radius:1rem; background:#ffffff29; overflow:hidden; }
+.setup-progress i { display:block; height:100%; background:#73f5dc; transition:width 90ms linear; }
+.setup-instructions { display:flex; flex-direction:column; gap:1.3rem; font-size:1.05rem; }
+.setup-phases { list-style:none; display:flex; flex-direction:column; gap:1rem; }
+.setup-phases li { display:flex; gap:.8rem; align-items:center; color:#8595a4; }
+.setup-phases li span { display:grid; place-items:center; width:2rem; height:2rem; border:1px solid currentColor; border-radius:50%; }
+.setup-phases li.active { color:#73f5dc; }
+.joint-checks { display:flex; flex-wrap:wrap; gap:.5rem 1rem; color:#b0bac5; font-size:.95rem; }
+.joint-checks .ready { color:#73f5dc; }
+.setup-view { border:0; padding:0; display:flex; flex-wrap:wrap; gap:.5rem; }
+.setup-view legend { margin-bottom:.6rem; color:#b0bac5; }
+.setup-view button { font-size:.95rem; padding:.6rem .85rem; border-radius:.65rem; }
+.setup-view button[aria-pressed=true] { border-color:#73f5dc; background:#73f5dc20; }
+.player-inset { position:fixed; bottom:1.2rem; right:1.2rem; width:clamp(140px,19vw,260px); z-index:4; border:2px solid #73f5dc; border-radius:.8rem; overflow:hidden; background:#0d1723; pointer-events:none; }
+.player-inset span { position:absolute; bottom:.3rem; left:.5rem; font-size:.85rem; background:#101522b0; padding:.15rem .4rem; border-radius:.3rem; }
+.tracking-recovery .panel { max-width:42rem; padding:1.5rem; }
+.tracking-recovery .camera-view { width:min(32rem,65vw); border-radius:.7rem; }
+@media (max-width:850px) { .player-setup {gap:1rem;} .setup-workspace {grid-template-columns:minmax(0,1fr) minmax(200px,31%); gap:1rem;} .setup-instructions {font-size:.9rem; gap:.8rem;} .setup-phases {gap:.6rem;} .setup-eyebrow {font-size:.8rem;} .camera-label {font-size:.65rem; top:.5rem;left:.5rem;} .setup-prompt {padding:.8rem .7rem;} }
+@media (max-width:600px) and (orientation:portrait) { .setup-workspace {display:flex; flex-direction:column; align-items:stretch;} .setup-phases {flex-direction:row;justify-content:space-between; font-size:.8rem;gap:.5rem;} .setup-phases li {flex-direction:column;text-align:center;gap:.3rem;} .setup-heading h1 {font-size:1.8rem;} .setup-heading button {padding:.6rem;} }
+@media (prefers-reduced-motion:reduce) { .player-setup {animation:none;} .setup-progress i {transition:none;} }
+
+.screen.library { overflow-y:auto; }
+.screen.library > * { flex-shrink:0; }
+
+/* Keep the live dancer’s face clear of persistent score and timer labels. */
+.live-dance .hud.clock, .live-dance .hud.score { top: auto; bottom: 1.6rem; }
+.live-dance .hud.hint { top: auto; bottom: 7.6rem; }
+
+.demolition-stage .hud.hint { top:auto; bottom:1rem; }
+.demolition-stage .hud.hint.p1, .demolition-stage .hud.hint.p2 { top:6.4rem; bottom:auto; }

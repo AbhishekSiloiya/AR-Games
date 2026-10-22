@@ -1,6 +1,7 @@
 // Goalie — real ballistics (Rapier). Shots are rigid bodies fired on an arc at a spot in your goal; your gloves are
 // kinematic colliders, so a save is a real deflection — swat it and it flies, just get there and it drops.
 // A shot that crosses the line is a goal. Hands are body-relative across your own goal: together-play is compact.
+import { footballMaterial } from '../football.ts';
 import { hardness } from '../meta.ts';
 import { sim } from '../pose.ts';
 import { physics } from '../physics.ts';
@@ -32,12 +33,21 @@ export default async function goalie({ n, stage, onEnd, hud, scene, cleanup }: G
     for (const [x, y, w, h] of [[-goal.hw - 0.3, goal.cy, 0.3, goal.hh * 2 + 0.6], [goal.hw + 0.3, goal.cy, 0.3, goal.hh * 2 + 0.6], [0, goal.cy + goal.hh + 0.4, goal.hw * 2 + 0.9, 0.3]])
       node(scene.root, unit, postLook, [goal.cx(p) + x, y, 0]).setLocalScale(w, h, 0.3);
   }
-  const ballMesh = shapes.facets(BALL_R, 1), ballLook = lit('#fafafa', { emissive: '#000000' }), ringMesh = shapes.ring(0.9, 1, 40), ringLook = flat('#fafafa', { opacity: 1 });
+
+  // Stadium seats and goal net read as football even before the first shot.
+  const seatLook=lit('#2563a3'), seatMesh=shapes.box(3.6,.4,1.2), netLook=flat('#c8efff',{opacity:.3});
+  for(const side of [-1,1]) for(let row=0;row<4;row++) for(let col=0;col<5;col++) node(scene.root,seatMesh,seatLook,[side*(10+row*.7),FLOOR+row*.55,-7-col*4]);
+  for(let p=0;p<n;p++) {
+    for(let k=0;k<=12;k++) node(scene.root,shapes.quad(.025,goal.hh*2),netLook,[goal.cx(p)-goal.hw+2*goal.hw*k/12,goal.cy,-1]);
+    for(let k=0;k<=7;k++) node(scene.root,shapes.quad(goal.hw*2,.025),netLook,[goal.cx(p),goal.cy-goal.hh+2*goal.hh*k/7,-1]);
+  }
+  const ballMesh = shapes.sphere(BALL_R, 16), ballLook = footballMaterial(), ringMesh = shapes.ring(0.9, 1, 40), ringLook = flat('#fafafa', { opacity: 1 });
   const balls = shots.map((_, i) => {
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, -30 - i, 0).setCcdEnabled(true).setLinearDamping(0.05));
     world.createCollider(RAPIER.ColliderDesc.ball(BALL_R).setRestitution(0.75).setFriction(0.4).setDensity(0.6), body);
     body.setEnabled(false);
     const mesh = node(scene.root, ballMesh, ballLook), ring = node(scene.root, ringMesh, ringLook);
+    mesh.name=`goalie-ball-${i}`;
     mesh.enabled = ring.enabled = false;
     return { body, mesh, ring };
   });
@@ -48,7 +58,7 @@ export default async function goalie({ n, stage, onEnd, hud, scene, cleanup }: G
   });
 
   const g = { spawnIn: [1, 1.5], scores: [0, 0], combo: [0, 0] };
-  const hands = makeHands(scene, n, goal), bursts = makeBursts(scene.root);
+  const hands = makeHands(scene, n, { ...goal, equipment:'keeper' }), bursts = makeBursts(scene.root);
   if (sim) Object.assign(window, { __goalie: { shots, goal, g } }); // test hook: lets a headless run aim the glove at the ring
   const tick = round(hud, ROUND, () => { music.stop(); onEnd(g.scores.slice(0, n)); });
   music.start('arcade');
@@ -68,6 +78,7 @@ export default async function goalie({ n, stage, onEnd, hud, scene, cleanup }: G
         const pull = 0.65 * (1 - s.left / 0.45);
         x += (s.tx - x) * pull; y += (s.ty - y) * pull;
       }
+      hands.placeEquipment(i,x,y,.2);
       gloves[i].setNextKinematicTranslation({ x: h.on ? x : 0, y: h.on ? y : -40, z: 0.2 });
     });
 

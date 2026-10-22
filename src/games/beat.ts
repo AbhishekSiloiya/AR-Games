@@ -1,13 +1,15 @@
+import { beatCues } from '../beat-cues.ts';
+import { discoStage } from '../disco-stage.ts';
 // Beat — moves fall to the line in time with the music: left up, right up, both up, squat, jump.
 // Each move has its own lane and shape; landing it close to the beat is "Perfect" and scores double.
 // All vertical, so it is compact. The clock is the AudioContext's, so notes and sound cannot drift apart.
 import { isAir, isLow, players, tuning, type Player } from '../pose.ts';
 import { hardness } from '../meta.ts';
-import { backdrop, fade, flat, node, shapes, show } from '../engine.ts';
-import { COUNTDOWN, H, audio, bursts as makeBursts, comboText, countdown, divider, hitSound, inputLag, music, say, scoreHud, zoneHalf, zoneX, type Game } from '../kit.ts';
+import { fade, flat, node, shapes, show } from '../engine.ts';
+import { COUNTDOWN, audio, bursts as makeBursts, comboText, countdown, divider, hitSound, inputLag, music, say, scoreHud, zoneHalf, zoneX, type Game } from '../kit.ts';
 
 const BPM = 104, BEAT = 60 / BPM, ROUND = 60, FALL = 2.4; // FALL = seconds a note is on screen before its beat
-const HIT_Y = -2.8, WINDOW = 0.26, PERFECT = 0.11; // seconds either side of the beat
+const SPAWN_Y = 2.2, HIT_Y = -2.8, WINDOW = 0.26, PERFECT = 0.11; // seconds either side of the beat
 const HOLD = 1.5; // a move must have been started this recently to count: getting into it early is fine, standing there with a hand up all round is not
 const up = (pl: Player, h: number) => pl.hands[h].seen && pl.hands[h].y > tuning.handUp;
 const MOVES = [
@@ -31,7 +33,8 @@ const chart = (hard: number) => {
 
 export default function beat({ n, stage, onEnd, hud, scene }: Game) {
   const notes = chart(hardness(stage));
-  backdrop(scene, 'synth');
+  const cues=beatCues(scene,n);
+  const danceFloor=discoStage(scene);
   const mesh = { disc: shapes.circle(0.55, 24), wide: shapes.quad(3.4, 0.55), tri: shapes.circle(0.7, 3) }, looks = MOVES.map((m) => flat(m.color, { opacity: 1 }));
   // One marker per note per player, made up front and hidden until its note is on screen.
   const marks = notes.map((note) => Array.from({ length: n }, () => {
@@ -48,6 +51,7 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
   const laneX = (p: number, lane: number) => zoneX(n, p) + lane * zoneHalf(n) * 0.55;
 
   return () => {
+    danceFloor(Math.max(0,(audio().currentTime-g.start)/BEAT));
     if (g.done) return;
     const t = audio().currentTime - g.start, dt = Math.min(0.05, t - g.last);
     g.last = t;
@@ -83,8 +87,9 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
           else if (note.state[p] === 1) score(note, p, due);
         }
         const m = marks[i][p], hit = note.state[p] === 2;
-        if (!show(m, note.at - t < FALL && due > -WINDOW - 0.15)) continue;
-        m.setLocalPosition(laneX(p, move.lane), HIT_Y + ((note.at - t) / FALL) * (H / 2 - HIT_Y), 0);
+        const visible=show(m, note.at - t < FALL && due > -WINDOW - 0.15);
+        if (!visible) continue;
+        m.setLocalPosition(laneX(p, move.lane), HIT_Y + ((note.at - t) / FALL) * (SPAWN_Y - HIT_Y), 0);
         m.setLocalScale(hit ? 1.4 : 1, hit ? 1.4 : 1, 1);
         fade(m, hit ? 0.3 : 1);
       }
@@ -97,8 +102,11 @@ export default function beat({ n, stage, onEnd, hud, scene }: Game) {
         g.combo[p] = 0; g.said[p] = 'Miss'; g.saidUntil[p] = t + 0.45;
       }
     });
-    for (let p = 0; p < n; p++)
+    for (let p = 0; p < n; p++) {
+      const upcoming=notes.find(note=>!note.judged&&note.state[p]<2);
+      cues.current(p,upcoming?.move,upcoming?MOVES[upcoming.move].color:'#ffffff',upcoming?upcoming.at-t:Infinity,g.saidUntil[p]>t?g.said[p]:'');
       hud.p('h', p, t < 0 ? 'Move on the beat' : g.saidUntil[p] > t ? g.said[p] : next ? MOVES[next.move].hint : comboText(g.combo[p]));
+    }
     bursts.update(dt);
     scoreHud(hud, n, g.scores);
   };

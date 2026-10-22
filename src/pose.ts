@@ -71,7 +71,7 @@ export const tuning = {
   direct: stored('romp.frames') !== 'copied', // stream camera frames straight into the tracker (off = copy them out of the <video>, the old route)
   // How players are shown in full-body games: 'camera' = their own picture, lifted out of the room; 'shadow' = the same
   // shape filled with their colour; 'avatar' = a drawn character from the skeleton (no mask needed: the cheapest).
-  look: (['camera', 'mirror'].includes(stored('romp.look') ?? '') ? stored('romp.look') : 'shadow') as 'camera' | 'shadow' | 'mirror',
+  look: (stored('romp.look') === 'mirror' ? 'mirror' : 'shadow') as 'camera' | 'shadow' | 'mirror', // retire saved camera cut-out preferences
   fastCam: stored('romp.cam') !== 'standard', // take the camera's 60fps mode when it has one, even at a smaller picture
 };
 
@@ -90,8 +90,12 @@ const mkPlayer = (): Player => ({
   frame: { x: 0, y: 0, sw: 0.1, aspect: 16 / 9 },
 });
 export const players: [Player, Player] = [mkPlayer(), mkPlayer()];
+// Receipt times, independent of camera timestamps; a stalled stream must never look ready.
+export const trackingSeen = [0, 0];
+// Estimated comfortable horizontal reach from setup, in mirrored camera coordinates.
+export const cameraReach: ({ left: number; right: number } | null)[] = [null,null];
 export const perf = { fps: 0, delegate: '' };
-queueMicrotask(() => Object.assign(globalThis, { __romp: { perf, track, tuning, players, grip } })); // a handle for DevTools over adb — read-only by convention
+queueMicrotask(() => Object.assign(globalThis, { __romp: { perf, track, tuning, players, grip, trackingSeen } })); // a handle for DevTools over adb — read-only by convention
 export const sim = new URLSearchParams(globalThis.location?.search ?? '').has('sim');
 
 let nPlayers = 1;
@@ -203,6 +207,13 @@ const prev: (NormalizedLandmark[] | null)[] = [null, null];
 const lastApply = [0, 0], strangers = [0, 0]; // strangers: readings in a row that belonged to the other side
 // Each player's own standing shoulder height: learned while they stand, re-learned if they walk to a new spot.
 const stand = [{ y: NaN, x: NaN, since: 0, ratio: 0 }, { y: NaN, x: NaN, since: 0, ratio: 0 }];
+export function captureStanding() {
+  players.slice(0, nPlayers).forEach((pl, i) => {
+    stand[i].x = pl.frame.x; stand[i].y = pl.frame.y; stand[i].since = lastApply[i];
+    filters[i].lift.reset(); filters[i].steer.reset();
+    pl.lift = pl.liftV = pl.steer = 0;
+  });
+}
 // `now` is when the frame was captured, so every reading carries its true age and speeds use true frame spacing.
 // With two players each has a tracker of their own, looking at their own side of the picture (see startWorker): a
 // reading then arrives for one `seat` at a time, in its own rhythm. With one player, one tracker sees the whole frame.
@@ -220,6 +231,7 @@ function apply(poses: NormalizedLandmark[][], aspect: number, now = performance.
     const dt = Math.min(0.2, Math.max(1e-3, (now - lastApply[i]) / 1000));
     lastApply[i] = now;
     const lm = slots[i], F = filters[i], st = stand[i];
+    trackingSeen[i] = performance.now();
     pl.present = !!lm;
     if (!lm) return void ((prev[i] = null), (st.y = st.x = NaN), (st.ratio = 0), resetFilters(F));
 

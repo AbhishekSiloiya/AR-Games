@@ -1,8 +1,9 @@
+import { beachBallMaterial } from '../beach-ball.ts';
 // Keepy-Uppy — keep the balloon off the floor with anything you have. A balloon is slow and floaty, so there is
 // always time to get under it — the game is in what you hit it WITH: a header, a knee or a kick pays more than a hand,
 // and never using the same part twice running builds a variety streak. More balloons join, the wind gets up, a heavy
 // water balloon drops in, and the last seconds are a balloon storm to pop with hard hits.
-// Two players rally one balloon across the line between them: every crossing pays, and the rally count is the score
+// Two players rally the toys across the line between them: every crossing pays, and the rally count is the score
 // you will be talking about afterwards.
 import type { Entity } from 'playcanvas';
 import { hardness } from '../meta.ts';
@@ -13,22 +14,27 @@ const FINALE = 8, SCALE = 1.2, SHOULDER_Y = 0.55, FLOOR = -H / 2 + 0.35, CEILING
 const COLORS = ['#f43f5e', '#fbbf24', '#34d399', '#38bdf8', '#a78bfa', '#fb923c'];
 const PART = { hand: { points: 1, word: '' }, elbow: { points: 2, word: 'Elbow!' }, head: { points: 2, word: 'Header!' }, knee: { points: 2, word: 'Knee!' }, foot: { points: 3, word: 'Kick!' } } as const;
 const PAD_R: Record<Pad['part'], number> = { hand: 0.42, elbow: 0.36, head: 0.55, knee: 0.42, foot: 0.45 };
-type Balloon = { on: boolean; kind: 'air' | 'water' | 'storm'; x: number; y: number; vx: number; vy: number; r: number; hex: string; squash: number; side: number; cool: number[]; e: Entity; shine: Entity };
+type Balloon = { on: boolean; kind: 'air' | 'water' | 'beach' | 'storm'; x: number; y: number; vx: number; vy: number; r: number; hex: string; squash: number; side: number; cool: number[]; e: Entity; shell: Entity; shine: Entity; panels: Entity; tail: Entity };
 
 export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game) {
-  const hard = hardness(stage), rally = n === 2, classic = mode === 'classic', ROUND = classic ? Infinity : 60; // two players always rally: one balloon game, one score
+  const hard = hardness(stage), rally = n === 2, classic = mode === 'classic', ROUND = classic ? Infinity : 60; // two players share a rally and score
   backdrop(scene, 'sky', true);
   const bodies = Array.from({ length: n }, (_, p) => figure(scene, p, { x: zoneX(n, p), y: SHOULDER_Y, scale: SCALE }));
   if (rally) divider(scene, n, '#52525b', -0.5, 0.05);
   node(scene.root, shapes.quad(W, 0.12), flat('#f43f5e', { opacity: 0.55 }), [0, FLOOR - 0.3, 0.2]); // the floor line: what the balloons must not reach
   const ball = shapes.sphere(1, 18), dot = shapes.circle(1, 12), skin = lit('#ffffff', { emissive: '#ffffff', glow: 0.35 }), gloss = flat('#ffffff', { opacity: 0.55 });
-  const balloons: Balloon[] = Array.from({ length: POOL }, () => {
-    const e = node(scene.root, ball, skin), shine = node(e, dot, gloss, [-0.35, 0.4, 0.95]);
+  const beachLook=beachBallMaterial();
+  const knotMesh=shapes.cone(.09,.18,5), knotLook=flat('#ffffff'), stringMesh=shapes.quad(.018,.5), stringLook=flat('#ffffff',{opacity:.65});
+  const balloons: Balloon[] = Array.from({ length: POOL }, (_,i) => {
+    const e = node(scene.root);e.name=`keepy-toy-${i}`;const shell=node(e,ball,skin), shine = node(e, dot, gloss, [-0.35, 0.4, 0.95]);
     shine.setLocalScale(0.22, 0.3, 1); e.enabled = false;
-    return { on: false, kind: 'air', x: 0, y: 0, vx: 0, vy: 0, r: 0.8, hex: COLORS[0], squash: 0, side: 0, cool: [], e, shine };
+    const panels=node(e,ball,beachLook);panels.name=`keepy-beach-panels-${i}`;
+    const tail=node(e);node(tail,knotMesh,knotLook,[0,-1.05,0]);node(tail,stringMesh,stringLook,[0,-1.37,0]);
+    panels.enabled=false;
+    return { on: false, kind: 'air', x: 0, y: 0, vx: 0, vy: 0, r: 0.8, hex: COLORS[0], squash: 0, side: 0, cool: [], e, shell, shine, panels, tail };
   });
   const bursts = makeBursts(scene.root), passed = bestLine(hud, best);
-  const g = { score: 0, streak: 0, bestStreak: 0, rally: 0, bestRally: 0, variety: 0, lastPart: '', lastBy: -1, kicks: 0, headers: 0, lives: classic ? 3 : 0, wind: 0, twist: false, finale: false, stormIn: 0, popped: 0, nextJoin: 14, over: false, assist: 0 };
+  const g = { score: 0, streak: 0, bestStreak: 0, rally: 0, bestRally: 0, variety: 0, lastPart: '', lastBy: -1, kicks: 0, headers: 0, lives: classic ? 3 : 0, wind: 0, twist: false, finale: false, stormIn: 0, popped: 0, nextJoin: 18, nextBall: 7, over: false, assist: 0 };
   const finish = () => { g.over = true; music.stop(); const s = Math.round(g.score); onEnd(rally ? [s, s] : [s], Array.from({ length: n }, () => [rally && g.bestRally >= 3 ? `Longest rally ${g.bestRally}` : '', g.bestStreak >= 5 ? `${g.bestStreak} touches without a drop` : '', g.headers ? `${g.headers} header${g.headers > 1 ? 's' : ''}` : '', g.kicks ? `${g.kicks} kick${g.kicks > 1 ? 's' : ''}` : '', g.popped ? `${g.popped} popped in the storm` : ''].filter(Boolean))); };
   const tick = round(hud, ROUND, finish);
   music.start(classic ? 'calm' : 'arcade', undefined, 0.4);
@@ -36,12 +42,14 @@ export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game)
   const spawn = (kind: Balloon['kind'], x: number, y = CEILING + 1) => {
     const b = balloons.find((q) => !q.on);
     if (!b) return;
-    Object.assign(b, { on: true, kind, x, y, vx: (Math.random() - 0.5) * 1.5, vy: 0, r: kind === 'water' ? 0.55 : kind === 'storm' ? 0.5 : 0.85, hex: kind === 'water' ? '#38bdf8' : COLORS[Math.floor(Math.random() * COLORS.length)], squash: 0, side: x < 0 ? 0 : 1, cool: [] });
-    tint(b.e, b.hex, 'diffuse'); tint(b.e, b.hex, 'emissive');
+    Object.assign(b, { on: true, kind, x, y, vx: (Math.random() - 0.5) * 1.5, vy: 0, r: kind === 'water' ? 0.55 : kind === 'storm' ? 0.5 : kind === 'beach' ? 0.72 : 0.85, hex: kind === 'beach' ? '#ffffff' : kind === 'water' ? '#38bdf8' : COLORS[Math.floor(Math.random() * COLORS.length)], squash: 0, side: x < 0 ? 0 : 1, cool: [] });
+    tint(b.shell, b.hex, 'diffuse'); tint(b.shell, b.hex, 'emissive');
+    b.shell.enabled=kind!=='beach';b.panels.enabled=kind==='beach';b.tail.enabled=kind!=='beach';b.shine.enabled=kind!=='beach';
   };
   const reachX = rally ? W / 2 - 1 : Math.min(zoneHalf(n), 3.4); // keep play over the body: nobody should have to step sideways
   const over = () => (rally ? 0 : bodies[0].at.x); // solo, balloons come down over wherever the player is standing
-  spawn('air', 0, 2.5);
+  spawn('air', rally ? -1 : -.8, 2.5);
+  if(!rally)spawn('air',1.1,3.5);
 
   return (rawDt: number) => {
     const dt = Math.min(rawDt, 0.05), t = tick(rawDt);
@@ -50,11 +58,14 @@ export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game)
     const progress = isFinite(ROUND) ? Math.max(0, t) / ROUND : Math.min(0.8, t / 120), finale = isFinite(ROUND) && t > ROUND - FINALE;
 
     if (t >= 0 && !finale) {
-      // A second and third balloon join as the round goes on; a heavy water balloon drops in now and then.
-      const air = balloons.filter((b) => b.on && b.kind === 'air').length;
-      if (t > g.nextJoin && air < (rally ? 2 : 3)) { g.nextJoin = t + 16 / hard; spawn('air', over() + (Math.random() - 0.5) * reachX); hud.banner(air === 1 ? 'Two balloons!' : 'Three balloons!', 1300); sfx('maximize', { vol: 0.5 }); }
-      if (air === 0) spawn('air', over() + (Math.random() - 0.5) * reachX);
-      if (t > 20 && Math.random() < dt / 9 && !balloons.some((b) => b.on && b.kind === 'water')) { spawn('water', over() + (Math.random() - 0.5) * reachX * 1.4); hud.banner('Water balloon · worth 3', 1200); }
+      // Two floaty balloons begin solo play. More toys join steadily, capped for comfortable reach.
+      let active=balloons.filter(b=>b.on&&b.kind!=='storm').length;
+      const cap=rally?3:stage<=2?3:4;
+      const air=balloons.filter(b=>b.on&&b.kind==='air').length;
+      if(t>g.nextJoin && active<cap) {g.nextJoin=t+12/hard;spawn('air',over()+(Math.random()-.5)*reachX);active++;hud.banner('Another balloon!',1200);sfx('maximize',{vol:.5});}
+      if(air===0&&active<cap){spawn('air',over()+(Math.random()-.5)*reachX);active++;}
+      if(t>g.nextBall && active<cap && !balloons.some(b=>b.on&&b.kind==='beach')) {g.nextBall=t+18;spawn('beach',over()+(Math.random()-.5)*reachX);active++;hud.banner('Beach ball · bouncier!',1500);}
+      if(t>24&&active<cap&&Math.random()<dt/12&&!balloons.some(b=>b.on&&b.kind==='water')) {spawn('water',over()+(Math.random()-.5)*reachX);hud.banner('Water balloon · worth 3',1200);}
       if (!g.twist && progress > 0.5) { g.twist = true; hud.banner('The wind is getting up!', 1700); sfx('zapThreeToneUp', { vol: 0.6 }); }
     }
     if (finale && !g.finale) { g.finale = true; hud.banner('Balloon storm · pop them!', 1700); say('hurry_up'); for (const b of balloons) if (b.on && b.kind !== 'storm') b.kind = 'storm'; }
@@ -64,7 +75,7 @@ export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game)
     for (const b of balloons) {
       if (!show(b.e, b.on)) continue;
       // A balloon: hardly any gravity, a lot of drag. It is never where a fast hand left it for long.
-      const heavy = b.kind === 'water', fall = (heavy ? -5.5 : b.kind === 'storm' ? -2.2 : -1.5) * (1 - 0.25 * g.assist) * Math.sqrt(hard), drag = heavy ? 0.5 : 1.7;
+      const heavy = b.kind === 'water', beach = b.kind === 'beach', fall = (heavy ? -5.5 : beach ? -3.2 : b.kind === 'storm' ? -2.2 : -1.5) * (1 - 0.25 * g.assist) * Math.sqrt(hard), drag = heavy ? 0.5 : beach ? .75 : 1.7;
       b.vy += fall * dt; b.vx += g.wind * dt * (heavy ? 0.3 : 1);
       b.vx -= b.vx * drag * dt; b.vy -= b.vy * drag * dt;
       b.x += b.vx * dt; b.y += b.vy * dt;
@@ -88,7 +99,7 @@ export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game)
         // (Otherwise standing still under it is a header every second, for ever.)
         if (speed < 1.1) { b.vx += nx * 1.2 + (Math.random() - 0.5); b.vy = Math.max(b.vy, 0.6); b.x = pad.x + nx * reach; b.y = pad.y + ny * reach; continue; }
         // The bump: away from whatever touched it, carrying some of that part's own speed, and always a little up.
-        const push = 3.2 + Math.min(7, speed) * 0.75;
+        const push = (beach ? 4.1 : 3.2) + Math.min(7, speed) * 0.75;
         b.vx = nx * push * 0.8 + pad.vx * 0.35; b.vy = Math.max(2.4, ny * push + pad.vy * 0.35 + 2.2); b.squash = 1;
         b.x = pad.x + nx * reach; b.y = pad.y + ny * reach;
         const fresh = pad.part !== g.lastPart;
@@ -115,7 +126,9 @@ export default function keepy({ n, stage, mode, best, onEnd, hud, scene }: Game)
       }
       b.squash = Math.max(0, b.squash - dt * 5);
       const wob = Math.sin(b.squash * Math.PI) * 0.22;
-      b.e.setLocalPosition(b.x, b.y, 0.3); b.e.setLocalScale(b.r * (1 + wob), b.r * 1.12 * (1 - wob), b.r);
+      b.shell.enabled=b.kind!=='beach';b.panels.enabled=b.kind==='beach';b.tail.enabled=b.kind!=='beach';b.shine.enabled=b.kind!=='beach';
+      b.e.setLocalEulerAngles(0,0,b.kind==='beach'?t*18+b.x*8:Math.sin(t*2+b.x)*5);
+      b.e.setLocalPosition(b.x, b.y, 0.3); b.e.setLocalScale(b.r * (1 + wob), b.r * (b.kind === 'beach' ? 1 : 1.12) * (1 - wob), b.r);
     }
 
     bursts.update(dt);

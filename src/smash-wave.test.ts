@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {robotArrival,incomingState,launchIncoming,stepIncoming,hitIncoming} from './smash-wave.ts';
+assert.equal(robotArrival(.3,0).ready,false,'robot arrival is protected');
+assert.equal(robotArrival(1.6,0).ready,true,'settled robot accepts hits');
+assert.equal(robotArrival(9,9).ready,false,'rebuilt robots arrive again');
+const q=incomingState();launchIncoming(q);assert.equal(hitIncoming(q),false,'warning cannot score');
+for(let i=0;i<15;i++)stepIncoming(q,.05);assert.equal(q.phase,'approach');
+assert.equal(hitIncoming(q),false,'distant object cannot score');
+for(let i=0;i<25;i++)stepIncoming(q,.05);assert.equal(q.phase,'ready');
+assert.equal(hitIncoming(q),true);assert.equal(hitIncoming(q),false,'one score per object');
+for(let i=0;i<30;i++)stepIncoming(q,.05);assert.equal(q.phase,'idle','broken pool slot recycles');
+launchIncoming(q);for(let i=0;i<140;i++)stepIncoming(q,.05);assert.equal(q.phase,'idle','unhit object leaves without penalty');
+assert.equal(q.hits,1,'recycling does not create extra hits');console.log('Smash wave: arrival gate, warning, contact, single hit, expiry and recycle pass.');
