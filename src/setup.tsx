@@ -1,4 +1,3 @@
-import { DANCE_TRACKS, chooseDance, danceChoice } from './dance-music.ts';
 import { useEffect, useRef, useState } from 'react';
 import { assessPose, gameSetup, jointName, estimatedReach, quickReadiness, standingPose, visibleJoint, type QuickReadiness } from './calibration.ts';
 import { cameraReach, captureStanding, feed, players, sim, trackingSeen } from './pose.ts';
@@ -47,7 +46,6 @@ export function CameraView({ game, n, guide = false, compact = false }: { game: 
 
 export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: { game: string; title: string; n: number; view: PlayerView; onView: (v: PlayerView) => void; onReady: () => void; onBack: () => void }) {
   const config = gameSetup(game);
-  const [track,setTrack]=useState<string>(()=>danceChoice().id);
   const [status,setStatus] = useState({ message:'Stand naturally in view', progress:0, usable:false, checks:[] as boolean[] });
   const ready = useRef(onReady), finished = useRef(false); ready.current = onReady;
   const startGame = () => {
@@ -84,7 +82,6 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
         <p>{config.upper?'Keep your shoulders and hands in view. No special pose needed.':'Step back enough to see your hands and feet. Relax your arms and face the camera.'}</p>
         <div className="joint-checks">{config.joints.filter(j=>j===11||(j>=15&&j%2===1)).map(j=><span key={j} className={status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'ready':''}>{status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'✓':'○'} {j===27?'Feet':`${jointName(j)}${j===0?'':'s'}`}</span>)}</div>
         {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{viewLabel}</button><button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>Classic view</button></fieldset>}
-        {game==='freeze'&&<fieldset className="setup-view"><legend>Dance soundtrack</legend>{DANCE_TRACKS.map(t=><button key={t.id} aria-pressed={track===t.id} onClick={()=>{chooseDance(t.id);setTrack(t.id);}}>{t.name}</button>)}<p className="dim">Music: {DANCE_TRACKS.find(t=>t.id===track)?.by} · {track==='synth'?'original synth':<a href={DANCE_TRACKS.find(t=>t.id===track)?.source} target="_blank" rel="noreferrer">CC0 · source</a>}</p></fieldset>}
         {game==='jacks'&&<p className="player-style-note">Raise either hand to shoot; lower it to reload. Your space ranger follows along.</p>}
         <button className="primary" disabled={!status.usable} onClick={startGame}>Start game</button>
         <p className="dim">Starts automatically in about a second. You can stand anywhere in view — no need to match a pose.</p>

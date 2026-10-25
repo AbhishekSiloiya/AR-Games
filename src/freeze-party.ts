@@ -1,11 +1,13 @@
+import { effects } from './pace.ts';
 import type { Scene } from './engine.ts';
 import { partyMotion, partyReward, stepParty } from './freeze-party-rules.ts';
 import './freeze-party.css';
 const NS='http://www.w3.org/2000/svg';
-const COLOURS=['#9c80ff','#ff70cf','#70eaff','#ffe27d'];
+const COLOURS=['#b8a1ff','#ff7899','#a3f1ed','#e6dfcf'];
 
 // A transparent round-owned DOM layer sits ABOVE the camera, rather than behind its opaque video plane.
 export function freezeParty(scene:Scene,n:number){
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const root=document.createElement('div');root.className='freeze-party';root.dataset.phase='dance';root.setAttribute('aria-hidden','true');
   const make=(tag:string,attrs:Record<string,string|number>={})=>{const e=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,String(v));return e;};
   const sky=make('svg',{viewBox:'0 0 1000 600',preserveAspectRatio:'none',class:'freeze-party__lights'});
@@ -35,15 +37,16 @@ export function freezeParty(scene:Scene,n:number){
     state:diagnostics,
     celebrate(p:number,freezeId:number,present:boolean,still:boolean){
       if(!partyReward(state,p,freezeId,present,still))return;
-      celebrations++;const center=n===1?50:p===0?25:75;
+      celebrations++;if(reduced||!effects.on)return;const center=n===1?50:p===0?25:75;
       for(let i=p*12;i<p*12+12;i++){const q=sparkles[i];q.life=1.8;q.x=center+(i%5-2)*2;q.y=44+(i%3)*3;q.vx=(i%6-2.5)*4;q.vy=-12-(i%4)*3;q.angle=i*17;}
     },
     update(dancing:boolean,dt:number){
       stepParty(state,dancing,dt);root.dataset.phase=dancing?'dance':'freeze';
       // Motion is driven by the same suspendable game clock as the soundtrack; no CSS animation timers.
-      facets.setAttribute('transform',`rotate(${state.angle} 60 81)`);
-      ball.style.transform=`rotate(${Math.sin(state.angle*Math.PI/180)*4}deg)`;
-      beams.forEach((beam,i)=>beam.e.setAttribute('transform',`rotate(${Math.sin(state.lightTime*.38+i*1.7)*13} ${beam.x} 12)`));
+      facets.setAttribute('transform',`rotate(${reduced?0:state.angle} 60 81)`);
+      ball.style.transform=`rotate(${reduced?0:Math.sin(state.angle*Math.PI/180)*4}deg)`;
+      sky.style.opacity=effects.on?'1':'.35';
+      beams.forEach((beam,i)=>beam.e.setAttribute('transform',`rotate(${reduced?0:Math.sin(state.lightTime*.38+i*1.7)*13} ${beam.x} 12)`));
       for(const q of sparkles){if(q.life>0&&dancing){q.life=Math.max(0,q.life-dt);q.vy+=17*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.angle+=dt*65;}q.e.hidden=q.life<=0;if(q.life>0){q.e.style.left=`${q.x}%`;q.e.style.top=`${q.y}%`;q.e.style.transform=`rotate(${q.angle}deg)`;q.e.style.opacity=String(Math.min(1,q.life));}}
     },
   };

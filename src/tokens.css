@@ -1,0 +1,18 @@
+/* MOON · playful arcade · citrus action / chrome club · camera-first composition. */
+:root {
+  --moon-paper: #f4f2eb;
+  --moon-ink: #11121a;
+  --moon-surface: #181a24;
+  --moon-light: #ffffff;
+  --moon-muted: #bfc1d3;
+  --moon-citrus: #ddff63;
+  --moon-tangerine: #ff9458;
+  --moon-coral: #ff7899;
+  --moon-violet: #b8a1ff;
+  --moon-ice: #a3f1ed;
+  --moon-line: #ffffff32;
+  --moon-shadow: #080a12b8;
+  --moon-face: Arial, Helvetica, sans-serif;
+  --moon-display: Arial, Helvetica, sans-serif;
+  --moon-ease: cubic-bezier(.2,.7,.2,1);
+}

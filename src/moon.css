@@ -1,0 +1,40 @@
+@import './tokens.css';
+/* Hallmark · component: motion-game shell · audience: Gen Z · use: body-controlled arcade play
+ * genre: playful · theme: MOON · structure: camera-centred arena + edge HUD
+ * Pre-emit critique: philosophy4 hierarchy4 execution4 specificity5 restraint4 variety4 */
+.logo {font-family:var(--moon-display);font-weight:900;letter-spacing:-.085em;color:var(--moon-paper);}
+.logo span {animation:none;text-shadow:none;color:inherit!important;}
+.logo span:nth-child(2),.logo span:nth-child(3) {position:relative;}
+.logo span:nth-child(2)::after {content:'';position:absolute;inset:24% -12%;border:1px solid var(--moon-citrus);border-radius:50%;transform:rotate(-35deg);}
+.logo.huge {font-size:clamp(90px,16vw,240px);}
+.moon-tagline {font-family:var(--moon-face);color:var(--moon-paper);font-weight:400;font-size:clamp(16px,2vw,28px);}
+.moon-brand-note {color:var(--moon-citrus);font:700 clamp(11px,1.1vw,16px)/1.3 var(--moon-face);letter-spacing:.12em;text-transform:uppercase;}
+.moon-stage {--moon-accent:var(--moon-citrus);font-family:var(--moon-face);}
+.moon-stage .hud {font-family:var(--moon-face);text-shadow:0 2px 8px var(--moon-shadow);}
+.moon-stage .hud.clock {background:var(--moon-surface);color:var(--moon-paper);border:0;border-radius:8px;height:auto;min-width:0;padding:.5rem 1.1rem;font-size:2.4rem;}
+.moon-stage .hud.score {background:var(--moon-surface);color:var(--moon-paper);border:0;border-radius:8px;font-weight:800;font-size:2.8rem;}
+.moon-stage .hud.hint {background:var(--moon-paper);color:var(--moon-ink);border-radius:4px;font-family:var(--moon-face);font-size:1.5rem;}
+.moon-stage .hud.big {font-family:var(--moon-display);font-weight:900;letter-spacing:-.07em;color:var(--moon-accent);font-size:10rem;}
+.moon-stage .hud.banner {font-family:var(--moon-display);font-weight:800;font-size:3.4rem;-webkit-text-stroke:0;paint-order:normal;color:var(--moon-paper);background:var(--moon-shadow);padding:.3rem .8rem;border-radius:4px;white-space:normal;text-align:center;max-width:85%;}
+.moon-arena-brand {position:absolute;top:3%;left:3%;font:800 clamp(11px,1.2vw,18px)/1 var(--moon-face);letter-spacing:.05em;color:var(--moon-paper);}
+.moon-style-options {display:flex;gap:.6rem;flex-wrap:wrap;}
+.moon-style-options button {font-family:var(--moon-face);border-radius:.65rem;min-height:44px;}
+.moon-style-options button[aria-pressed="true"] {background:var(--moon-paper);color:var(--moon-ink);border-color:var(--moon-paper);}
+@media(prefers-reduced-motion:reduce){.logo span,.moon-stage .hud {animation:none!important;} .moon-stage .hud.big {transition:none;}}
+
+.moon-stage .pops span {font-family:var(--moon-face);font-weight:800;-webkit-text-stroke:0;text-shadow:0 2px 8px var(--moon-shadow);}
+.setup-view .moon-style-options button[aria-pressed="true"] {background:var(--moon-paper);color:var(--moon-ink);border-color:var(--moon-paper);}
+.setup-view .moon-style-options button[aria-pressed="false"] {background:var(--moon-surface);color:var(--moon-paper);border-color:var(--moon-line);}
+.moon-start {font-family:var(--moon-face);}
+.moon-start .goal {font-family:var(--moon-face);font-size:clamp(11px,1.2vw,18px);background:transparent;border:0;box-shadow:none;}
+.moon-start button.primary {font-family:var(--moon-face);background:var(--moon-citrus);color:var(--moon-ink);border:0;text-shadow:none;box-shadow:none;font-weight:800;border-radius:8px;}
+.moon-start button.giant::before {display:none;}
+.moon-start button.primary:hover {background:var(--moon-paper);}
+.moon-party-brief {overflow-y:auto;}
+.moon-party-options {font-family:var(--moon-face);display:flex;flex-direction:column;gap:1.2rem;min-width:0;}
+.moon-party-preview {display:grid;gap:.5rem;margin:0;padding:1rem 0;}
+.moon-party-preview img {width:100%;height:clamp(90px,11vw,170px);object-fit:contain;}
+.moon-party-preview figcaption {font-size:clamp(11px,1vw,16px);color:var(--moon-muted);}
+.moon-party-options .setup-view {font-family:var(--moon-face);}
+.moon-party-options .setup-view button {min-height:44px;}
+.moon-party-options a {color:var(--moon-ice);}

@@ -6,7 +6,7 @@ const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swifts
 const context=await browser.newContext({viewport:{width:1440,height:900},permissions:['camera']});
 const page=await context.newPage();
 page.setDefaultTimeout(15000);
-const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&m.text()!=='INFO: Created TensorFlow Lite XNNPACK delegate for CPU.') errors.push(m.text());});
 try {
 await page.addInitScript(()=>{localStorage.setItem('romp.look','camera');Element.prototype.requestFullscreen=()=>Promise.resolve();const Native=window.Worker;window.__testWorkers=[];window.Worker=class extends Native {constructor(...args){super(...args);window.__testWorkers.push(this);}};});
 // Static deployments have no optional /report collector; stub only that endpoint.
@@ -22,7 +22,7 @@ await page.evaluate(async()=>{
  window.__neutral=()=>{
  const b=Array.from({length:33},()=>[.5,.5,1]);
  for(const [j,x,y] of [[0,.5,.15],[11,.42,.3],[12,.58,.3],[13,.35,.4],[14,.65,.4],[15,.3,.5],[16,.7,.5],[23,.44,.55],[24,.56,.55],[25,.44,.72],[26,.56,.72],[27,.44,.9],[28,.56,.9]])b[j]=[x,y,1];return b;};
- window.__inject=setInterval(()=>{try {
+ window.__inject=setInterval(()=>{try {window.__testWorkers.forEach(w=>w.terminate());
  const b=window.__neutral();if(window.__testMode==='reach'){b[15]=[.2,.3,1];b[16]=[.8,.3,1];}
  if(window.__testMode==='moving'){for(const j of [11,12,13,14,15,16,23,24,25,26])b[j][0]+=(Math.floor(performance.now()/100)%2)*.08;}
  if(window.__testMode==='squat'){b[11][1]+=.08;b[12][1]+=.08;}
@@ -36,7 +36,7 @@ await page.evaluate(async()=>{
  const sw=Math.abs(bb[11][0]-bb[12][0])*aspect, fx=(bb[11][0]+bb[12][0])/2*aspect, fy=(bb[11][1]+bb[12][1])/2;
  pose.players[i].frame={x:fx,y:fy,sw,aspect};
  pose.players[i].rig=bb.map(q=>[(q[0]*aspect-fx)/sw,(fy-q[1])/sw,q[2],0,0]);
- for(let h=0;h<2;h++){const r=pose.players[i].rig[15+h];Object.assign(pose.players[i].hands[h],{x:r[0]/pose.tuning.reachX[window.__pair?1:0],y:(r[1]-pose.tuning.centerY)/pose.tuning.reachY,seen:true,t:performance.now()});}
+ for(let h=0;h<2;h++){const r=pose.players[i].rig[15+h];Object.assign(pose.players[i].hands[h],{x:r[0]/pose.tuning.reachX[window.__pair?1:0],y:(r[1]-pose.tuning.centerY)/pose.tuning.reachY,seen:r[2]>.5&&!!document.querySelector('.stage'),t:performance.now()});}
 pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||window.__secondReady);
  if(window.__testMode!=='stale')pose.trackingSeen[i]=performance.now();
  }
@@ -69,7 +69,9 @@ assert.equal(await page.getByRole('button',{name:'Player cut-out',exact:true}).c
 await mode('noFeet');await setup('Keepy-Uppy');await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
 await mode('neutral');await playing();await page.waitForTimeout(3500);await page.screenshot({path:out+'/keepy-live.png'});await home();
 await page.setViewportSize({width:1440,height:900});await mode('noHands');await setup('Run');
-await mode('neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();await playing();await page.locator('.player-inset').waitFor();await page.waitForTimeout(3500);await page.screenshot({path:out+'/run-live.png'});await home();
+await mode('neutral');
+// Invoke the enabled manual action immediately; a slow pointer hover can lose the 900ms race to auto-start.
+await page.waitForFunction(()=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent==='Start game');if(button&&!button.disabled){button.click();return true;}return false;});await playing();await page.locator('.player-inset').waitFor();await page.waitForTimeout(3500);await page.screenshot({path:out+'/run-live.png'});await home();
 for(const name of ['Pulse','Leaks','Sprint','Jack Attack','Forge','Lumberjack','Smash','Goalie','Jab','Beat','Rocket','Freeze','Wipe','Shape Up']){
  await mode('noHands');await setup(name);assert.equal(await page.getByRole('button',{name:'Continue in simulator'}).count(),0);await back();
 }

@@ -1,5 +1,7 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
+import './moon.css';
+import { PartyOptions } from './party-options.tsx';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
 import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
@@ -57,7 +59,7 @@ type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at:
 const vars = (v: Record<string, string | number>) => v as CSSProperties; // CSS custom properties for inline style
 const toneOf = (g: Game) => vars({ '--a': g.tone[0], '--b': g.tone[1] });
 const Stars = ({ n, of = 3 }: { n: number; of?: number }) => <span className="stars">{'★'.repeat(n)}<i>{'★'.repeat(of - n)}</i></span>;
-const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'ROMP'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
+const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'MOON'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
 
 // Drifting neon blobs and rising shapes behind every menu. Fixed random layout, pure CSS motion.
 const BITS = Array.from({ length: 14 }, (_, i) => vars({
@@ -429,9 +431,9 @@ function App() {
       <video className={screen.at === 'tracking' ? 'mirror bright' : 'mirror'} ref={video} muted playsInline />
       {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
+        <div className="screen moon-start" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
           <Logo huge />
-          <h2>Your body is the controller. Move to play.</h2>
+          <p className="moon-brand-note">MOve ON</p><h2 className="moon-tagline">Your body. Your next level.</h2>
           <div className="row" style={{ justifyContent: 'center' }}>
             {['📺 Stand the tablet under the TV', '🚶 Step back till your whole body shows', '✊ Point at a button, close your fist to press'].map((t) => <span className="goal" key={t}>{t}</span>)}
           </div>
@@ -491,10 +493,10 @@ function App() {
       {screen.at === 'brief' && (() => {
         const { game } = screen, team = teamOf(game), variant = variantOf(screen.mode, team), opened = open(game, screen.mode);
         return (
-          <div className="screen" style={toneOf(game)}>
+          <div className={`screen ${game.id==='freeze'?'moon-party-brief':''}`} style={toneOf(game)}>
             <div className="row"><h1 className="grow">{game.name}</h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
             <div className="brief">
-              <div className="hero"><span>{game.icon}</span></div>
+              {game.id==='freeze'?<PartyOptions />:<div className="hero"><span>{game.icon}</span></div>}
               <div className="col" style={{ gap: '1.3rem' }}>
                 <div className="steps">{game.how.split('. ').map((step, i) => <p key={i} style={vars({ '--i': i })}>{step.replace(/\.$/, '')}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (

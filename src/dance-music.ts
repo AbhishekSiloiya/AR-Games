@@ -2,7 +2,7 @@ import { audio, music, musicOut } from './audio.ts';
 export const DANCE_TRACKS = [
   {id:'funky',name:'Funky Disco',by:'Fupi',file:'/assets/music/funky-disco.mp3',source:'https://opengameart.org/content/funky-disco-beats-to-boogiewoogie-to'},
   {id:'city',name:'City Lights',by:'wipics',file:'/assets/music/city-loop.mp3',source:'https://opengameart.org/content/city-loop-0'},
-  {id:'synth',name:'Original synth',by:'Romp',file:'',source:''},
+  {id:'synth',name:'Original synth',by:'MOON',file:'',source:''},
 ] as const;
 export function danceChoice(){try{return DANCE_TRACKS.find(t=>t.id===localStorage.getItem('romp.danceTrack'))??DANCE_TRACKS[0];}catch{return DANCE_TRACKS[0];}}
 export function chooseDance(id:string){try{localStorage.setItem('romp.danceTrack',id);}catch{/* Session still works without saved preferences. */}}

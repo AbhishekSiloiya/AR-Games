@@ -95,6 +95,7 @@ const THEMES = {
   run: { bpm: 132, root: 45, chords: [[0, 3, 7], [5, 8, 12], [-4, 0, 3], [-2, 2, 5]], lead: 'square' },
   beat: { bpm: 104, root: 45, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]], lead: 'triangle' },
   dance: { bpm: 122, root: 48, chords: [[0, 4, 7], [-3, 0, 4], [5, 9, 12], [7, 11, 14]], lead: 'sawtooth' },
+  slice: { bpm: 124, root: 48, chords: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [7, 11, 14]], lead: 'triangle' },
   arcade: { bpm: 116, root: 43, chords: [[0, 3, 7], [3, 7, 10], [-2, 2, 5], [-4, 0, 3]], lead: 'square' },
   calm: { bpm: 96, root: 50, chords: [[0, 4, 7], [-3, 0, 4], [-5, -1, 2], [5, 9, 12]], lead: 'sine' },
 } as const;
