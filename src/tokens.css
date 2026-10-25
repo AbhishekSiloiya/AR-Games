@@ -16,3 +16,37 @@
   --moon-display: Arial, Helvetica, sans-serif;
   --moon-ease: cubic-bezier(.2,.7,.2,1);
 }
+/* MOON playroom system */
+@font-face {font-family:'Barlow Condensed';src:url('/fonts/moon/barlow-condensed-700.ttf') format('truetype');font-style:normal;font-weight:700;font-display:swap;}
+@font-face {font-family:'Barlow Condensed';src:url('/fonts/moon/barlow-condensed-800.ttf') format('truetype');font-style:normal;font-weight:800;font-display:swap;}
+@font-face {font-family:'Space Grotesk';src:url('/fonts/moon/space-grotesk-400.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap;}
+@font-face {font-family:'Space Grotesk';src:url('/fonts/moon/space-grotesk-600.ttf') format('truetype');font-style:normal;font-weight:600;font-display:swap;}
+@font-face {font-family:'Space Grotesk';src:url('/fonts/moon/space-grotesk-700.ttf') format('truetype');font-style:normal;font-weight:700;font-display:swap;}
+:root {
+ --moon-face:'Space Grotesk',sans-serif;
+ --moon-display:'Barlow Condensed',sans-serif;
+ --moon-carbon:#101211;
+ --moon-card:#1c211e;
+ --moon-stroke:#3b413c;
+ --moon-chalk:#f3f1e8;
+ --moon-secondary:#b8c1b8;
+ --moon-acid:#deff75;
+ --moon-slice:#ffb24a;
+ --moon-goalie:#9bdcff;
+ --moon-freeze:#f6a7e1;
+ --moon-shapeup:#deff75;
+ --moon-jacks:#c9b9ff;
+ --moon-jab:#ff9b84;
+ --moon-overlay:linear-gradient(180deg,transparent 30%,#101211ed);
+ --moon-start-shade:linear-gradient(90deg,#101211,transparent);
+ --moon-night-shade:#101211c4;
+ --moon-shade:#00000040;
+ --moon-ink:#101211;
+ --moon-paper:var(--moon-chalk);
+ --moon-surface:var(--moon-card);
+ --moon-muted:var(--moon-secondary);
+ --moon-citrus:var(--moon-acid);
+ --moon-line:var(--moon-stroke);
+ --moon-duration:180ms;
+ --moon-radius:8px;
+}

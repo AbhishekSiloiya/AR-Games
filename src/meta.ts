@@ -1,5 +1,6 @@
 // Progression: stars, stages, XP and levels, achievements, daily challenges.
 // Everything is *derived* from the list of sessions — there is no second copy of progress to fall out of sync.
+import { MOON_GAME_IDS } from './moon-catalog.ts';
 import { DAY_GOAL, summary, type Session } from './stats.ts';
 
 // Score needed for 1, 2 and 3 stars at stage 1. Guesses until real scores come in — this table is the tuning knob.
@@ -48,7 +49,7 @@ const dayOf = (t: number) => new Date(t).toLocaleDateString('en-CA');
 type Ctx = { all: Session[]; who: string; games: Session[]; now: number };
 export const BADGES: { id: string; name: string; how: string; test: (c: Ctx) => boolean }[] = [
   { id: 'first', name: 'First steps', how: 'Finish your first game', test: (c) => c.games.length >= 1 },
-  { id: 'explorer', name: 'Explorer', how: 'Play every game once', test: (c) => Object.keys(STARS).every((g) => c.games.some((s) => s.game === g)) },
+  { id: 'explorer', name: 'Explorer', how: 'Play all six MOON games', test: (c) => MOON_GAME_IDS.every((g) => c.games.some((s) => s.game === g)) },
   { id: 'century', name: 'Century', how: 'Earn 100 activity points in a day', test: (c) => summary(c.all, c.who, c.now).today >= 100 },
   { id: 'double', name: 'Double century', how: 'Earn 200 activity points in a day', test: (c) => summary(c.all, c.who, c.now).today >= 200 },
   { id: 'streak3', name: 'Habit forming', how: `Hit ${DAY_GOAL} points 3 days running`, test: (c) => summary(c.all, c.who, c.now).streak >= 3 },
@@ -56,7 +57,7 @@ export const BADGES: { id: string; name: string; how: string; test: (c: Ctx) => 
   { id: 'streak30', name: 'Unstoppable', how: `Hit ${DAY_GOAL} points 30 days running`, test: (c) => summary(c.all, c.who, c.now).streak >= 30 },
   { id: 'stars10', name: 'Star collector', how: 'Collect 10 stars', test: (c) => totalStars(c.all, c.who) >= 10 },
   { id: 'stars40', name: 'Constellation', how: 'Collect 40 stars', test: (c) => totalStars(c.all, c.who) >= 40 },
-  { id: 'stars100', name: 'Galaxy', how: 'Collect 100 stars', test: (c) => totalStars(c.all, c.who) >= 100 },
+  { id: 'stars100', name: 'Galaxy', how: 'Collect 75 stars', test: (c) => totalStars(c.all, c.who) >= 75 },
   { id: 'flawless', name: 'Flawless', how: 'Three stars on stage 3 or higher', test: (c) => c.games.some((s) => (s.stars ?? 0) === 3 && (s.stage ?? 1) >= 3) },
   { id: 'summit', name: 'Summit', how: 'Reach stage 5 in any game', test: (c) => Object.keys(STARS).some((g) => unlockedStage(c.all, c.who, g) >= STAGES) },
   { id: 'five', name: 'Five a day', how: 'Play 5 games in one day', test: (c) => c.games.filter((s) => dayOf(s.t) === dayOf(c.now)).length >= 5 },
@@ -71,6 +72,12 @@ export function badgesOf(all: Session[], who: string, now = Date.now()) {
   return BADGES.filter((b) => b.test(c)).map((b) => b.id);
 }
 
+// The legacy badge IDs stay stable; earned legacy badges remain visible.
+export function badgeCatalog(all: Session[], who: string) {
+  const earned = badgesOf(all, who);
+  return BADGES.filter(b => !['squats', 'runner'].includes(b.id) || earned.includes(b.id));
+}
+
 // ---- Daily challenges ------------------------------------------------------------------------------------
 // Three a day, the same three for everyone in the house, picked by the date. Each pays bonus XP once.
 export const CHALLENGE_XP = 40;
@@ -79,7 +86,7 @@ export function dailyChallenges(all: Session[], who: string, names: Record<strin
   const day = dayOf(now), today = mine(all, who).filter((s) => dayOf(s.t) === day && !s.game.startsWith('bonus:'));
   let seed = [...day].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
   const roll = (n: number) => (seed = (seed * 1664525 + 1013904223) >>> 0) % n;
-  const ids = Object.keys(STARS), gameA = ids[roll(ids.length)], gameB = ids[roll(ids.length)], pts = [60, 90, 120][roll(3)];
+  const ids = MOON_GAME_IDS, gameA = ids[roll(ids.length)], gameB = ids[roll(ids.length)], pts = [60, 90, 120][roll(3)];
   const list: [string, string, number, number][] = [
     [`pts${pts}`, `Earn ${pts} activity points`, pts, today.reduce((a, s) => a + s.points, 0)],
     [`stars:${gameA}`, `Get 2 stars in ${names[gameA] ?? gameA}`, 2, Math.max(0, ...today.filter((s) => s.game === gameA).map((s) => s.stars ?? 0))],

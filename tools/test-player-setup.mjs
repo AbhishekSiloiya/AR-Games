@@ -64,21 +64,21 @@ await page.screenshot({path:out+'/tracking-recovery.png'});
 await mode('moving');await page.waitForTimeout(1600);assert.equal((await state()).trackingLost,true);
 await mode('neutral');await page.waitForFunction(()=>!JSON.parse(window.render_game_to_text()).trackingLost);
 await page.keyboard.press('Escape');await page.getByRole('button',{name:'Keep playing'}).click();assert.equal((await state()).paused,false);await home();
-await mode('noFeet');await setup('Keepy-Uppy');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/feet/);
+await mode('noFeet');await setup('Shape Up');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/feet/);
 assert.equal(await page.getByRole('button',{name:'Player cut-out',exact:true}).count(),0);await back();
-await mode('noFeet');await setup('Keepy-Uppy');await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
+await mode('noFeet');await setup('Shape Up');await page.setViewportSize({width:1024,height:768});await page.screenshot({path:out+'/keepy-setup-tablet.png'});
 await mode('neutral');await playing();await page.waitForTimeout(3500);await page.screenshot({path:out+'/keepy-live.png'});await home();
-await page.setViewportSize({width:1440,height:900});await mode('noHands');await setup('Run');
+await page.setViewportSize({width:1440,height:900});await mode('noHands');await setup('Goalie');
 await mode('neutral');
 // Invoke the enabled manual action immediately; a slow pointer hover can lose the 900ms race to auto-start.
 await page.waitForFunction(()=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent==='Start game');if(button&&!button.disabled){button.click();return true;}return false;});await playing();await page.locator('.player-inset').waitFor();await page.waitForTimeout(3500);await page.screenshot({path:out+'/run-live.png'});await home();
-for(const name of ['Pulse','Leaks','Sprint','Jack Attack','Forge','Lumberjack','Smash','Goalie','Jab','Beat','Rocket','Freeze','Wipe','Shape Up']){
+for(const name of ['Jack Attack','Jab','Freeze']){
  await mode('noHands');await setup(name);assert.equal(await page.getByRole('button',{name:'Continue in simulator'}).count(),0);await back();
 }
 await page.getByRole('button',{name:'Together',exact:true}).click();await mode('neutral');
-await page.evaluate(()=>{window.__pair=true;window.__secondReady=false;});await setup('Keepy-Uppy');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/Player 2/);
+await page.evaluate(()=>{window.__pair=true;window.__secondReady=false;});await setup('Shape Up');await page.waitForTimeout(1200);assert.match(await page.locator('.setup-prompt').innerText(),/Player 2/);
 await page.evaluate(()=>window.__secondReady=true);await playing();assert.equal((await state()).players,2);await home();
 await page.getByRole('button',{name:'Take turns',exact:true}).click();await page.evaluate(()=>window.__pair=false);await mode('noHands');await setup('Slice');await mode('neutral');await playing();
 assert.deepEqual(errors,[]);
-console.log(JSON.stringify({result:'PASS',checks:['all 17 setup routes','missing essentials block start','natural off-centre auto-start without pose matching','manual Start game','full-body missing-feet block','live Slice/Keepy/Run','loss and recovery','pause/resume/home','two-player readiness','turn-mode setup'],errors,screenshots:out},null,2));
+console.log(JSON.stringify({result:'PASS',checks:['all six curated setup routes','missing essentials block start','natural off-centre auto-start without pose matching','manual Start game','full-body missing-feet block','live Slice/Shape Up and Goalie inset','loss and recovery','pause/resume/home','two-player readiness','turn-mode setup'],errors,screenshots:out},null,2));
 } finally { await browser.close(); }

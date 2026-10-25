@@ -38,3 +38,206 @@
 .moon-party-options .setup-view {font-family:var(--moon-face);}
 .moon-party-options .setup-view button {min-height:44px;}
 .moon-party-options a {color:var(--moon-ice);}
+/* Hallmark · multi-screen redesign · MOON kinetic playroom
+ * Pre-emit critique: philosophy4 hierarchy5 execution4 specificity5 restraint4 variety4
+ * Additive shell overrides: original game/camera mechanics remain owned by their modules. */
+html,body {overflow-x:clip;}
+body {background:var(--moon-carbon);color:var(--moon-chalk);font:400 clamp(14px,1.1vw,18px)/1.5 var(--moon-face);}
+:root {--night:var(--moon-carbon);--night-2:var(--moon-card);--panel:var(--moon-card);--panel-line:var(--moon-stroke);--ink:var(--moon-chalk);--ink-soft:var(--moon-secondary);--ink-dim:var(--moon-secondary);}
+h1,h2,h3,.hud.big,.hud.banner {font-family:var(--moon-display);font-style:normal;min-width:0;overflow-wrap:anywhere;}
+h1 {font-size:clamp(34px,4.5vw,72px);font-weight:800;letter-spacing:-.025em;line-height:.95;}
+h2 {font-size:clamp(22px,2.4vw,36px);font-weight:700;color:var(--moon-chalk);line-height:1.05;}
+button {font-family:var(--moon-face);font-size:clamp(14px,1.1vw,18px);min-height:44px;padding:10px 18px;border:1px solid var(--moon-stroke);border-radius:var(--moon-radius);box-shadow:none;background:var(--moon-card);transition:background var(--moon-duration),border-color var(--moon-duration),transform var(--moon-duration);}
+button:hover,button.hot {background:var(--moon-stroke);border-color:var(--moon-acid);transform:translateY(-2px);box-shadow:none;}
+button:active {transform:translateY(1px);box-shadow:none;}
+button:focus-visible {outline:3px solid var(--moon-acid);outline-offset:4px;}
+button.primary,button.primary:hover,button.primary.hot {background:var(--moon-acid);color:var(--moon-ink);border:0;text-shadow:none;box-shadow:none;font-weight:700;font-size:clamp(18px,1.6vw,24px);padding:14px 30px;}
+button.primary:hover {background:var(--moon-chalk);}
+button.giant {font-size:clamp(20px,1.8vw,28px);padding:17px 38px;border-radius:var(--moon-radius);}
+button.giant::before {display:none;}
+button.ghost {font-size:clamp(12px,1vw,16px);padding:9px 12px;color:var(--moon-secondary);background:transparent;}
+button.ghost:hover {color:var(--moon-chalk);background:var(--moon-card);}
+.seg {border-radius:var(--moon-radius);padding:4px;background:var(--moon-carbon);border-color:var(--moon-stroke);gap:2px;}
+.seg button {border-radius:5px;padding:9px 14px;font-size:clamp(12px,1vw,16px);}
+.seg button[aria-pressed=true] {background:var(--moon-chalk);color:var(--moon-ink);box-shadow:none;}
+.panel {background:var(--moon-card);border-color:var(--moon-stroke);border-radius:var(--moon-radius);box-shadow:none;padding:20px;}
+.dim {font-size:clamp(12px,1vw,16px);color:var(--moon-secondary);}
+.backdrop {background:var(--moon-carbon);}
+.backdrop .blob,.backdrop .bit {display:none;}
+.backdrop.ingame {background:var(--moon-carbon);}
+.screen {padding:clamp(18px,2.6vw,44px);gap:24px;animation:moon-enter 240ms var(--moon-ease) both;overflow-y:auto;overflow-x:clip;}
+@keyframes moon-enter {from {opacity:0;transform:translateY(8px);}to {opacity:1;transform:none;}}
+.logo {font-family:var(--moon-display);font-size:clamp(38px,3.8vw,58px);font-weight:800;letter-spacing:-.045em;flex-shrink:0;}
+.logo span:nth-child(2)::after {border-width:2px;inset:28% -12%;}
+.moon-eyebrow {font:600 clamp(10px,.78vw,13px)/1.4 var(--moon-face);letter-spacing:.13em;text-transform:uppercase;color:var(--moon-acid);}
+.moon-masthead {display:flex;align-items:center;gap:24px;min-height:58px;border-bottom:1px solid var(--moon-stroke);padding-bottom:16px;flex-shrink:0;}
+.moon-masthead nav {margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.moon-masthead>.ghost {margin-left:auto;}
+.moon-edition {margin-left:auto;font-size:11px;letter-spacing:.15em;color:var(--moon-secondary);}
+.moon-start {padding-bottom:20px;gap:0;}
+.moon-welcome {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);flex:1;align-items:center;gap:32px;min-height:580px;}
+.moon-welcome-copy {padding:40px 0;position:relative;z-index:2;}
+.moon-welcome h1 {font-size:clamp(68px,7.8vw,132px);line-height:.86;letter-spacing:-.03em;margin:24px 0;}
+.moon-welcome h1 span {color:var(--moon-acid);}
+.moon-intro {font-size:clamp(16px,1.4vw,22px);max-width:430px;color:var(--moon-secondary);margin-bottom:28px;}
+.moon-welcome-copy .primary {min-width:200px;display:inline-flex;justify-content:space-between;gap:50px;}
+.moon-camera-note {font-size:12px;line-height:1.7;color:var(--moon-secondary);margin-top:18px;}
+.moon-welcome-art {position:relative;height:min(70vh,660px);min-height:480px;margin:30px 0;}
+.moon-welcome-art img {position:absolute;object-fit:cover;border-radius:12px;box-shadow:0 20px 40px var(--moon-shade);}
+.moon-cover-main {width:87%;height:85%;top:2%;left:3%;transform:rotate(5deg);object-position:57%;}
+.moon-cover-slice {width:44%;height:32%;left:-10%;bottom:1%;transform:rotate(-11deg);}
+.moon-cover-goalie {width:40%;height:31%;right:-2%;bottom:0;transform:rotate(9deg);}
+.moon-art-stamp {position:absolute;right:-3%;top:5%;font:800 clamp(27px,3.1vw,50px)/.9 var(--moon-display);background:var(--moon-acid);color:var(--moon-ink);padding:22px;border-radius:50%;width:clamp(125px,13vw,200px);height:clamp(125px,13vw,200px);display:grid;place-content:center;transform:rotate(10deg);text-align:center;}
+.moon-start-footer {display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--moon-stroke);padding-top:18px;font-size:10px;letter-spacing:.12em;color:var(--moon-secondary);}
+.moon-playroom {gap:0;}
+.moon-room-heading {display:flex;justify-content:space-between;align-items:flex-end;gap:32px;padding:32px 0;}
+.moon-room-heading h1 {font-size:clamp(56px,6.2vw,96px);line-height:.88;margin-top:16px;}
+.moon-room-heading h1 span {color:var(--moon-acid);}
+.moon-room-note {max-width:360px;padding-bottom:4px;}
+.moon-room-note b {font-weight:600;font-size:clamp(15px,1.4vw,22px);}
+.moon-room-note p {color:var(--moon-secondary);margin:8px 0 18px;}
+.moon-tracking-status {display:flex;align-items:center;gap:7px;font-size:10px;color:var(--moon-secondary);}
+.moon-tracking-status i {width:7px;height:7px;border-radius:50%;background:var(--moon-acid);flex-shrink:0;}
+.moon-tracking-status span {margin-left:4px;}
+.moon-session {display:flex;align-items:center;gap:20px;border-block:1px solid var(--moon-stroke);padding:14px 0;flex-wrap:wrap;}
+.moon-player-slots {display:flex;gap:20px;flex:1;justify-content:flex-end;flex-wrap:wrap;}
+.moon-player-slot {display:flex;gap:10px;align-items:center;}
+.moon-player-slot>span:nth-child(2) {display:flex;flex-direction:column;}
+.moon-player-slot b {font-size:13px;font-weight:600;}
+.moon-player-slot small {font-size:10px;color:var(--moon-secondary);}
+.moon-player-slot button {font-size:11px;padding:6px;}
+.moon-initial {background:var(--tone);color:var(--moon-ink);width:36px;height:36px;display:grid;place-items:center;border-radius:50%;font-weight:700;}
+.moon-selection-label {display:flex;justify-content:space-between;align-items:center;padding:30px 0 18px;gap:20px;}
+.moon-selection-label h2 {font-size:26px;letter-spacing:.03em;}
+.moon-selection-label>span {font-size:10px;letter-spacing:.12em;color:var(--moon-secondary);}
+.moon-posters {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 20px;}
+.moon-poster {text-align:left;display:block;padding:0;background:transparent;border:0;min-width:0;border-radius:10px;overflow:clip;}
+.moon-poster:hover,.moon-poster.hot {background:var(--moon-card);transform:translateY(-5px);}
+.moon-poster-art {position:relative;aspect-ratio:1.63;overflow:clip;background:var(--moon-card);border-radius:8px;}
+.moon-poster-art::after {content:'';position:absolute;inset:0;background:var(--moon-overlay);pointer-events:none;}
+.moon-poster-art img {width:100%;height:100%;object-fit:cover;transition:transform 450ms var(--moon-ease);}
+.moon-poster:hover img {transform:scale(1.045);}
+.moon-poster-index {position:absolute;left:14px;top:12px;font-size:12px;z-index:1;background:var(--moon-night-shade);padding:3px 8px;border:1px solid var(--moon-line);border-radius:20px;}
+.moon-poster-arrow {position:absolute;right:14px;top:12px;z-index:1;background:var(--moon-chalk);color:var(--moon-ink);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:21px;}
+.moon-poster-world {position:absolute;left:18px;bottom:16px;z-index:1;font:800 clamp(22px,2.35vw,38px)/.95 var(--moon-display);letter-spacing:.005em;color:var(--world);}
+[data-game=slice] {--world:var(--moon-slice);}
+[data-game=goalie] {--world:var(--moon-goalie);}
+[data-game=freeze] {--world:var(--moon-freeze);}
+[data-game=shapeup] {--world:var(--moon-shapeup);}
+[data-game=jacks] {--world:var(--moon-jacks);}
+[data-game=jab] {--world:var(--moon-jab);}
+.moon-poster-copy {display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 6px 10px;}
+.moon-poster h3 {font-size:clamp(26px,2.5vw,38px);line-height:1;text-transform:uppercase;color:var(--moon-chalk);font-weight:700;}
+.moon-poster p {font-size:11px;font-weight:400;margin-top:6px;color:var(--moon-secondary);}
+.moon-poster-move {font-size:10px;color:var(--world);text-align:right;white-space:nowrap;}
+.moon-poster-move small {display:block;font-size:10px;color:var(--moon-secondary);margin-top:6px;}
+.moon-dailies {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:32px;padding:28px;margin-top:36px;border:1px solid var(--moon-stroke);border-radius:var(--moon-radius);background:var(--moon-card);}
+.moon-dailies h2 {margin:10px 0;font-size:30px;}
+.moon-dailies p:not(.moon-eyebrow) {font-size:12px;color:var(--moon-secondary);}
+.moon-quest-list {display:grid;gap:14px;}
+.moon-dailies .quest {font-size:13px;gap:10px;}
+.moon-dailies .what small {margin-left:10px;font-size:11px;color:var(--moon-secondary);}
+.moon-dailies .tick {width:20px;height:20px;border-radius:50%;border-color:var(--moon-stroke);}
+.moon-dailies .meter {height:3px;background:var(--moon-stroke);}
+.moon-dailies .meter i {background:var(--moon-acid);}
+.moon-room-footer {display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid var(--moon-stroke);padding:24px 0 6px;margin-top:34px;color:var(--moon-secondary);font-size:11px;}
+.moon-room-footer .logo {font-size:34px;}
+.moon-brief {gap:28px;}
+.moon-brief .brief {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start;gap:clamp(28px,4vw,64px);}
+.moon-brief-art {position:sticky;top:0;min-height:500px;height:calc(100dvh - 165px);border-radius:12px;overflow:clip;background:var(--moon-card);}
+.moon-brief-art::after {content:'';position:absolute;inset:0;background:var(--moon-overlay);pointer-events:none;}
+.moon-brief-art img {width:100%;height:100%;object-fit:cover;object-position:55%;position:absolute;}
+.moon-brief-art>div {position:absolute;left:32px;right:24px;bottom:46px;z-index:1;}
+.moon-brief-art h1 {font-size:clamp(66px,7vw,112px);text-transform:uppercase;margin:10px 0;color:var(--world);}
+.moon-brief-art p:not(.moon-eyebrow) {font-size:18px;}
+.moon-key-art-label {position:absolute;bottom:15px;left:32px;z-index:1;font-size:9px;letter-spacing:.1em;color:var(--moon-secondary);}
+.moon-how {display:grid;gap:14px;}
+.moon-how>p:not(.moon-eyebrow) {display:flex;gap:16px;align-items:baseline;font-size:clamp(15px,1.35vw,21px);line-height:1.5;}
+.moon-how>p>span {font-size:12px;letter-spacing:.1em;color:var(--world);}
+.moon-brief .path {gap:0;}
+.moon-brief .node {width:54px;height:54px;border-radius:50%;font-size:18px;background:var(--moon-card);box-shadow:none;border-color:var(--moon-stroke);}
+.moon-brief .node[aria-pressed=true] {background:var(--world);color:var(--moon-ink);border-color:var(--world);transform:none;}
+.moon-brief .node small {font-size:10px;bottom:-20px;}
+.moon-brief .link {width:18px;height:2px;background:var(--moon-stroke);}
+.moon-brief .goals {margin-top:16px;gap:8px;}
+.moon-brief .goal {font-size:13px;border-radius:5px;background:var(--moon-card);padding:6px 10px;border:1px solid var(--moon-stroke);box-shadow:none;}
+.moon-brief .goals>.dim {display:block;width:100%;font-size:11px;margin-top:5px;}
+.moon-launch {display:flex;align-items:center;gap:20px;padding:16px 0;}
+.moon-launch>span {font-size:11px;color:var(--moon-secondary);}
+.moon-party-options {padding-top:16px;border-top:1px solid var(--moon-stroke);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+.moon-party-options .setup-view {padding:0;border:0;gap:6px;}
+.moon-party-options legend {font-size:12px;margin-bottom:10px;}
+.moon-party-options .setup-view button {font-size:11px;padding:6px 10px;min-height:38px;}
+.moon-party-options .setup-view:last-child {grid-column:1/-1;}
+.moon-party-preview {padding:0;}
+.moon-party-preview img {height:70px;}
+.moon-party-preview figcaption {font-size:10px;}
+.moon-party-options .dim {font-size:10px;}
+.player-setup {font-family:var(--moon-face);background:var(--moon-carbon);overflow-y:auto;overflow-x:clip;}
+.player-setup h1 {font-family:var(--moon-display);font-size:clamp(30px,4vw,64px);}
+.player-setup h2 {font-family:var(--moon-display);font-size:28px;}
+.setup-eyebrow,.camera-label {font-family:var(--moon-face);letter-spacing:.1em;}
+.setup-camera,.setup-instructions {border-radius:var(--moon-radius);border-color:var(--moon-stroke);}
+.setup-instructions {background:var(--moon-card);}
+.setup-instructions p {font-size:clamp(12px,1.1vw,17px);}
+.setup-progress i {background:var(--moon-acid);}
+.setup-prompt strong {font-family:var(--moon-face);}
+.moon-game .hud {font-family:var(--moon-face);}
+.moon-game .hud.clock {font-family:var(--moon-display);background:var(--moon-card);color:var(--moon-chalk);border:1px solid var(--moon-stroke);border-radius:8px;box-shadow:none;text-shadow:none;}
+.moon-game .hud.score {font-family:var(--moon-display);font-weight:800;border-radius:8px;text-shadow:none;letter-spacing:0;}
+.moon-game .hud.big {font-family:var(--moon-display);font-weight:800;letter-spacing:-.02em;}
+.moon-game .hud.hint {font-family:var(--moon-face);border-radius:6px;}
+.moon-game .pops span {font-family:var(--moon-display);}
+.moon-results {isolation:isolate;justify-content:center;text-align:center;gap:20px;}
+.moon-result-art {position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:.15;z-index:-2;}
+.moon-results::before {content:'';position:fixed;inset:0;background:var(--moon-night-shade);z-index:-1;}
+.moon-results>h1 {text-transform:uppercase;max-width:90%;font-size:clamp(40px,5vw,80px);}
+.moon-results .results {width:min(100%,900px);}
+.moon-results .result {background:var(--moon-carbon);border-top:3px solid var(--world);padding:24px 34px;}
+.moon-results .score {font-family:var(--moon-display);font-size:clamp(70px,9vw,132px);line-height:1;margin:8px 0;}
+.moon-results .result h2 {font-family:var(--moon-face);font-size:20px;}
+.moon-results .result .player {text-align:left;justify-content:center;margin:12px 0;}
+.moon-results .result .avatar {width:50px;height:50px;font-size:20px;}
+.moon-results .who b {font-size:16px;}
+.moon-results .who .dim {font-size:11px;}
+.moon-results .toast {font-size:13px;}
+.pause .panel {max-width:90vw;}
+@media(min-width:1700px){.moon-playroom {padding-inline:max(44px,calc((100vw - 1600px)/2));}}
+@media(max-width:1000px){.moon-masthead {gap:14px;}.moon-masthead nav {gap:0;}.moon-room-heading {padding:26px 0;}.moon-posters {gap:20px 14px;}.moon-poster-copy {flex-wrap:wrap;}.moon-poster-move {text-align:left;display:flex;gap:12px;}.moon-poster-move small {margin:0;}.moon-welcome {gap:16px;min-height:520px;}.moon-welcome-art {min-height:400px;}.moon-brief .brief {grid-template-columns:minmax(0,.9fr) minmax(0,1fr);gap:26px;}.moon-brief .node {width:45px;height:45px;}.moon-brief .link {width:12px;}.moon-brief-art>div {left:22px;}.moon-party-options {grid-template-columns:minmax(0,1fr);}.moon-party-preview {display:none;}}
+@media(max-width:767px){.screen {padding:18px;}.moon-masthead {gap:12px;flex-wrap:wrap;}.moon-masthead .moon-eyebrow {font-size:9px;}.moon-edition {display:none;}.moon-welcome {grid-template-columns:minmax(0,1fr);gap:0;}.moon-welcome-copy {padding:34px 0 10px;}.moon-welcome h1 {font-size:clamp(58px,11.5vw,88px);}.moon-welcome-art {height:380px;min-height:0;margin:20px 16px 35px;}.moon-cover-main {height:94%;width:80%;left:12%;}.moon-cover-slice {left:-3%;}.moon-start-footer {font-size:8px;}.moon-start-footer>span:last-child {display:none;}.moon-masthead nav {width:100%;justify-content:flex-start;}.moon-masthead button.ghost {font-size:12px;padding:6px 10px;}.moon-room-heading {align-items:flex-start;gap:18px;}.moon-room-heading h1 {font-size:60px;}.moon-room-note {max-width:190px;font-size:12px;}.moon-tracking-status {display:none;}.moon-session {gap:12px;}.moon-player-slots {justify-content:flex-start;}.moon-selection-label {align-items:flex-start;}.moon-selection-label h2 {font-size:24px;}.moon-selection-label>span {max-width:120px;text-align:right;font-size:8px;}.moon-posters {grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px;}.moon-poster-art {aspect-ratio:1.1;}.moon-poster-world {font-size:24px;left:12px;bottom:12px;}.moon-poster-arrow {width:26px;height:26px;right:10px;top:10px;font-size:17px;}.moon-poster-index {left:10px;top:10px;font-size:10px;}.moon-poster h3 {font-size:30px;}.moon-poster p {font-size:11px;}.moon-poster-move {font-size:9px;flex-wrap:wrap;gap:3px 10px;}.moon-dailies {grid-template-columns:minmax(0,1fr);padding:20px;gap:18px;}.moon-room-footer {flex-wrap:wrap;font-size:10px;}.moon-brief .brief {grid-template-columns:minmax(0,1fr);gap:28px;}.moon-brief-art {position:relative;min-height:0;height:330px;}.moon-brief-art img {object-position:50% 35%;}.moon-brief-art h1 {font-size:64px;}.moon-how>p:not(.moon-eyebrow) {font-size:16px;}.moon-brief .node {width:48px;height:48px;}.moon-party-options {grid-template-columns:minmax(0,1fr) minmax(0,1fr);}.moon-party-preview {display:grid;}.moon-results {justify-content:flex-start;padding-top:35px;}.moon-results .result {padding:20px;}.moon-results .results {display:flex;flex-direction:column;gap:16px;}.setup-instructions p {font-size:14px;}}
+@media(max-width:430px){.moon-room-heading {flex-direction:column;}.moon-room-note {max-width:none;}.moon-room-note p {display:none;}.moon-posters {grid-template-columns:minmax(0,1fr);}.moon-poster-art {aspect-ratio:1.7;}.moon-poster-copy {flex-wrap:nowrap;}.moon-poster-move {display:block;text-align:right;}.moon-poster-move small {display:block;margin-top:5px;}.moon-art-stamp {width:120px;height:120px;font-size:30px;padding:15px;}.moon-welcome-art {height:300px;}.moon-session .seg {width:100%;display:flex;}.moon-session .seg button {flex:1;padding-inline:8px;}.moon-player-slot {gap:8px;}.moon-player-slot button {padding:6px;}.moon-party-options {grid-template-columns:minmax(0,1fr);}.moon-party-preview {display:none;}.moon-launch {gap:12px;}.moon-launch .giant {padding:15px 30px;}}
+@media(prefers-reduced-motion:reduce){.screen,.logo span {animation:none!important;}*,*::before,*::after {scroll-behavior:auto!important;transition:none!important;}.moon-poster:hover img {transform:none;}.moon-welcome-art img {box-shadow:none;}}
+/* Keep the circular welcome stamp readable at every size. */
+.moon-art-stamp {font-size:clamp(23px,2.35vw,37px);line-height:1;}
+.moon-brief-art h1,.moon-results>h1 {line-height:1;}
+@media(max-width:430px){.moon-art-stamp {font-size:24px;}}
+.moon-presence {left:calc(clamp(18px,2.6vw,44px) + 18px);bottom:60px;display:flex;flex-direction:column;gap:4px;opacity:.8;}
+.moon-presence canvas {width:100px;height:56px;border-radius:5px;border-color:var(--moon-stroke);}
+.moon-presence span {font:600 8px/1 var(--moon-face);letter-spacing:.12em;color:var(--moon-chalk);text-shadow:none;}
+@media(max-width:767px){.moon-presence {display:none;}}
+/* Shared in-round voice, including games outside the original two pilots. */
+.moon-game .hud.banner {font:800 clamp(24px,3.5vw,58px)/1 var(--moon-display);letter-spacing:.01em;color:var(--world);background:var(--moon-night-shade);padding:10px 20px;border-radius:6px;-webkit-text-stroke:0;text-shadow:none;}
+.moon-game .hud.score.solo,.moon-game .hud.score.team {color:var(--world);background:var(--moon-card);border:1px solid var(--moon-stroke);}
+.moon-game .hud.hint {background:var(--moon-chalk);color:var(--moon-ink);box-shadow:none;text-shadow:none;}
+.moon-game .shapeup-quest,.moon-game .shapeup-coach .pose-card,.moon-game .shapeup-coach .shapeup-feedback {background:var(--moon-night-shade);border-color:var(--moon-stroke);border-radius:10px;}
+.moon-game .shapeup-quest {border-top:3px solid var(--moon-acid);}
+.setup-eyebrow {font-size:12px;}
+.camera-label {font-size:10px;}
+.setup-view legend {font-size:13px;}
+.setup-view button {font-size:clamp(12px,1vw,16px);min-height:44px;}
+.joint-checks {font-size:12px;}
+.setup-prompt strong {font-size:clamp(14px,1.7vw,24px);}
+.split {grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;}
+.split .panel {overflow-x:auto;}
+table {font-size:clamp(12px,1.1vw,17px);}
+th {font-size:clamp(11px,.9vw,14px);}
+th,td {padding:10px;}
+.badges {grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;}
+.badge {background:var(--moon-card);border-color:var(--moon-stroke);border-radius:8px;font-size:16px;padding:18px;animation:none;}
+.badge em {font-size:30px;}
+.badge small {font-size:12px;line-height:1.5;}
+.badge.has {background:var(--moon-card);border-color:var(--moon-acid);}
+.badge.has b {color:var(--moon-acid);}
+@media(max-width:767px){.split {grid-template-columns:minmax(0,1fr);}.badges {grid-template-columns:repeat(2,minmax(0,1fr));}.badge {padding:14px;}.camera-label {font-size:9px;}}
+/* The live preview sits clear of the poster title and game instructions. */
+.moon-presence {left:auto;right:clamp(18px,2.6vw,44px);bottom:24px;}
