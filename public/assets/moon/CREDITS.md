@@ -37,3 +37,17 @@ Mascot prompts use the user's local original concept images as visual references
 
 ## Audio
 `MOON Afterglow` is an original code-synthesised house arrangement in `src/audio.ts` / `src/club-groove.ts`: 126 BPM, layered drums, bass, chord stabs, melodic hook and phrase variations. Sport/space/pose themes are also original procedural arrangements. No third-party music recording was generated or downloaded in this update. Existing optional CC0 recordings and their original attribution/source links remain available in the music picker and `public/assets/music/CREDITS.md`.
+
+
+## Articulated original-character pass — 26 October 2026
+The user's four source designs in `output/characters/` are the visual identity references, preserved untouched. New production art was derived through the built-in OpenAI image-generation tool; no external licensed character or outfit was introduced. Original PNG outputs remain in the task generated_images folder. `rig/*.webp` are alpha-preserving proportional format encodes; the renderer samples source rectangles without changing original source files.
+
+- `rig/moodi.webp`: four separate textured parts derived from `moodi-and-quack.png`: complete panda/duck head, cream X-patched torso, brown furry arm/paw, brown leg/foot. Original bare mascot retained; no vest or boots.
+- `rig/fuzzbyte.webp`: four separate parts derived from `fuzzbyte.png`: original floppy-eared coral/lavender knitted head, knitted torso, knitted arm, lime-footed leg.
+- `rig/rizzquake.webp`: four separate parts derived from `rizzquake.png`: green felt head/yarn hair, green torso with original yellow lightning utility belt/purple shorts, green arm/fist, green leg/foot.
+- `rig/momo.webp`: Momo & Bloop duo derived from `momo-and-bloop.png`, without the name label. Used for the earned Shape Up tower; a second extraction pass removed the background as far as the built-in generator produced.
+
+Atlas prompt set: "Preserve the exact original mascot identity/materials/colours/accessories, front-facing orthographic production puppet texture atlas on transparent alpha. Four separated unassembled parts: head, torso without limbs, straight down arm with paw/fist, straight down leg with original foot. No new clothing, no labels, text, scenery or shadows. Parts will be independently articulated in code."
+Momo prompt: "Remove the entire background/floor/text and retain the exact joyful yellow/coral M-shaped friend and cyan furry friend with violet antenna pom, uncropped, on transparent alpha."
+
+Animation is code-driven articulation of these raster parts: latest tracked joint rotations/positions for the pilot/companions, demonstrated target poses for Shape Up, pad-following and actual-hit recoil for Jab. It is not full 3D skeletal animation or automatic photo-to-character generation. Missing optional hips/feet use a neutral display stance while input/scoring remain tied to actual tracking.

@@ -1,5 +1,8 @@
 import { toScreen, type Scene } from './engine.ts';
 import { effects } from './pace.ts';
+import { players } from './pose.ts';
+import { mascotPuppet } from './mascot-puppet.ts';
+import { mascotPose } from './mascot-motion.ts';
 import { sliceMomentum } from './moon-experience.ts';
 const text=(node:Element,value:string)=>{if(node.textContent!==value)node.textContent=value;};
 import './moon-slice.css';
@@ -20,7 +23,7 @@ export function moonSlice(scene:Scene,n:number,team:boolean){
   });
   stage?.append(root);scene.cleanup(()=>{root.remove();stage?.classList.remove('moon-stage','moon-slice-stage');});
   let next=0,cheer=0;
-  const buddy=document.createElement('img');buddy.className='moon-slice__buddy';buddy.src='/assets/moon/play/fuzzbyte-idle.webp';buddy.alt='Fuzzbyte cheering your fruit combos';root.append(buddy);
+  const buddy=document.createElement('div');buddy.className='moon-slice__buddy';root.append(buddy);const puppet=mascotPuppet(buddy,'fuzzbyte','Fuzzbyte joins your swipes and celebrates combos');
   return {
     impact(x:number,y:number,combo:number,kind:'cut'|'bomb'|'power'|'slash',direction=0){
       if(kind==='slash'||kind==='power'||combo>0&&combo%5===0)cheer=1.1;
@@ -30,7 +33,7 @@ export function moonSlice(scene:Scene,n:number,team:boolean){
       f.e.dataset.kind=kind;f.text.textContent=kind==='bomb'?'RESET':kind==='power'?'POWER UP':kind==='slash'?`${combo} IN ONE!`:combo>0&&combo%5===0?`${combo} STREAK`:'';
     },
     update(dt:number,t:number,mode:string,combos:number[],powers:({name:string;seconds:number}|null)[],finale:boolean){
-      cheer=Math.max(0,cheer-dt);const buddySrc=`/assets/moon/play/fuzzbyte-${cheer>0?'cheer':'idle'}.webp`;if(!buddy.src.endsWith(buddySrc))buddy.src=buddySrc;buddy.dataset.cheer=String(cheer>0);
+      cheer=Math.max(0,cheer-dt);buddy.dataset.cheer=String(cheer>0);const pl=players[0];buddy.hidden=!pl.present;puppet.update(cheer>0?mascotPose([2.1,1.6,1,1.5,-1.66,-1.57,-1.48,-1.57]):pl.rig,t,0);
       root.dataset.phase=finale?'finale':mode==='zen'?'zen':t<0?'ready':t>50&&mode===''?'frenzy':'play';
       text(phase,finale?'FINAL CUT':mode==='zen'?'ZEN SESSION':mode==='classic'?'CLASSIC':t<0?'GET READY':t>50?'FRENZY':'CITRUS CLUB');
       const action=finale?'SMASH THE MELON':t<6?'SWIPE FRUIT. SKIP BOMBS.':'CHAIN YOUR NEXT CUT';if(instruction.textContent!==action)text(instruction,action);

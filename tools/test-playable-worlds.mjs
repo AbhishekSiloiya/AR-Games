@@ -12,7 +12,7 @@ await page.addInitScript(()=>{Element.prototype.requestFullscreen=()=>Promise.re
 // Static deployments have no optional /report collector; stub only that endpoint.
 await page.route('**/report',route=>route.fulfill({status:204,body:''}));
 await page.goto(process.env.AR_GAME_TEST_URL || 'http://127.0.0.1:5180/');
-await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:out+'/start-desktop.png'});
+await page.waitForLoadState('networkidle');await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:out+'/start-desktop.png'});
 for(const width of [320,375,414,768]){await page.setViewportSize({width,height:900});await page.screenshot({path:out+`/start-${width}.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}
 await page.setViewportSize({width:1440,height:900});
 await page.getByRole('button',{name:'Start',exact:true}).click();
@@ -85,10 +85,11 @@ for(const name of ['Freeze','Jack Attack','Goalie','Jab','Shape Up','Slice']){
  assert.equal(await page.locator('.stage img').evaluateAll(es=>es.filter(e=>!e.hidden).every(e=>e.complete&&e.naturalWidth>0)),true,'actual game sprites loaded');
  if(name==='Freeze'){
   assert.match(await page.locator('.freeze-party__host span').textContent(),/FUZZBYTE/);assert.match(await page.evaluate(async()=> (await import('/src/audio.ts')).music.diagnostics.theme),/dance/);
-  await mode('dance');await page.waitForFunction(()=>!window.__freeze.dancing,null,{timeout:15000});await mode('neutral');const held=await page.evaluate(()=>window.__freeze.party.visualTime);await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>window.__freeze.party.visualTime),held);await page.screenshot({path:out+'/Freeze-stop.png'});await page.waitForFunction(()=>window.__freeze.party.celebrations>0,null,{timeout:15000});assert.equal(await page.locator('.freeze-party__host img').getAttribute('src'),'/assets/moon/play/fuzzbyte-cheer.webp');await page.screenshot({path:out+'/Freeze-earned-cheer.png'});
+  await mode('dance');await page.waitForFunction(()=>!window.__freeze.dancing,null,{timeout:15000});await mode('neutral');const held=await page.evaluate(()=>window.__freeze.party.visualTime);await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>window.__freeze.party.visualTime),held);await page.screenshot({path:out+'/Freeze-stop.png'});await page.waitForFunction(()=>window.__freeze.party.celebrations>0,null,{timeout:15000});assert.equal(await page.locator('.freeze-party__host').getAttribute('data-cheer'),'true');await page.screenshot({path:out+'/Freeze-earned-cheer.png'});
  }
  if(name==='Jack Attack'){
   await page.waitForFunction(()=>document.querySelector('.galaxy-backdrop').dataset.loaded==='true');
+  const puppet=page.locator('.galaxy-pilot-rig .mascot-puppet').first();const arm=await puppet.getAttribute('data-right-arm');await mode('armUp');await page.waitForTimeout(120);assert.notEqual(await puppet.getAttribute('data-right-arm'),arm,'tracked arms move immediately, not just an image swap');await mode('neutral');
   for(let k=0;k<18;k++){await mode('neutral');await page.waitForTimeout(230);await mode('aim');await page.waitForTimeout(280);}
   assert.ok(await page.evaluate(()=>window.__jacks.me[0].hits>0));assert.ok(await page.evaluate(()=>window.__jacks.crews[0].score>0));await page.screenshot({path:out+'/Jack-Attack-earned-hits.png'});
  }
@@ -118,7 +119,7 @@ for(const name of ['Jack Attack','Goalie','Jab','Shape Up','Freeze','Slice']){
   await page.evaluate(()=>{const a=window.__jacks.invaders.filter(v=>v.on);Object.assign(a[0],{zone:0,boss:true,hp:7});Object.assign(a[1],{zone:1,boss:true,hp:3});});await page.waitForFunction(()=>document.querySelector('.galaxy-boss[data-player="1"]').dataset.hp==='3');assert.equal(await page.locator('.galaxy-boss[data-player="0"]').getAttribute('data-hp'),'7');await page.screenshot({path:out+'/Jack-rival-bosses.png'});
  }
  if(name==='Shape Up'){
-  await page.setViewportSize({width:640,height:800});const portals=await page.locator('.shapeup-portal').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width})));assert.ok(portals[1].x>portals[0].x+portals[0].w,'mobile two-player portals stay in their own seats');await page.screenshot({path:out+'/Shape-Up-two-small.png'});await page.setViewportSize({width:1024,height:768});
+  await page.setViewportSize({width:640,height:800});const portals=await page.locator('.shapeup-world').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width})));assert.ok(portals[1].x>portals[0].x+portals[0].w,'mobile two-player towers stay in their own seats');await page.screenshot({path:out+'/Shape-Up-two-small.png'});await page.setViewportSize({width:1024,height:768});
  }
  await home();
 }

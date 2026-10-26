@@ -13,8 +13,8 @@ import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers,
 import { report } from './report.ts';
 import { DAY_GOAL, load, save, summary, type Session } from './stats.ts';
 import { BADGES, CHALLENGE_XP, STAGES, badgeCatalog, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
-import { loadAudio } from './audio.ts';
-import { PLAYER_COLORS, Shell, audio, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
+import { loadAudio, setAudioPaused } from './audio.ts';
+import { PLAYER_COLORS, Shell, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
 // Each game is its own chunk: its code (and, for two of them, the physics engine) is fetched the first time it is played.
 const Slice = play(() => import('./games/slice.ts')), Run = play(() => import('./games/run.ts')), Jab = play(() => import('./games/jab.ts')), Beat = play(() => import('./games/beat.ts'));
 const ShapeUp = play(() => import('./games/shapeup.ts')), Goalie = play(() => import('./games/goalie.ts')), Smash = play(() => import('./games/smash.ts'));
@@ -272,8 +272,8 @@ function App() {
   }, []);
 
   // Pause: stop the frame loop (Shell context) and the audio clock, so rhythm games freeze too.
-  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void audio().suspend(); } }), [paused, trackingLost]);
-  const resume = () => { setPaused(false); void audio().resume(); };
+  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void setAudioPaused(true); } }), [paused, trackingLost]);
+  const resume = () => { setPaused(false); void setAudioPaused(false); };
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && shell.pause();
     addEventListener('keydown', key);
@@ -301,7 +301,7 @@ function App() {
   }, [activeGame,n,screen.at === 'play' ? screen.turn : -1]);
   useEffect(() => {
     if (screen.at !== 'play') return;
-    if (paused || trackingLost) void audio().suspend(); else void audio().resume();
+    if (paused || trackingLost) void setAudioPaused(true); else void setAudioPaused(false);
   }, [paused,trackingLost,screen.at]);
   // Pilot choices last for one round; the user's Tracking preference is restored in menus.
   useEffect(() => {
@@ -331,7 +331,7 @@ function App() {
   const start = async () => {
     // Fullscreen first: it needs the tap's user-activation, which is gone once the camera prompt and model load finish.
     try { void document.documentElement.requestFullscreen().catch(() => {}); } catch { /* not supported — play windowed */ }
-    void audio().resume(); // same reason: games are later started by a hand-dwell, which is not a user gesture
+    void setAudioPaused(false); // same reason: games are later started by a hand-dwell, which is not a user gesture
     void loadAudio(); // samples decode in the background; until then sounds fall back to synth blips
     try { await startPose(video.current!); } catch (e) {
       return setError(`Camera or tracker failed: ${(e as Error).message}. Allow the camera — and if this is the http://192.168… address, add it under chrome://flags → “Insecure origins treated as secure” first.`);

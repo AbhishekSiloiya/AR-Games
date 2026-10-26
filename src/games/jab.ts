@@ -1,7 +1,7 @@
 // Jab — punch the pads before they close, duck under the bar. A pad wants the hand on its own side;
 // a gold "cross" pad wants the opposite hand, so you twist. Hard punches score extra.
 // Pads sit inside each player's own zone, so together-play stays shoulder-wide.
-import { sportExperience } from '../sport-experience.ts';
+import { jabCoach } from '../jab-coach.ts';
 import { isLow, players, sim } from '../pose.ts';
 import { hardness } from '../meta.ts';
 import { fade, flat, lit, node, shapes, show, tint } from '../engine.ts';
@@ -13,7 +13,8 @@ const BAR_EVERY = 8, BAR_WARN = 1.5, BAR_LIVE = 0.7;
 
 export default function jab({ n, stage, onEnd, hud, scene }: Game) {
   const hard = hardness(stage);
-  const experience=sportExperience(scene,n,'jab');
+  const experience=jabCoach(scene,n);
+  const stageEl=document.querySelector<HTMLElement>('.stage');stageEl?.classList.add('moon-sport-stage','moon-sport-stage--jab');scene.cleanup(()=>stageEl?.classList.remove('moon-sport-stage','moon-sport-stage--jab'));
   const padMesh = shapes.circle(PAD_R, 32), ringMesh = shapes.ring(0.94, 1, 48), padLook = lit('#f43f5e', { opacity: 1,emissive:'#55182e',glow:.3 }), ringLook = flat('#fafafa');
   const pads = Array.from({ length: PADS * n }, (_, i) => ({ zone: i % n, x: 0, y: 0, life: 0, pop: 0, hand: 0, cross: false, pad: node(scene.root, padMesh, padLook), back:node(scene.root,shapes.sphere(PAD_R,20),lit('#251b30')),target:node(scene.root,shapes.ring(.27,.34,32),flat('#fff7de')), ring: node(scene.root, ringMesh, ringLook) }));
   const barLook = flat('#fbbf24', { opacity: 1 });
@@ -54,7 +55,8 @@ export default function jab({ n, stage, onEnd, hud, scene }: Game) {
       hitSound(pow ? 'impactPunch_heavy' : 'impactPunch_medium', g.combo[h.p], pow ? 1 : 0.7);
       if (pow) { hud.shake(0.5); hitStop(70); }
       bursts.burst(pad.x, pad.y, 0.5, pad.cross ? '#fde047' : '#f43f5e', pow ? 28 : 12, pow ? 10 : 6);
-      experience.react(h.p,g.combo[h.p]%4===0?'COMBINATION COMPLETE!':pad.cross?'CLEAN CROSS!':pow?'POWER PUNCH!':'NICE HIT!',t,true);
+      experience.react(h.p,'hit',g.combo[h.p],t);
+      if(g.combo[h.p]%4===0){bursts.burst(pad.x,pad.y,.6,'#ffe08a',36,8);sfx('confirmation');}
       if (pow) said[h.p] = { text: 'Pow!', until: t + 0.6 };
     });
 
@@ -69,7 +71,7 @@ export default function jab({ n, stage, onEnd, hud, scene }: Game) {
     if (barIn <= -BAR_LIVE) {
       for (let p = 0; p < n; p++) {
         if (!players[p].present) continue;
-        if (g.ducked[p]) { g.scores[p] += 3; sfx('phaseJump', { vol: 0.5 }); } else { g.scores[p] = Math.max(0, g.scores[p] - 2); g.combo[p] = 0; sfx('impactMetal_heavy'); hud.flash('#fbbf24'); hud.shake(); }
+        if (g.ducked[p]) { g.scores[p] += 3; experience.react(p,'duck',g.combo[p],t);sfx('phaseJump', { vol: 0.5 }); } else { g.scores[p] = Math.max(0, g.scores[p] - 2); g.combo[p] = 0; experience.react(p,'miss',0,t);sfx('impactMetal_heavy'); hud.flash('#fbbf24'); hud.shake(); }
       }
       g.ducked = [false, false];
       g.barAt = t + BAR_EVERY;
@@ -79,7 +81,7 @@ export default function jab({ n, stage, onEnd, hud, scene }: Game) {
       if (pad.life > 0 && (pad.life -= dt) <= 0) g.combo[pad.zone] = 0; // closed unpunched
       if (pad.pop > 0) pad.pop -= dt;
       if (show(pad.ring, pad.life > 0)) {
-        const k = PAD_R * (1 + (2 * pad.life) / PAD_LIFE); // closes onto the pad as time runs out
+        const k = PAD_R * (1 + (1.0 * pad.life) / PAD_LIFE); // closes onto the pad as time runs out
         pad.ring.setLocalPosition(pad.x, pad.y, 0.1);
         pad.ring.setLocalScale(k, k, 1);
       }
@@ -93,7 +95,7 @@ export default function jab({ n, stage, onEnd, hud, scene }: Game) {
       fade(pad.pad, pad.pop > 0 ? pad.pop * 5 : 0.85);
       tint(pad.pad, pad.cross ? '#fde047' : pad.zone ? '#34d399' : '#f43f5e');
     }
-    experience.update(t,g.combo,players.slice(0,n).map(p=>p.present),Array.from({length:n},()=>barIn<BAR_WARN&&barIn>-BAR_LIVE?'DUCK THE BAR':'HIT THE PADS'),Array.from({length:n},()=> 'Gold pads want the opposite hand'));
+    experience.update(t,dt,pads,g.combo,barIn,players.slice(0,n).map(p=>p.present));
     bursts.update(dt);
     music.intensity(0.3 + Math.max(g.combo[0], g.combo[1]) / 14);
     scoreHud(hud, n, g.scores);

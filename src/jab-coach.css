@@ -1,0 +1,13 @@
+.jab-coaches {position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.jab-coach {position:absolute;inset:0;}.jab-coach .mascot-puppet {filter:drop-shadow(0 8px 12px #0005);}
+.jab-character-stage canvas {z-index:1;}
+.jab-coach-cue {position:absolute;bottom:2%;transform:translateX(-50%);width:32%;text-align:center;padding:8px 12px;background:#271c30ed;color:#fff4df;}
+.jab-coach-cue>strong {display:block;font:800 clamp(22px,3vw,42px)/1 var(--moon-display);}
+.jab-coach-cue>span {display:block;font:600 clamp(10px,1vw,15px) var(--moon-face);margin-top:5px;}
+.jab-coach-cue>div {display:flex;gap:8px;justify-content:center;margin-top:7px;}
+.jab-coach-cue i {width:20px;height:7px;background:#67576d;border-radius:3px;}.jab-coach-cue i[data-on='true'] {background:#ffe08a;}
+.jab-coach-cue[data-reward='true'] {background:#ffe08a;color:#37202b;}
+.jab-coaches[data-players='2'] .jab-coach-cue {width:40%;}
+@media(max-width:700px){.jab-coach-cue{width:58%;}.jab-coach-cue>strong{font-size:23px;}.jab-coaches[data-players='2'] .jab-coach-cue{width:43%;padding:6px;}.jab-coach-cue>span{font-size:9px;}}
+.jab-character-stage {isolation:isolate;background:#29182a url('/assets/moon/play/boxing.webp') center/cover;}
+.jab-character-stage>canvas {position:relative;z-index:1;}

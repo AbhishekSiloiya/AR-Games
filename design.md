@@ -13,3 +13,7 @@ An expressive movement arcade for all ages, led by playful original mascots. Six
 
 ## Approved playable-world direction — 26 October
 User approved expressive anime arcade worlds with the live player visible, animated original characters/hosts/rivals and earned reactions. Expressive furry/knitted mascots and comedic reactions lead the assets; adult human profile options are secondary, without a teenager-led direction. the returning playroom has a compact header and quick character/nickname picker. Actual game scenery, feedback and music must improve together. Maintain readable signals and low-latency input; no extra held tool in Slice. Preview must demonstrate all six games in play. Moodi & Quack lead the sport/space worlds; Fuzzbyte leads the club/pose/juice worlds. Profile character choices are badges, not a promise of full in-game character skin swapping.
+
+
+## Movement-first feedback pass — 26 October
+Use original supplied mascot identities without added clothing. Characters have a purpose: Moodi mirrors the Jack pilot's joints, Fuzzbyte copies Dance and demonstrates target poses, Rizzquake holds the Jab mitts and reacts to actual hits/ducks, Momo & Bloop climb earned Shape Up tower pieces. No claim that art swaps alone are animation. Camera exposure in Dance/Shape Up is natural; decorative art stays out of the central live-player area. Shape Up has one target, one match/hold signal, one small earned tower and a clear result/rest transition; remove parallel score/quest/portal/verdict panels.

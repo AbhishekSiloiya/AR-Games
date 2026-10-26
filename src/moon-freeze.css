@@ -24,3 +24,12 @@
 .moon-freeze__visor {position:absolute;height:auto;transform-origin:50% 43%;pointer-events:none;}
 .moon-freeze__visor[hidden] {display:none;}
 .moon-freeze__cue {z-index:1;}
+/* One compact phase instruction leaves face, hands and torso visible. */
+.moon-freeze__edition,.moon-freeze .moon-arena-brand {display:none;}
+.moon-freeze__cue {top:2%;bottom:auto;max-width:48%;padding:6px 16px;gap:2px;background:#20162ee8;}
+.moon-freeze__cue strong {font-size:clamp(28px,4vw,54px);letter-spacing:-.025em;}
+.moon-freeze__cue small {display:none;}
+.moon-freeze__cue span {font-size:clamp(10px,1vw,15px);}
+.moon-freeze__seat {bottom:2%;width:23%;padding:5px 9px;}
+.moon-freeze__seat span {display:none;}.moon-freeze__seat strong {margin:0 0 4px;font-size:clamp(10px,1.2vw,16px);}
+.moon-freeze-stage .hud.score,.live-dance .moon-freeze-stage .hud.score {top:2%;}

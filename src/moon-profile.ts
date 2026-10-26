@@ -1,7 +1,7 @@
 import type { Db } from './stats.ts';
 export const CREW = [
-  {id:'moodi',name:'Moodi & Quack',tag:'Unbothered. Unstoppable.',art:'/assets/moon/play/moodi-idle.webp',tone:'#e8d6b8'},
-  {id:'fuzzbyte',name:'Fuzzbyte',tag:'A little chaos. A lot of heart.',art:'/assets/moon/play/fuzzbyte-idle.webp',tone:'#cfb9ff'},
+  {id:'moodi',name:'Moodi & Quack',tag:'Unbothered. Unstoppable.',art:'/assets/moon/crew/moodi.webp',tone:'#e8d6b8'},
+  {id:'fuzzbyte',name:'Fuzzbyte',tag:'A little chaos. A lot of heart.',art:'/assets/moon/crew/fuzzbyte.webp',tone:'#cfb9ff'},
   {id:'momo',name:'Momo & Bloop',tag:'Better together',art:'/assets/moon/crew/momo.webp',tone:'#ffbd79'},
   {id:'rizzquake',name:'Rizzquake',tag:'Big friendly energy',art:'/assets/moon/crew/rizzquake.webp',tone:'#deff75'},
   {id:'nova',name:'Nova',tag:'Bright ideas. Big moves.',art:'/assets/moon/play/nova-idle.webp',tone:'#f6a7e1'},

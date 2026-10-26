@@ -1,27 +1,12 @@
-.freeze-party {position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;isolation:isolate;}
-.freeze-party__world {position:absolute;inset:0;background:url('/assets/moon/play/club.webp') center/cover;opacity:.72;mask-image:linear-gradient(to right,#000 0%,#000 5%,transparent 27%,transparent 73%,#000 95%,#000 100%);}
-.freeze-party__ceiling {position:absolute;left:2%;top:12%;display:flex;align-items:center;background:#1d103dcc;padding:4px 9px;}
-.freeze-party__ceiling span {font-family:var(--moon-display);font-size:clamp(12px,1.6vw,26px);letter-spacing:.16em;color:#ff9bdc;text-shadow:0 0 18px #df268d80;}
-.freeze-party__lights {position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;}
-.freeze-party__speaker {position:absolute;bottom:12%;left:1%;width:7%;height:30%;background:linear-gradient(135deg,#29203e,#0d0c19);border:2px solid #6e456c;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;box-shadow:0 5px 12px #0008;}
-.freeze-party__speaker[data-side='1'] {left:auto;right:1%;}
-.freeze-party__speaker>i {height:32%;aspect-ratio:1;border:3px solid #40354f;border-radius:50%;background:radial-gradient(circle,#a642ad 0 9%,#1c142c 11% 35%,#62456a 38% 40%,#181122 43% 65%,#09080c 68%);}
-.freeze-party__speaker>div {height:12%;width:78%;display:flex;gap:3px;align-items:flex-end;}
-.freeze-party__speaker b {height:100%;flex:1;background:linear-gradient(#ffccf7,#bb6df2);transform-origin:bottom;}
-.freeze-party__host {position:absolute;right:5%;bottom:15%;width:15%;height:43%;text-align:center;display:flex;align-items:center;justify-content:flex-end;flex-direction:column;}
-.freeze-party__host img {width:100%;height:88%;object-fit:contain;object-position:center bottom;transform-origin:50% 100%;filter:drop-shadow(0 5px 12px #0008);}
-.freeze-party__host span {font:700 clamp(7px,.65vw,10px)/1.3 var(--moon-face);letter-spacing:.05em;color:#e5b7e2;margin-top:2px;}
-.freeze-party__host strong {font:800 clamp(8px,.85vw,13px)/1.4 var(--moon-face);color:#fff4dc;background:#160e2dcc;padding:3px 6px;border-radius:3px;white-space:nowrap;}
-.freeze-party[data-players='2'] .freeze-party__host {width:12%;height:30%;right:10%;bottom:18%;}
-.freeze-party[data-phase='freeze'] .freeze-party__world {filter:saturate(.45) hue-rotate(18deg);opacity:.5;}
-.freeze-party[data-phase='freeze'] .freeze-party__lights {filter:saturate(.35);}
-.freeze-party[data-phase='freeze'] .freeze-party__ceiling span {color:#a5f5ff;text-shadow:none;}
-.freeze-party__confetti {position:absolute;font-size:clamp(12px,1.7vw,24px);line-height:1;text-shadow:0 0 6px currentColor;}
+/* The live camera owns the centre. Environment and animation stay at the edges. */
+.freeze-party {position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.freeze-party__world {position:absolute;inset:0;background:url('/assets/moon/play/club.webp') center/cover;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 93%,95% 93%,95% 13%,5% 13%,5% 93%,0 93%);opacity:.9;}
+.freeze-party__ceiling {position:absolute;left:2%;top:3%;font:700 clamp(8px,.8vw,13px) var(--moon-face);color:#fff;}
+.freeze-party__host {position:absolute;right:1%;bottom:5%;width:20%;height:47%;}
+.freeze-party__host span {display:block;position:absolute;bottom:0;right:8%;font:700 clamp(8px,.8vw,12px) var(--moon-face);color:#fff;background:#23173c;padding:3px 7px;}
+.freeze-party__confetti {position:absolute;font-size:clamp(12px,1.7vw,24px);color:#ffde82;}
 .freeze-party__confetti[hidden] {display:none;}
-.freeze-party[data-effects='false'] .freeze-party__lights {opacity:.4;}
-.freeze-party[data-effects='false'] .freeze-party__speaker {box-shadow:none;}
-@media(max-width:700px){.freeze-party__host{height:37%;width:17%;right:1%;bottom:19%;}.freeze-party__speaker{width:6%;height:25%;}.freeze-party__speaker>i{border-width:1px;}.freeze-party__speaker b{min-width:1px;}.freeze-party__host strong{font-size:7px;}.freeze-party__ceiling span{font-size:10px;}}
-@media(prefers-reduced-motion:reduce){.freeze-party__confetti {display:none!important;}}
-/* Keep the actual club ball and floor visible while the live player owns the centre. */
-.freeze-party__world {mask-image:linear-gradient(to bottom,#000 0%,#000 9%,transparent 26%,transparent 74%,#000 91%,#000 100%),linear-gradient(to right,#000 0%,#000 5%,transparent 25%,transparent 75%,#000 95%,#000 100%);mask-composite:add;opacity:.9;}
-.freeze-party__ceiling span {font-size:clamp(9px,1vw,15px);letter-spacing:.08em;}
+.freeze-party[data-players='2'] .freeze-party__host {width:15%;height:38%;right:0;bottom:8%;}
+.freeze-party[data-phase='freeze'] .freeze-party__ceiling {color:#b8ffff;}
+@media(prefers-reduced-motion:reduce){.freeze-party__confetti{display:none!important;}}
+.freeze-party__world {box-shadow:inset 0 0 12px var(--party-glow,#e8a7ff);}

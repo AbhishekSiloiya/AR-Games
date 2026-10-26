@@ -22,7 +22,7 @@ const POSES: [string, number[]][] = ([
 const STAND = [-100, -95, -80, -85, ...LEGS].map((deg) => deg * D);
 
 export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
-  const PER_POSE = Math.max(3.2, 5.2 / hardness(stage));
+  const PER_POSE = Math.max(5.6, 7.4 / hardness(stage));
   backdrop(scene, 'studio', true);
   const coach = shapeupOverlay(n, mirrorOn());
   scene.cleanup(() => coach.dispose());

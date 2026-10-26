@@ -1,3 +1,4 @@
+import { clockGate } from './audio-clock.ts';
 import { CLUB_BPM, clubStep } from './club-groove.ts';
 // Sound: CC0 samples (Kenney) for effects, an announcer voice, jingles, and a procedural music engine
 // whose layers come in as `music.intensity` rises — so the soundtrack builds with your combo.
@@ -14,6 +15,9 @@ export function audio() {
   }
   return ctx;
 }
+
+let controlClock:ReturnType<typeof clockGate>|undefined;
+export const setAudioPaused=(paused:boolean)=>(controlClock??=clockGate(audio()))(paused);
 
 export const musicOut = () => (audio(), musicBus); // where a song (song.ts) plugs in: same bus, same compressor, same pause
 
