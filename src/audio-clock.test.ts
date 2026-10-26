@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { clockGate } from './audio-clock.ts';
+const operations:string[]=[];let release:()=>void=()=>{};
+const clock={state:'running',suspend:()=>{operations.push('suspend');return new Promise<void>(r=>{release=()=>{clock.state='suspended';r();};});},resume:async()=>{operations.push('resume');clock.state='running';}};
+const gate=clockGate(clock);const paused=gate(true);gate(true);gate(false);gate(true);gate(false);
+assert.deepEqual(operations,['suspend'],'duplicate pause requests do not overlap native operations');release();await paused;
+assert.deepEqual(operations,['suspend','resume'],'latest resume runs after suspend resolves');assert.equal(clock.state,'running');
+await gate(false);assert.deepEqual(operations,['suspend','resume'],'already-running clocks are not resumed twice');
+console.log('Audio clock: overlapping pause/resume requests serialize and settle on the latest requested state.');
+const instant={state:'running',suspend:async()=>{instant.state='suspended';},resume:async()=>{instant.state='running';}},settle=clockGate(instant);
+let done=settle(false);queueMicrotask(()=>settle(true));await done;assert.equal(instant.state,'suspended','a pause arriving during promise settlement is drained');
+done=settle(true);queueMicrotask(()=>settle(false));await done;assert.equal(instant.state,'running','a resume arriving during promise settlement is drained');

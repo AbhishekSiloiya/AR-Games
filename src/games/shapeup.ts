@@ -22,7 +22,7 @@ const POSES: [string, number[]][] = ([
 const STAND = [-100, -95, -80, -85, ...LEGS].map((deg) => deg * D);
 
 export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
-  const PER_POSE = Math.max(3.2, 5.2 / hardness(stage));
+  const PER_POSE = Math.max(5.6, 7.4 / hardness(stage));
   backdrop(scene, 'studio', true);
   const coach = shapeupOverlay(n, mirrorOn());
   scene.cleanup(() => coach.dispose());
@@ -31,7 +31,7 @@ export default function shapeUp({ n, stage, onEnd, hud, scene }: Game) {
   const matchSeconds = PER_POSE - 1.1;
   let clock = shapeClock(-1, matchSeconds, POSES_PER_ROUND);
   const tick = round(hud, shapeDuration(matchSeconds, POSES_PER_ROUND), () => { music.stop(); onEnd(seats.map(s => s.score), seats.map(s => {const medal=shapeRank(s.stars);return [`${medal.medal} · ${medal.rank}`,`${s.stars}/24 quest stars`,`${s.path.filter(stars=>stars>=2).length}/8 poses matched`,`Best chain ×${s.bestCombo}`];})); });
-  music.start('dance', undefined, .5);
+  music.start('pose', undefined, .5);
   const fresh = (p: number) => players[p].present && (sim || (trackingSeen[p] > 0 && performance.now() - trackingSeen[p] <= 600));
   if (sim || import.meta.env.DEV) {
     Object.assign(window, { __shapeup: { seats, order, perPose: matchSeconds + 2.7, matchSeconds, get phase(){return clock.phase;}, get index(){return clock.index;}, get remaining(){return clock.remaining;} } });

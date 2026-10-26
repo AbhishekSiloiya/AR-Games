@@ -1,0 +1,30 @@
+.moon-sport-stage { isolation:isolate;background-color:#08111a;background-position:center;background-size:cover; }
+.moon-sport-stage--goalie {background-image:linear-gradient(0deg,rgba(2,12,17,.12),rgba(2,12,17,.06)),url('/assets/moon/play/stadium.webp');}
+.moon-sport-stage--jab {background-image:linear-gradient(0deg,rgba(14,6,21,.25),rgba(14,6,21,.08)),url('/assets/moon/play/boxing.webp');}
+.moon-sport-stage canvas {position:relative;z-index:1;}
+.moon-sport {position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3;color:#fffaf0;--sport-accent:#9ceaff;--sport-ink:#07131c;font-family:var(--moon-face),sans-serif;}
+.moon-sport--jab {--sport-accent:#ff8fbc;--sport-ink:#25091e;}
+.moon-sport__identity {position:absolute;left:2%;top:14%;font-size:.78rem;font-weight:800;letter-spacing:.12em;color:var(--sport-accent);text-shadow:0 2px 6px #000;}
+.moon-sport__lights {position:absolute;inset:0;z-index:-1;opacity:.25;}
+.moon-sport__lights i {display:block;position:absolute;left:12%;top:-8%;width:10%;height:60%;transform-origin:50% 0;background:linear-gradient(180deg,#d7f5ff80,transparent);clip-path:polygon(46% 0,54% 0,100% 100%,0 100%);}
+.moon-sport__lights i:nth-child(2) {left:48%;background:linear-gradient(180deg,#ff99df90,transparent);}
+.moon-sport__lights i:nth-child(3) {left:83%;}
+.moon-sport__host {position:absolute;right:2%;bottom:24%;width:10%;height:24%;transform-origin:bottom center;filter:drop-shadow(0 3px 10px #0009);}
+.moon-sport__actor {width:100%;height:90%;}
+.moon-sport__host span {display:block;text-align:center;background:var(--sport-ink);border:1px solid var(--sport-accent);font-size:.57rem;letter-spacing:.06em;padding:.25rem;white-space:nowrap;}
+.moon-sport__seat {position:absolute;left:50%;bottom:3%;width:34%;transform:translateX(-50%);padding:.65rem 1rem;background:linear-gradient(90deg,#061019e8,#061019ce);border-left:.25rem solid var(--sport-accent);box-shadow:0 .4rem 2rem #0005;}
+.moon-sport--jab .moon-sport__seat {background:linear-gradient(90deg,#230d21ed,#1c0c1fdc);}
+.moon-sport[data-players='2'] .moon-sport__seat {width:35%;}
+.moon-sport[data-players='2'] .moon-sport__seat[data-player='0'] {left:24%;}
+.moon-sport[data-players='2'] .moon-sport__seat[data-player='1'] {left:76%;}
+.moon-sport__seat small {display:block;color:var(--sport-accent);font-size:.65rem;letter-spacing:.12em;font-weight:700;}
+.moon-sport__seat strong {display:block;font-family:var(--moon-display),sans-serif;line-height:1.05;font-size:1.8rem;margin:.15rem 0 .35rem;}
+.moon-sport__seat span {display:block;font-size:.75rem;color:#e8e8ef;margin-top:.3rem;}
+.moon-sport__track {height:.25rem;background:#ffffff26;position:relative;overflow:hidden;}
+.moon-sport__track i {display:block;width:100%;height:100%;background:var(--sport-accent);transform-origin:left;}
+.moon-sport__track b {position:absolute;top:0;width:2px;height:100%;background:#061019;left:25%;}
+.moon-sport__track b:nth-of-type(2){left:50%;}.moon-sport__track b:nth-of-type(3){left:75%;}
+.moon-sport__seat[data-reaction='good'] {border-color:#e3ff78;}.moon-sport__seat[data-reaction='good'] strong {color:#e3ff78;}
+.moon-sport__seat[data-reaction='miss'] strong {color:#ffbd9e;}
+.moon-sport__seat[data-present='false'] {opacity:.7;}
+.moon-sport[data-motion='false'] .moon-sport__lights {display:none;}

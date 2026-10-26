@@ -1,5 +1,10 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
+import './moon.css';
+import { PlayerPicker } from './player-picker.tsx';
+import { crewOf } from './moon-profile.ts';
+import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
+import { PartyOptions } from './party-options.tsx';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
 import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
@@ -7,9 +12,9 @@ import { createRoot } from 'react-dom/client';
 import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
 import { report } from './report.ts';
 import { DAY_GOAL, load, save, summary, type Session } from './stats.ts';
-import { BADGES, CHALLENGE_XP, STAGES, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
-import { loadAudio } from './audio.ts';
-import { PLAYER_COLORS, Shell, audio, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
+import { BADGES, CHALLENGE_XP, STAGES, badgeCatalog, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
+import { loadAudio, setAudioPaused } from './audio.ts';
+import { PLAYER_COLORS, Shell, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
 // Each game is its own chunk: its code (and, for two of them, the physics engine) is fetched the first time it is played.
 const Slice = play(() => import('./games/slice.ts')), Run = play(() => import('./games/run.ts')), Jab = play(() => import('./games/jab.ts')), Beat = play(() => import('./games/beat.ts'));
 const ShapeUp = play(() => import('./games/shapeup.ts')), Goalie = play(() => import('./games/goalie.ts')), Smash = play(() => import('./games/smash.ts'));
@@ -23,7 +28,7 @@ type GameMode = { id: string; name: string; blurb: string }; // id '' is the sta
 type Game = { id: string; name: string; icon: string; tone: [string, string]; blurb: string; how: string; maxPlayers: 1 | 2; Play: Playable; modes?: GameMode[]; team?: boolean; crew?: boolean }; // crew: two players are ALWAYS one team (there is no versus)
 // The library. A new game = one component + one row here (+ its star goals in meta.ts). maxPlayers 2 only for
 // compact-footprint games (PLAN §3); a wide game is still playable by two through "Take turns".
-const GAMES: Game[] = [
+const LEGACY_GAMES: Game[] = [
   { id: 'pulse', name: 'Pulse', icon: '🎧', tone: ['#22d3ee', '#c026d3'], blurb: 'Hit the music. A neon tunnel, three songs.', how: 'Notes fly down the tunnel onto two rings: cyan is your left hand, pink your right. You never aim. An arrow means swing that hand that way as it lands. A plain orb means swing it any way. A gold diamond means clap. A note with a tail means throw that arm up and hold it. In the break, duck the bar and lean away from the wall.', maxPlayers: 2, Play: Pulse, team: true,
     modes: [{ id: '', name: 'Neon Drive', blurb: '112 bpm · the one to learn on' }, { id: 'afterglow', name: 'Afterglow', blurb: '124 bpm · quick doubles' }, { id: 'hyperline', name: 'Hyperline', blurb: '138 bpm · fast and relentless' }] },
   { id: 'run', name: 'Run', icon: '🏃', tone: ['#ff8a3d', '#ff3d6e'], blurb: 'Endless runner. Lean, jump, duck.', how: 'Lean left or right to change lane. Jump the barrels and duck the beams. Never run into a crate stack. Grab coins and power-ups in the lanes.', maxPlayers: 2, Play: Run },
@@ -45,6 +50,7 @@ const GAMES: Game[] = [
   { id: 'wipe', name: 'Wipe', icon: '🧽', tone: ['#fde047', '#d97706'], blurb: 'Scrub the screen clean.', how: 'Sweep both hands across the grime. It creeps back, so keep moving. Clear your whole side for a bonus and a tougher layer.', maxPlayers: 2, Play: Wipe },
   { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Watch yourself live and copy the pose reference. Hold a good match briefly to lock it. Earn up to three stars per pose and chain matches for combo rewards. Relax during the reset countdown, then try the next pose. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
 ];
+const GAMES = MOON_GAME_IDS.map(id => LEGACY_GAMES.find(g => g.id === id)!);
 const NAMES = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
 const BADGE_ICON: Record<string, string> = { first: '👟', explorer: '🧭', century: '💯', double: '🔥', streak3: '📅', streak7: '🗓️', streak30: '⚡', stars10: '⭐', stars40: '🌟', stars100: '🌌', flawless: '💎', summit: '🏔️', five: '🖐️', level5: '💪', level10: '🏅', early: '🌅', squats: '🦵', runner: '🏁' };
 
@@ -57,7 +63,7 @@ type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at:
 const vars = (v: Record<string, string | number>) => v as CSSProperties; // CSS custom properties for inline style
 const toneOf = (g: Game) => vars({ '--a': g.tone[0], '--b': g.tone[1] });
 const Stars = ({ n, of = 3 }: { n: number; of?: number }) => <span className="stars">{'★'.repeat(n)}<i>{'★'.repeat(of - n)}</i></span>;
-const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'ROMP'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
+const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'MOON'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
 
 // Drifting neon blobs and rising shapes behind every menu. Fixed random layout, pure CSS motion.
 const BITS = Array.from({ length: 14 }, (_, i) => vars({
@@ -225,37 +231,9 @@ function HandCursor() {
   return <div className="cursor" ref={el} />;
 }
 
-// Where the camera sees you, without showing the camera: a little frame with a stick figure per player, drawn from
-// the tracked joints, plus a word of guidance when the framing is off. Big in the menus, tiny in a corner in play.
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+// A quiet live preview on briefings: the player, rather than a proxy mannequin.
 function Presence({ small }: { small: boolean }) {
-  const canvas = useRef<HTMLCanvasElement>(null), note = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    let raf = requestAnimationFrame(function draw() {
-      raf = requestAnimationFrame(draw);
-      const c = canvas.current!, g = c.getContext('2d')!, W = (c.width = c.clientWidth * 2), H = (c.height = c.clientHeight * 2);
-      let say = sim ? '' : 'Step into view';
-      players.forEach((pl, i) => {
-        if (!pl.present || !pl.body.length) return;
-        const b = pl.body, seen = (k: number) => b[k][2] > 0.5;
-        // A glowing mannequin rather than a wire skeleton: a filled torso, round limbs that taper, a head, all lit in the player's colour.
-        const tone = PLAYER_COLORS[i], unit = Math.hypot((b[11][0] - b[12][0]) * W, (b[11][1] - b[12][1]) * H) || H * 0.1, at = (k: number) => [b[k][0] * W, b[k][1] * H] as const;
-        g.lineCap = g.lineJoin = 'round'; g.shadowColor = tone; g.shadowBlur = unit * 0.5; g.strokeStyle = g.fillStyle = tone;
-        if ([11, 12, 23, 24].every(seen)) { g.beginPath(); g.moveTo(...at(11)); g.lineTo(...at(12)); g.lineTo(...at(24)); g.lineTo(...at(23)); g.closePath(); g.lineWidth = unit * 0.34; g.stroke(); g.fill(); }
-        for (const [a, z] of BONES) if (seen(a) && seen(z) && !(a === 11 && z === 12) && !(a === 23 && z === 24)) { g.lineWidth = unit * (a >= 23 ? 0.36 : 0.28) * (z >= 25 || z === 15 || z === 16 ? 0.8 : 1); g.beginPath(); g.moveTo(...at(a)); g.lineTo(...at(z)); g.stroke(); }
-        g.beginPath(); g.arc(b[0][0] * W, b[0][1] * H - unit * 0.05, unit * 0.42, 0, 7); g.fill();
-        g.shadowBlur = 0; g.fillStyle = '#ffffff';
-        for (const k of [15, 16, 27, 28]) if (seen(k)) { g.beginPath(); g.arc(...at(k), unit * 0.17, 0, 7); g.fill(); } // hands and feet: what the games read
-        if (i) return;
-        const width = Math.hypot(b[11][0] - b[12][0], b[11][1] - b[12][1]), mid = (b[11][0] + b[12][0]) / 2;
-        say = !seen(27) && !seen(28) ? 'Step back — I cannot see your feet' : b[0][1] < 0.04 ? 'Step back — your head is cut off' : width < 0.05 ? 'Come a little closer'
-          : mid < 0.2 ? 'Move right' : mid > 0.8 ? 'Move left' : '';
-      });
-      if (note.current && note.current.textContent !== say) note.current.textContent = say;
-    });
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return <div className={small ? 'presence small' : 'presence'}><canvas ref={canvas} /><span ref={note} /></div>;
+  return <div className={small ? 'presence small moon-presence' : 'presence moon-presence'}><CameraView game="slice" n={2} compact /><span>YOU / LIVE</span></div>;
 }
 
 function Fps() {
@@ -275,6 +253,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>({ at: 'start' });
   const [error, setError] = useState('');
   const [db, setDb] = useState(load);
+  const [editingPlayer, setEditingPlayer] = useState<number|null>(null);
   const [who, setWho] = useState([0, 1]); // profile index per player slot
   const [mode, setMode] = useState<Mode>('solo');
   const [fx, setFx] = useState(effects.on);
@@ -293,8 +272,8 @@ function App() {
   }, []);
 
   // Pause: stop the frame loop (Shell context) and the audio clock, so rhythm games freeze too.
-  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void audio().suspend(); } }), [paused, trackingLost]);
-  const resume = () => { setPaused(false); void audio().resume(); };
+  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void setAudioPaused(true); } }), [paused, trackingLost]);
+  const resume = () => { setPaused(false); void setAudioPaused(false); };
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && shell.pause();
     addEventListener('keydown', key);
@@ -322,7 +301,7 @@ function App() {
   }, [activeGame,n,screen.at === 'play' ? screen.turn : -1]);
   useEffect(() => {
     if (screen.at !== 'play') return;
-    if (paused || trackingLost) void audio().suspend(); else void audio().resume();
+    if (paused || trackingLost) void setAudioPaused(true); else void setAudioPaused(false);
   }, [paused,trackingLost,screen.at]);
   // Pilot choices last for one round; the user's Tracking preference is restored in menus.
   useEffect(() => {
@@ -352,7 +331,7 @@ function App() {
   const start = async () => {
     // Fullscreen first: it needs the tap's user-activation, which is gone once the camera prompt and model load finish.
     try { void document.documentElement.requestFullscreen().catch(() => {}); } catch { /* not supported — play windowed */ }
-    void audio().resume(); // same reason: games are later started by a hand-dwell, which is not a user gesture
+    void setAudioPaused(false); // same reason: games are later started by a hand-dwell, which is not a user gesture
     void loadAudio(); // samples decode in the background; until then sounds fall back to synth blips
     try { await startPose(video.current!); } catch (e) {
       return setError(`Camera or tracker failed: ${(e as Error).message}. Allow the camera — and if this is the http://192.168… address, add it under chrome://flags → “Insecure origins treated as secure” first.`);
@@ -412,12 +391,7 @@ function App() {
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
   const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
-  const cycle = (slot: number) => setWho((w) => w.map((v, i) => (i === slot ? (v + 1) % db.profiles.length : v)));
-  const rename = (slot: number) => {
-    const old = name(slot), next = prompt('Name', old)?.trim();
-    if (!next || next === old || db.profiles.includes(next)) return;
-    update({ profiles: db.profiles.map((p) => (p === old ? next : p)), sessions: db.sessions.map((s) => (s.who === old ? { ...s, who: next } : s)) });
-  };
+
 
   const slots = mode === 'solo' ? [0] : [0, 1];
   const clash = slots.length === 2 && who[0] === who[1];
@@ -429,74 +403,40 @@ function App() {
       <video className={screen.at === 'tracking' ? 'mirror bright' : 'mirror'} ref={video} muted playsInline />
       {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
-          <Logo huge />
-          <h2>Your body is the controller. Move to play.</h2>
-          <div className="row" style={{ justifyContent: 'center' }}>
-            {['📺 Stand the tablet under the TV', '🚶 Step back till your whole body shows', '✊ Point at a button, close your fist to press'].map((t) => <span className="goal" key={t}>{t}</span>)}
+        <div className="screen moon-start">
+          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">MOVE ON / FEEL SOMETHING</span><span className="moon-edition">MOVE TOGETHER. PLAY YOUR WAY.</span></header>
+          <div className="moon-welcome">
+            <div className="moon-welcome-copy"><p className="moon-eyebrow">SIX WORLDS. ONE YOU.</p><h1>YOUR BODY.<br /><span>THE CONTROLLER.</span></h1><p className="moon-intro">Slice the chaos. Own the goal. Dance like the room is yours.</p><button className="primary giant" onClick={start}>Start <span aria-hidden="true">↗</span></button><p className="moon-camera-note">Camera on. Step back. Make your move.<br />Play on your Mac or tablet · no controller needed</p>{error && <p className="error">{error}</p>}</div>
+            <div className="moon-welcome-art" aria-label="Original artwork for the MOON movement arcade"><img className="moon-cover-main" src={moonArt('freeze')} alt="Freeze club environment" fetchPriority="high" /><img className="moon-cover-slice" src={moonArt('slice')} alt="Slice fruit world" /><img className="moon-cover-goalie" src={moonArt('goalie')} alt="Goalie stadium world" /><img className="moon-cover-buddy" src={moonBuddy('freeze')} alt="Fuzzbyte, your playful party host" /><span className="moon-art-stamp">MOVE<br />LIKE YOU<br />MEAN IT.</span></div>
           </div>
-          <button className="primary giant" onClick={start}>Start</button>
-          {error && <p className="error">{error}</p>}
+          <footer className="moon-start-footer"><span>SLICE / GOALIE / FREEZE / SHAPE UP / JACK ATTACK / JAB</span><span>REAL MOVES. GOOD ENERGY.</span></footer>
         </div>
       )}
       {screen.at === 'home' && (
-        <div className="screen library">
-          <div className="row">
-            <Logo />
-            <p className="dim num grow" style={{ paddingLeft: '1rem' }}><Fps /></p>
-            <button className="ghost" onClick={toggleFx}>✨ Glow {fx ? 'on' : 'off'}</button>
-            <button className="ghost" onClick={() => go({ at: 'tracking' })}>🎯 Tracking</button>
-            <button className="ghost" onClick={() => go({ at: 'badges' })}>🏅 Badges</button>
-            <button className="ghost" onClick={() => go({ at: 'stats' })}>📊 Stats</button>
+        <div className="screen library moon-playroom">
+          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">YOUR PLAYROOM</span><nav aria-label="Playroom tools"><button className="ghost" onClick={toggleFx}>Effects {fx ? 'on' : 'off'}</button><button className="ghost" onClick={() => go({ at: 'tracking' })}>Tracking</button><button className="ghost" onClick={() => go({ at: 'badges' })}>Badges</button><button className="ghost" onClick={() => go({ at: 'stats' })}>Stats</button></nav></header>
+          <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
+          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>REAL MOVES / GOOD COMPANY</span></div>
+          <div className="moon-posters">
+            {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
+              <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><img className="moon-poster-buddy" src={moonBuddy(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
+              <div className="moon-poster-copy"><div><h3>{g.name}</h3><p>{MOON_CATALOG[g.id].hook}</p></div><span className="moon-poster-move">{MOON_CATALOG[g.id].move}<small>Stage {open(g)} / {STAGES}</small></span></div>
+            </button>)}
           </div>
-          <div className="top">
-            <div className="panel">
-              <div className="seg">
-                {(Object.keys(MODES) as Mode[]).map((m) => <button key={m} aria-pressed={mode === m} onClick={() => chooseMode(m)}>{MODES[m]}</button>)}
-              </div>
-              {slots.map((i) => (
-                <div className="row" key={i} style={{ flexWrap: 'nowrap' }}>
-                  <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
-                  <span className="grow" />
-                  <button className="ghost" onClick={() => cycle(i)}>Switch</button>
-                  <button className="ghost" onClick={() => rename(i)}>Rename</button>
-                </div>
-              ))}
-              {clash && <p className="error">Pick two different players.</p>}
-            </div>
-            <div className="panel">
-              <h2>🎯 Daily quests · {name(0)}</h2>
-              {dailyChallenges(db.sessions, name(0), NAMES).map((c) => (
-                <div key={c.id} className={c.done ? 'quest done' : 'quest'}>
-                  <span className="tick">{c.done ? '✓' : ''}</span>
-                  <span className="what num">{c.text} <span className="dim">{c.have} / {c.goal}</span></span>
-                  <span className="xp">+{CHALLENGE_XP} XP</span>
-                  <span className="meter"><i style={{ width: `${(100 * c.have) / c.goal}%` }} /></span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="cards">
-            {GAMES.filter((g) => g.maxPlayers >= n).map((g, i) => (
-              <button className="card" key={g.id} style={{ ...toneOf(g), ...vars({ '--i': i }) }} disabled={clash} onClick={() => go({ at: 'brief', game: g, stage: open(g), mode: '' })}>
-                <span className="icon">{g.icon}</span>
-                <b>{g.name}</b>
-                <small>{g.blurb}</small>
-                <span className="meta num"><span className="pill">Stage {open(g)}</span><Stars n={bestStars(db.sessions, name(0), g.id, open(g))} /></span>
-              </button>
-            ))}
-          </div>
+          <section className="moon-dailies"><div><p className="moon-eyebrow">A LITTLE EXTRA MOTIVATION</p><h2>TODAY’S SIDE QUESTS</h2><p>For {name(0)} · +{CHALLENGE_XP} XP each</p></div><div className="moon-quest-list">{dailyChallenges(db.sessions,name(0),NAMES).map(c=><div key={c.id} className={c.done?'quest done':'quest'}><span className="tick">{c.done?'✓':''}</span><span className="what">{c.text}<small>{c.have} / {c.goal}</small></span><span className="meter"><i style={{width:`${100*c.have/c.goal}%`}} /></span></div>)}</div></section>
+          <footer className="moon-room-footer"><Logo /><span>MOve ON. A little further every time.</span><span>{totalStars(db.sessions,name(0))} stars collected</span></footer>
         </div>
       )}
+      {editingPlayer!==null&&<PlayerPicker db={db} current={name(editingPlayer)} slot={editingPlayer} onSave={update} onSwitch={index=>setWho(w=>w.map((v,i)=>i===editingPlayer?index:v))} onClose={()=>setEditingPlayer(null)} />}
       {screen.at === 'brief' && (() => {
         const { game } = screen, team = teamOf(game), variant = variantOf(screen.mode, team), opened = open(game, screen.mode);
         return (
-          <div className="screen" style={toneOf(game)}>
-            <div className="row"><h1 className="grow">{game.name}</h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
+          <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
+            <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="hero"><span>{game.icon}</span></div>
+              <div className="moon-brief-art"><img src={moonArt(game.id)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={['goalie','jacks','jab'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
               <div className="col" style={{ gap: '1.3rem' }}>
-                <div className="steps">{game.how.split('. ').map((step, i) => <p key={i} style={vars({ '--i': i })}>{step.replace(/\.$/, '')}</p>)}</div>
+                <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
                   <div className="row">
                     {game.modes && <div className="seg">{game.modes.map((m) => <button key={m.id} aria-pressed={screen.mode === m.id} onClick={() => go({ ...screen, mode: m.id, stage: Math.min(screen.stage, open(game, m.id)) })}>{m.name}</button>)}</div>}
@@ -504,7 +444,7 @@ function App() {
                     <span className="dim">{[game.modes?.find((m) => m.id === screen.mode)?.blurb, n === 2 && game.team ? (team ? 'One shared score: you win or lose together' : 'Highest score wins') : ''].filter(Boolean).join(' · ')}</span>
                   </div>
                 )}
-                <div className="path">
+                <p className="moon-eyebrow">CHOOSE YOUR STAGE</p><div className="path">
                   {Array.from({ length: STAGES }, (_, k) => k + 1).map((st) => (
                     <span key={st} className="row" style={{ gap: 0 }}>
                       {st > 1 && <span className={st <= opened ? 'link open' : 'link'} />}
@@ -519,7 +459,7 @@ function App() {
                   {starGoals(game.id, screen.stage, variant).map((goal, k) => <span className="goal" key={k}><Stars n={k + 1} /> {goal}</span>)}
                   <span className="dim">Two stars open the next stage · best here {bestScore(db.sessions, name(0), game.id, screen.stage, variant)}</span>
                 </div>
-                <div className="row"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button></div>
+                {game.id==='freeze'&&<PartyOptions />}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
               </div>
             </div>
           </div>
@@ -527,7 +467,7 @@ function App() {
       })()}
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
       {screen.at === 'play' && !['slice','keepy','freeze','shapeup'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
-      {screen.at === 'play' && <div className={screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
+      {screen.at === 'play' && <div data-game={screen.game.id} className={`moon-game ${screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}`}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
       {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
       {screen.at === 'play' && paused && (
         <div className="pause">
@@ -549,9 +489,10 @@ function App() {
         </div>
       )}
       {screen.at === 'results' && (
-        <div className="screen" style={{ alignItems: 'center' }}>
+        <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id}>
+          <img className="moon-result-art" src={moonArt(screen.game.id)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
           {party && <Confetti />}
-          <h1>{screen.game.icon} {screen.game.name}{screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
+          <h1>{screen.game.name}{screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
           <div className="results">
             {screen.scores.map((score, i) => {
               const r = screen.rewards[i], top = screen.scores.length === 2 && score > screen.scores[1 - i] && !teamOf(screen.game);
@@ -651,9 +592,9 @@ function App() {
       )}
       {screen.at === 'badges' && (
         <div className="screen">
-          <div className="row"><h1 className="grow">🏅 Badges · {name(0)} <span className="dim num">{badgesOf(db.sessions, name(0)).length} / {BADGES.length}</span></h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
+          <div className="row"><h1 className="grow">🏅 Badges · {name(0)} <span className="dim num">{badgesOf(db.sessions, name(0)).length} / {badgeCatalog(db.sessions,name(0)).length}</span></h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
           <div className="badges">
-            {BADGES.map((b, i) => {
+            {badgeCatalog(db.sessions,name(0)).map((b, i) => {
               const has = badgesOf(db.sessions, name(0)).includes(b.id);
               return <div key={b.id} className={has ? 'badge has' : 'badge'} style={vars({ '--i': i })}><em>{BADGE_ICON[b.id]}</em><b>{b.name}</b><small>{b.how}</small></div>;
             })}
@@ -689,8 +630,8 @@ function App() {
           </div>
         </div>
       )}
-      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && screen.at !== 'play' && <Presence small={false} />}
-      {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
+      {screen.at === 'brief' && <Presence small={false} />}
+      {editingPlayer===null&&((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }

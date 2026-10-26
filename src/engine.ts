@@ -530,7 +530,7 @@ function mirror(scene: Scene, place: Place) {
     vertexGLSL: `attribute vec3 vertex_position; uniform mat4 matrix_model; uniform mat4 matrix_viewProjection; varying vec2 vAt;
       void main(void) { vAt = vertex_position.xy; gl_Position = matrix_viewProjection * matrix_model * vec4(vertex_position, 1.0); }`,
     fragmentGLSL: `#include "gammaPS"
-      varying vec2 vAt; uniform sampler2D uFeed; uniform vec3 uLow; uniform vec3 uHigh; uniform vec4 uFit; uniform vec4 uSpotA; uniform vec4 uSpotB; uniform vec3 uTintA; uniform vec3 uTintB;
+      varying vec2 vAt; uniform sampler2D uFeed; uniform vec3 uLow; uniform vec3 uHigh; uniform vec4 uFit; uniform vec4 uSpotA; uniform vec4 uSpotB; uniform vec3 uTintA; uniform vec3 uTintB; uniform float uNatural;
       void main(void) {
         vec2 uv = vec2(0.5 - vAt.x / uFit.x, 0.5 - vAt.y / uFit.y); // mirrored; the picture's first row is its top
         vec3 seen = pow(texture2D(uFeed, uv).rgb, vec3(2.2)); float luma = dot(seen, vec3(0.3, 0.6, 0.1));
@@ -539,9 +539,11 @@ function mirror(scene: Scene, place: Place) {
         c += seen * (a + b) * 0.85 + (uTintA * a + uTintB * b) * 0.10; // where a player stands, the room comes up to full light
         vec2 q = abs(vAt) / vec2(${(W / 2).toFixed(1)}, ${(H / 2).toFixed(1)}); float edge = max(q.x, q.y), frame = smoothstep(0.945, 0.955, edge);
         c = mix(c, uLow * 1.6 + uHigh * 0.25 * smoothstep(0.955, 0.97, edge) * smoothstep(0.985, 0.97, edge), frame);
+        c = mix(c, seen, uNatural); // Dance and pose matching retain the original camera exposure.
         gl_FragColor = vec4(gammaCorrectOutput(c), 1.0);
       }`,
   }));
+  m.setParameter('uNatural', place === 'disco' || place === 'studio' ? 1 : 0);
   m.setParameter('uFeed', tex); m.setParameter('uLow', linear(low)); m.setParameter('uHigh', linear(high)); m.setParameter('uFit', [aspect * unit, unit, 0, 0]);
   m.setParameter('uTintA', linear('#818cf8')); m.setParameter('uTintB', linear('#34d399')); m.setParameter('uSpotA', [0, 0, 0, 0]); m.setParameter('uSpotB', [0, 0, 0, 0]);
   m.update();

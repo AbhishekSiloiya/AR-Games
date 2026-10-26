@@ -1,0 +1,33 @@
+/* Slice arena: citrus accents, edge-aligned information, an unobscured camera centre. */
+.moon-slice {position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;color:var(--moon-paper);font-family:var(--moon-face);}
+.moon-slice__phase {position:absolute;right:3%;top:3%;font-size:clamp(11px,1.1vw,17px);font-weight:800;letter-spacing:.1em;color:var(--moon-citrus);background:var(--moon-surface);padding:.5em .75em;border-radius:4px;}
+.moon-slice__instruction {position:absolute;left:50%;bottom:3%;transform:translateX(-50%);font-size:clamp(11px,1.25vw,19px);font-weight:800;letter-spacing:.02em;color:var(--moon-paper);background:var(--moon-surface);padding:.55em 1em;border-radius:4px;white-space:nowrap;}
+.moon-slice__momentum {position:absolute;left:3%;top:12%;width:clamp(110px,18%,240px);padding:10px 12px;background:var(--moon-shadow);border-left:3px solid var(--moon-citrus);}
+.moon-slice__momentum[data-player="1"] {left:auto;right:3%;}
+.moon-slice__label {display:block;font-size:clamp(9px,.8vw,12px);letter-spacing:.1em;color:var(--moon-citrus);font-weight:700;}
+.moon-slice__momentum strong {display:block;font-size:clamp(13px,1.65vw,25px);font-weight:800;line-height:1.08;margin:6px 0 9px;}
+.moon-slice__momentum small {display:block;font-size:clamp(9px,.8vw,13px);margin-top:7px;}
+.moon-slice__track {height:3px;background:var(--moon-line);}
+.moon-slice__track i {display:block;height:100%;background:var(--moon-citrus);transform-origin:0 50%;transition:transform 100ms linear;}
+.moon-slice__impact {position:absolute;width:clamp(100px,13vw,220px);color:var(--moon-citrus);will-change:transform,opacity;}
+.moon-slice__impact[hidden] {display:none;}
+.moon-slice__impact svg {display:block;width:100%;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.6px;}
+.moon-slice__impact svg path:nth-child(2) {fill:currentColor;fill-opacity:.18;stroke:none;}
+.moon-slice__impact .moon-slice__cut {stroke:var(--moon-paper);stroke-width:4;}
+.moon-slice__impact b {position:absolute;left:50%;top:80%;transform:translateX(-50%);white-space:nowrap;font-size:clamp(12px,1.7vw,26px);font-weight:900;background:var(--moon-surface);padding:3px 6px;}
+.moon-slice__impact b:empty {display:none;}
+.moon-slice__impact[data-kind="bomb"] {color:var(--moon-coral);}
+.moon-slice__impact[data-kind="power"] {color:var(--moon-violet);}
+.moon-slice-stage .hud.score {top:auto;bottom:3%;}
+.moon-slice-stage .hud.hint {display:none;}
+.moon-slice-stage .hud.banner {top:23%;}
+.moon-slice[data-phase="finale"] .moon-slice__phase {color:var(--moon-ink);background:var(--moon-citrus);}
+@media(max-width:700px){.moon-slice__momentum {padding:7px;width:27%;top:15%;}.moon-slice__instruction {bottom:4%;max-width:53%;white-space:normal;text-align:center;font-size:11px;}.moon-slice__phase{top:4%;font-size:9px;}.moon-slice .moon-arena-brand{font-size:10px;top:4%;}.moon-slice__momentum strong{font-size:14px;}.moon-slice__momentum small {font-size:10px;}}
+@media(prefers-reduced-motion:reduce){.moon-slice__impact{display:none!important;}.moon-slice__track i {transition:none;}}
+.moon-slice__impact .moon-slice__juice {position:absolute;inset:-25%;width:150%;height:150%;object-fit:contain;opacity:.9;}
+.moon-slice__impact[data-kind=bomb] .moon-slice__juice {display:none;}
+.moon-slice__impact[data-kind=cut] svg {opacity:.3;}
+.moon-slice__buddy {position:absolute;left:2%;top:27%;height:21%;width:13%;object-fit:contain;filter:drop-shadow(0 5px 8px #0005);opacity:.9;}
+.moon-slice__buddy[data-cheer=true] {transform:rotate(-8deg) scale(1.08);opacity:1;}
+.moon-slice[data-players='2'] .moon-slice__buddy {height:14%;width:8%;left:46%;top:34%;}
+@media(prefers-reduced-motion:reduce){.moon-slice__buddy[data-cheer=true]{transform:none;}}

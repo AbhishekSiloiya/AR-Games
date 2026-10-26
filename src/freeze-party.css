@@ -1,9 +1,12 @@
-.freeze-party {position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;isolation:isolate;}
-.freeze-party__lights {position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;}
-.freeze-party__ball {position:absolute;top:0;right:12%;width:clamp(78px,9vw,128px);height:auto;transform-origin:50% 0;filter:drop-shadow(0 0 8px #98d7ff88);}
-.freeze-party__floor {opacity:.9;}
-.freeze-party[data-phase="freeze"] .freeze-party__lights {filter:grayscale(1) sepia(.65) saturate(2) hue-rotate(155deg);opacity:.65;}
-.freeze-party[data-phase="freeze"] .freeze-party__ball {filter:drop-shadow(0 0 9px #72caffaa) saturate(.45);}
-.freeze-party__confetti {position:absolute;font-size:clamp(12px,1.7vw,24px);line-height:1;text-shadow:0 0 6px currentColor;}
+/* The live camera owns the centre. Environment and animation stay at the edges. */
+.freeze-party {position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.freeze-party__world {position:absolute;inset:0;background:url('/assets/moon/play/club.webp') center/cover;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 93%,95% 93%,95% 13%,5% 13%,5% 93%,0 93%);opacity:.9;}
+.freeze-party__ceiling {position:absolute;left:2%;top:3%;font:700 clamp(8px,.8vw,13px) var(--moon-face);color:#fff;}
+.freeze-party__host {position:absolute;right:1%;bottom:5%;width:20%;height:47%;}
+.freeze-party__host span {display:block;position:absolute;bottom:0;right:8%;font:700 clamp(8px,.8vw,12px) var(--moon-face);color:#fff;background:#23173c;padding:3px 7px;}
+.freeze-party__confetti {position:absolute;font-size:clamp(12px,1.7vw,24px);color:#ffde82;}
 .freeze-party__confetti[hidden] {display:none;}
-@media(max-width:700px){.freeze-party__ball{right:10%;width:76px;}}
+.freeze-party[data-players='2'] .freeze-party__host {width:15%;height:38%;right:0;bottom:8%;}
+.freeze-party[data-phase='freeze'] .freeze-party__ceiling {color:#b8ffff;}
+@media(prefers-reduced-motion:reduce){.freeze-party__confetti{display:none!important;}}
+.freeze-party__world {box-shadow:inset 0 0 12px var(--party-glow,#e8a7ff);}

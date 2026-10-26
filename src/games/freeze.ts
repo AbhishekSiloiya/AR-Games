@@ -1,3 +1,4 @@
+import { moonFreeze } from '../moon-freeze.ts';
 import { freezeParty } from '../freeze-party.ts';
 import { startDanceTrack } from '../dance-music.ts';
 // Freeze — dance while the music plays: the more you move, the more you score. When it cuts out, freeze.
@@ -14,6 +15,7 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
   const hard = hardness(stage);
   backdrop(scene, 'disco', true);
   const partyLayer=freezeParty(scene,n);
+  const experience=moonFreeze(scene,n);
   const party=Array.from({length:n},(_,p)=>discoGear(scene,p));
   const orbMesh = shapes.facets(1.1, 1), orbLook = lit('#ffffff', { emissive: '#000000' });
   const orbs = Array.from({ length: n }, () => { const e = node(scene.root, orbMesh, orbLook); e.enabled = false; return { e, rx: 0, ry: 0 }; });
@@ -35,8 +37,10 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
     if (t >= ROUND) { g.done = true; soundtrack.stop(); say('time_over'); return onEnd(g.scores.slice(0, n).map(Math.round)); }
 
     if (t >= g.phaseEnd) {
-      if (!g.dancing)
+      if (!g.dancing) {
+        experience.complete(g.phaseAt,g.moved.map(m=>!m),players.slice(0,n).map(p=>p.present));
         for (let p = 0; p < n; p++) if (players[p].present && !g.moved[p]) { g.scores[p] += 15; partyLayer.celebrate(p,g.phaseAt,players[p].present,!g.moved[p]); bursts.burst(zoneX(n, p), 0, 0.5, '#7dd3fc', 40, 9); }
+      }
       g.dancing = !g.dancing;
       g.phaseAt = t;
       g.phaseEnd = t + (g.dancing ? 4 + Math.random() * 5 : (2.5 + Math.random() * 2) * Math.sqrt(hard));
@@ -73,6 +77,7 @@ export default function freeze({ n, stage, onEnd, hud, scene, cleanup }: Game) {
       tint(orb.e, g.dancing ? '#000000' : wobble ? '#7f1d1d' : '#0c4a6e', 'emissive');
     }
     partyLayer.update(g.dancing&&t>=0,dt);
+    experience.update(t,g.dancing,g.phaseEnd-t,g.phaseEnd-g.phaseAt,g.moved,players.slice(0,n).map(p=>p.present),dt);
     bursts.update(dt);
     scoreHud(hud, n, g.scores);
   };

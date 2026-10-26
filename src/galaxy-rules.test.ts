@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { galaxyWave, damageDrone } from './galaxy-rules.ts';
+assert.equal(galaxyWave(0, 1, false).boss, false);
+assert.equal(galaxyWave(2, 1, false).boss, true);
+assert.equal(galaxyWave(5, 2, true).boss, true);
+assert.equal(galaxyWave(0, 2, false).cols, 4);
+assert.equal(galaxyWave(0, 2, true).cols, 8);
+assert.equal(galaxyWave(19, 1, false).rows, 4);
+assert.deepEqual(damageDrone(8, true), { hp: 7, destroyed: false, points: 0 });
+assert.deepEqual(damageDrone(1, true), { hp: 0, destroyed: true, points: 10 });
+assert.deepEqual(damageDrone(1, false), { hp: 0, destroyed: true, points: 1 });
+assert.deepEqual(damageDrone(0, true), { hp: 0, destroyed: false, points: 0 }, 'a destroyed boss cannot pay out twice');
+console.log('Galaxy: boss cadence, team formations and once-only damage rewards pass.');

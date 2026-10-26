@@ -7,6 +7,7 @@
 // Two players are a team by default (one score, a multiplier as strong as the weaker streak, a bonus for cutting in
 // sync) or rivals. Either way each player is quietly helped when fruit keeps getting past them: never shown, never said.
 import { Quat, Vec3, type Entity } from 'playcanvas';
+import { moonSlice } from '../moon-slice.ts';
 import { hardness } from '../meta.ts';
 import { cameraReach, players, sim } from '../pose.ts';
 import { cameraLaunchArea } from '../calibration.ts';
@@ -21,8 +22,8 @@ const FRUIT = [
   { url: 'pineapple', flesh: '#fde047', size: 2.8 }, { url: 'strawberry', flesh: '#fda4af', size: 1.7 },
 ];
 const RULES = {
-  '': { length: 60, lives: 0, bombs: true, powers: true, finale: true, gravity: 1, music: 'arcade' },
-  classic: { length: Infinity, lives: 3, bombs: true, powers: false, finale: false, gravity: 1, music: 'arcade' },
+  '': { length: 60, lives: 0, bombs: true, powers: true, finale: true, gravity: 1, music: 'slice' },
+  classic: { length: Infinity, lives: 3, bombs: true, powers: false, finale: false, gravity: 1, music: 'slice' },
   zen: { length: 90, lives: 0, bombs: false, powers: false, finale: false, gravity: 0.55, music: 'calm' },
 } as const;
 // Power-ups are bananas with a coloured halo. Each changes what the next few seconds feel like.
@@ -64,6 +65,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     Promise.all(FRUIT.map((f) => fitted(`/assets/food/${f.url}.glb`, R * f.size))), fitted('/assets/kit/bomb.glb', R * 2.1), fitted('/assets/kit/star.glb', R * 1.8), fitted('/assets/food/banana.glb', R * 2.4),
   ]);
   backdrop(scene, 'dojo', true);
+  const experience=moonSlice(scene,n,team);
   // Juice stays on the wall: every cut leaves a stain and a few drops that soak away over some seconds.
   const SPLATS = 72, stains = instanced(scene.root, shapes.blob(1), SPLATS, 0.999), wet = Array.from({ length: SPLATS }, () => ({ life: 0, x: 0, y: 0, size: 0 }));
   let nextStain = 0;
@@ -110,7 +112,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     inside: [0, 1, 2, 3].map(() => false), burst: -1,
   };
   const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true }), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
-  if (sim) Object.assign(window, { __slice: { pieces } }); // test hook: a headless probe watches every piece, every frame
+  if (import.meta.env.DEV || sim) {Object.assign(window, { __slice: { pieces, state:g } });scene.cleanup(()=>{delete (window as Window&{__slice?:unknown}).__slice;});} // test hook: a headless probe watches every piece, every frame
   const total = () => (team ? g.scores[0] : Math.max(g.scores[0], g.scores[1]));
   const notes = () => Array.from({ length: n }, (_, p) => [g.bestSlash[p] >= 3 ? `Best slash: ${g.bestSlash[p]} fruit` : '', g.bestCombo[p] >= 5 ? `Longest combo ×${g.bestCombo[p]}` : '', g.crits[p] ? `${g.crits[p]} critical${g.crits[p] > 1 ? 's' : ''}` : ''].filter(Boolean));
   const finish = () => { g.over = true; music.stop(); onEnd(team ? [g.scores[0], g.scores[0]] : g.scores.slice(0, n), notes()); };
@@ -205,6 +207,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       const p = h.p, own = team ? 0 : p, crit = h.speed > CRIT_SPEED && mode !== 'zen'; // Zen has no jolts: no criticals, no hit-stop
       if (pc.kind === 'bomb') {
         hitStop(130);
+        experience.impact(pc.x,pc.y,0,'bomb');
         pc.state = 'off'; g.combo[p] = 0; g.assist[p] = Math.min(1, g.assist[p] + 0.15);
         if (rules.lives) lose(pc.x); else g.scores[own] = Math.max(0, g.scores[own] - 5);
         sfx('impactPlate_heavy'); sfx('lowDown', { vol: 0.6 }); hud.flash('#ef4444'); hud.shake(1.5); bursts.burst(pc.x, pc.y, 0.5, '#ef4444', 50, 12);
@@ -213,6 +216,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       }
       if (pc.kind === 'power') {
         const power = POWERS[pc.power];
+        experience.impact(pc.x,pc.y,0,'power');
         pc.state = 'off'; g.power[pc.power][own] = power.time;
         hud.banner(power.name, 1300); hud.flash(power.hex); sfx('powerUp', { vol: 0.9 }); say('power_up'); hitStop(90);
         bursts.burst(pc.x, pc.y, 0.5, power.hex, 40, 10);
@@ -220,11 +224,12 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       }
       const points = (pc.kind === 'star' ? 5 : 1) * (storm ? 2 : 1) + (crit ? 1 : 0) + Math.floor(++g.combo[p] / 5);
       award(p, points);
+      experience.impact(pc.x,pc.y,g.combo[p],'cut',Math.atan2(h.y-h.py,h.x-h.px)*-180/Math.PI);
       g.cut[p]++; g.bestCombo[p] = Math.max(g.bestCombo[p], g.combo[p]); g.assist[p] = Math.max(0, g.assist[p] - 0.04);
       hitSound(pc.kind === 'star' ? 'powerUp' : crit ? 'impactPunch_heavy' : 'impactSoft_heavy', g.combo[p], crit ? 0.9 : 0.7);
       // (No hit-stop on ordinary cuts or criticals: a fast player lands several a second, and the game stuttered.
       // The clock only catches its breath for the rare things — a star, a power-up, a bomb, the melon going off.)
-      if (crit) { g.crits[p]++; hud.pop(pc.x, pc.y + 0.5, 'Critical!', '#fb923c'); }
+      if (crit) g.crits[p]++;
       if (pc.kind === 'star') hitStop(70);
       // One swing, several fruit: the chain stays open for a moment after each cut and pays when it closes.
       const chain = g.chain[i];
@@ -250,7 +255,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     at.forEach((h, i) => {
       const chain = g.chain[i];
       if (chain.n && t >= chain.until) { // the swing is over: pay the chain
-        if (chain.n >= 3) { award(h.p, chain.n); g.bestSlash[h.p] = Math.max(g.bestSlash[h.p], chain.n); hud.pop(chain.x, chain.y + 0.9, `${chain.n} fruit slash! +${chain.n}`, '#a3e635'); sfx('confirmation', { vol: 0.6 }); }
+        if (chain.n >= 3) { experience.impact(chain.x,chain.y,chain.n,'slash');award(h.p, chain.n); g.bestSlash[h.p] = Math.max(g.bestSlash[h.p], chain.n); sfx('confirmation', { vol: 0.6 }); }
         chain.n = 0;
       }
       if (t < 0 || ending || !h.on || h.speed < SLICE_SPEED) return;
@@ -298,6 +303,8 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     wet.forEach((w, i) => { if (w.life > 0) w.life -= real / 6; stains.place(i, w.x, w.y - (1 - w.life) * 0.25, -19, w.size); stains.fade(i, Math.max(0, Math.min(0.5, w.life * 0.9))); }); // they run a little as they dry
     stains.commit();
     bursts.update(real);
+    const activePowers=Array.from({length:n},(_,p)=>{const own=team?0:p,key=(Object.keys(POWERS) as Power[]).find(k=>g.power[k][own]>0);return key?{name:POWERS[key].name,seconds:g.power[key][own]}:null;});
+    experience.update(real,t,mode,g.combo,activePowers,ending);
     passed(total());
     music.intensity(mode === 'zen' ? 0.35 : frenzy || ending ? 1 : 0.3 + Math.max(g.combo[0], g.combo[1]) / 16);
     if (rules.lives) hud('clock', '♥'.repeat(Math.max(0, g.lives)) || '0');

@@ -1,3 +1,5 @@
+import { clockGate } from './audio-clock.ts';
+import { CLUB_BPM, clubStep } from './club-groove.ts';
 // Sound: CC0 samples (Kenney) for effects, an announcer voice, jingles, and a procedural music engine
 // whose layers come in as `music.intensity` rises — so the soundtrack builds with your combo.
 // Everything is scheduled on the AudioContext clock. Nothing here touches React.
@@ -13,6 +15,9 @@ export function audio() {
   }
   return ctx;
 }
+
+let controlClock:ReturnType<typeof clockGate>|undefined;
+export const setAudioPaused=(paused:boolean)=>(controlClock??=clockGate(audio()))(paused);
 
 export const musicOut = () => (audio(), musicBus); // where a song (song.ts) plugs in: same bus, same compressor, same pause
 
@@ -94,13 +99,20 @@ export const jingle = (kind: 'win' | 'level') => sfx(`jingle_${kind}`, { vol: 0.
 const THEMES = {
   run: { bpm: 132, root: 45, chords: [[0, 3, 7], [5, 8, 12], [-4, 0, 3], [-2, 2, 5]], lead: 'square' },
   beat: { bpm: 104, root: 45, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]], lead: 'triangle' },
-  dance: { bpm: 122, root: 48, chords: [[0, 4, 7], [-3, 0, 4], [5, 9, 12], [7, 11, 14]], lead: 'sawtooth' },
+  dance: { bpm: CLUB_BPM, root: 45, chords: [[0, 3, 7, 10], [5, 8, 12, 15], [-4, 0, 3, 7], [-2, 2, 5, 9]], lead: 'triangle' },
+  stadium: { bpm: 128, root: 43, chords: [[0, 3, 7], [5, 8, 12], [3, 7, 10], [-2, 2, 5]], lead: 'triangle' },
+  boxing: { bpm: 108, root: 40, chords: [[0, 3, 7], [0, 3, 10], [-2, 2, 5], [0, 5, 7]], lead: 'square' },
+  cosmic: { bpm: 132, root: 45, chords: [[0, 3, 7], [-4, 0, 3], [5, 8, 12], [-2, 2, 5]], lead: 'triangle' },
+  pose: { bpm: 112, root: 50, chords: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [2, 5, 9]], lead: 'sine' },
+  slice: { bpm: 124, root: 48, chords: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [7, 11, 14]], lead: 'triangle' },
   arcade: { bpm: 116, root: 43, chords: [[0, 3, 7], [3, 7, 10], [-2, 2, 5], [-4, 0, 3]], lead: 'square' },
   calm: { bpm: 96, root: 50, chords: [[0, 4, 7], [-3, 0, 4], [-5, -1, 2], [5, 9, 12]], lead: 'sine' },
 } as const;
 export type Theme = keyof typeof THEMES;
 const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 
+let sequencerBus: GainNode | undefined;
+const bandOut=()=>sequencerBus??musicOut();
 function hit(at: number, dur: number, vol: number, highpass: number) {
   const src = audio().createBufferSource(), f = audio().createBiquadFilter(), g = audio().createGain();
   src.buffer = whiteNoise();
@@ -108,7 +120,7 @@ function hit(at: number, dur: number, vol: number, highpass: number) {
   f.frequency.value = highpass;
   g.gain.setValueAtTime(vol, at);
   g.gain.exponentialRampToValueAtTime(0.001, at + dur);
-  src.connect(f).connect(g).connect(musicBus);
+  src.connect(f).connect(g).connect(bandOut());
   src.start(at, Math.random() * 0.5, dur + 0.02);
 }
 function kick(at: number) {
@@ -117,23 +129,26 @@ function kick(at: number) {
   o.frequency.exponentialRampToValueAtTime(42, at + 0.12);
   g.gain.setValueAtTime(0.9, at);
   g.gain.exponentialRampToValueAtTime(0.001, at + 0.22);
-  o.connect(g).connect(musicBus);
+  o.connect(g).connect(bandOut());
   o.start(at);
   o.stop(at + 0.25);
 }
 
-const m = { theme: null as null | (typeof THEMES)[Theme], start: 0, step: 0, level: 0, target: 0, on: true, timer: 0 };
+const m = { theme: null as null | (typeof THEMES)[Theme], start: 0, step: 0, level: 0, target: 0, on: true, timer: 0, session: 0, name: '' as string };
 export const music = {
   get beat() { return m.theme ? 60 / m.theme.bpm : 0.5; },
+  get session(){return m.session;},
+  get diagnostics(){return {theme:m.name,step:m.step,on:m.on,level:m.level,session:m.session};},
   // `at` = the audio-clock moment of beat zero, so a game can lock its own timing to the music.
   start(theme: Theme, at = audio().currentTime + 0.1, intensity = 0.3) {
     music.stop();
-    Object.assign(m, { theme: THEMES[theme], start: at, step: 0, level: intensity, target: intensity, on: true });
+    sequencerBus=audio().createGain();sequencerBus.connect(musicOut());
+    Object.assign(m, { theme: THEMES[theme], name:theme, start: at, step: 0, level: intensity, target: intensity, on: true });
     m.timer = window.setInterval(schedule, 25);
   },
-  stop() { clearInterval(m.timer); m.theme = null; },
+  stop() { clearInterval(m.timer); m.session++;m.theme = null;m.name='';sequencerBus?.disconnect();sequencerBus=undefined; },
   intensity(v: number) { m.target = Math.max(0, Math.min(1, v)); },
-  gate(on: boolean) { m.on = on; }, // Freeze: the band stops dead, and comes back in
+  gate(on: boolean) { if(m.on===on)return;m.on = on;const c=audio();sequencerBus?.gain.cancelScheduledValues(c.currentTime);sequencerBus?.gain.setTargetAtTime(on?1:0,c.currentTime,.004); }, // Freeze: the band stops dead, and comes back in
 };
 function schedule() {
   const t = m.theme;
@@ -144,11 +159,35 @@ function schedule() {
     m.level += (m.target - m.level) * 0.04;
     if (!m.on || at < audio().currentTime) continue;
     const L = m.level;
+    if(m.name==='dance'){scheduleClub(m.step,at,stepLen,L,t.root,t.chords[bar]);continue;}
     if (s % 4 === 0) kick(at);
     if (s % 4 === 2 || (L > 0.75 && s % 2 === 1)) hit(at, 0.04, 0.12, 7000);
     if (L > 0.5 && s % 8 === 4) hit(at, 0.16, 0.35, 1500);
-    if (L > 0.25 && (s % 4 === 0 || s % 8 === 6)) blip(hz(t.root - 12 + chord[0]), stepLen * 1.8, 'sawtooth', at, 0.16, musicBus);
-    if (L > 0.5) blip(hz(t.root + 12 + chord[[0, 1, 2, 1][s % 4]] + (s % 8 === 7 ? 12 : 0)), stepLen * 0.9, t.lead, at, 0.05, musicBus);
-    if (L > 0.75 && s === 0) for (const n of chord) blip(hz(t.root + n), stepLen * 15, 'triangle', at, 0.05, musicBus);
+    if (L > 0.25 && (s % 4 === 0 || s % 8 === 6)) blip(hz(t.root - 12 + chord[0]), stepLen * 1.8, 'sawtooth', at, 0.16, bandOut());
+    if (L > 0.5) blip(hz(t.root + 12 + chord[[0, 1, 2, 1][s % 4]] + (s % 8 === 7 ? 12 : 0)), stepLen * 0.9, t.lead, at, 0.05, bandOut());
+    if (L > 0.75 && s === 0) for (const n of chord) blip(hz(t.root + n), stepLen * 15, 'triangle', at, 0.05, bandOut());
   }
+}
+
+// Original house arrangement: rounded syncopated bass, warm chord stabs, a restrained hook,
+// backbeat claps and an eight-bar breakdown/fill. Filtered voices avoid the old raw-saw buzz.
+function clubVoice(midi:number,at:number,duration:number,vol:number,kind:'bass'|'chord'|'lead'){
+ const c=audio(),osc=c.createOscillator(),filter=c.createBiquadFilter(),gain=c.createGain();
+ osc.type=kind==='bass'?'triangle':kind==='chord'?'sawtooth':'sine';osc.frequency.value=hz(midi);
+ filter.type='lowpass';filter.Q.value=kind==='bass'?1.1:.5;
+ filter.frequency.setValueAtTime(kind==='bass'?680:kind==='chord'?1800:4200,at);
+ filter.frequency.exponentialRampToValueAtTime(kind==='bass'?130:kind==='chord'?420:1600,at+duration);
+ gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(vol,at+.012);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+ osc.connect(filter).connect(gain).connect(bandOut());osc.start(at);osc.stop(at+duration+.02);
+}
+function scheduleClub(step:number,at:number,length:number,level:number,root:number,chord:readonly number[]){
+ const note=clubStep(step,level),s=step%16;
+ if(note.kick)kick(at);
+ if(note.hat)hit(at+(s%2?.012:0),.035,s%4===2?.105:.045,7400);
+ if(note.openHat)hit(at,.13,.065,6200);
+ if(note.clap){hit(at,.095,.19,1600);hit(at+.014,.075,.1,2000);}
+ if(note.fill)hit(at,.035,.055,3400);
+ if(note.bass!==null)clubVoice(root-12+chord[0]+note.bass,at,length*1.3,.22,'bass');
+ if(note.chord)for(const n of chord)clubVoice(root+n,at+.008,length*2.1,.025,'chord');
+ if(note.lead!==null)clubVoice(root+12+chord[0]+note.lead,at,length*.8,.055,'lead');
 }
