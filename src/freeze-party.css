@@ -1,6 +1,6 @@
 .freeze-party {position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;isolation:isolate;}
 .freeze-party__world {position:absolute;inset:0;background:url('/assets/moon/play/club.webp') center/cover;opacity:.72;mask-image:linear-gradient(to right,#000 0%,#000 5%,transparent 27%,transparent 73%,#000 95%,#000 100%);}
-.freeze-party__ceiling {position:absolute;top:0;left:20%;right:20%;height:11%;display:flex;justify-content:center;align-items:center;background:linear-gradient(#1d103dcc,transparent);border-top:3px solid #ed6dbd;}
+.freeze-party__ceiling {position:absolute;left:2%;top:12%;display:flex;align-items:center;background:#1d103dcc;padding:4px 9px;}
 .freeze-party__ceiling span {font-family:var(--moon-display);font-size:clamp(12px,1.6vw,26px);letter-spacing:.16em;color:#ff9bdc;text-shadow:0 0 18px #df268d80;}
 .freeze-party__lights {position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;}
 .freeze-party__speaker {position:absolute;bottom:12%;left:1%;width:7%;height:30%;background:linear-gradient(135deg,#29203e,#0d0c19);border:2px solid #6e456c;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;box-shadow:0 5px 12px #0008;}
@@ -24,5 +24,4 @@
 @media(prefers-reduced-motion:reduce){.freeze-party__confetti {display:none!important;}}
 /* Keep the actual club ball and floor visible while the live player owns the centre. */
 .freeze-party__world {mask-image:linear-gradient(to bottom,#000 0%,#000 9%,transparent 26%,transparent 74%,#000 91%,#000 100%),linear-gradient(to right,#000 0%,#000 5%,transparent 25%,transparent 75%,#000 95%,#000 100%);mask-composite:add;opacity:.9;}
-.freeze-party__ceiling {left:2%;right:auto;top:12%;width:auto;height:auto;background:#1d103dcc;padding:4px 9px;border:0;border-left:2px solid #ff91da;}
 .freeze-party__ceiling span {font-size:clamp(9px,1vw,15px);letter-spacing:.08em;}

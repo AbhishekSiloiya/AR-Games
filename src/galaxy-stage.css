@@ -15,8 +15,8 @@
 .galaxy-title strong {font:800 clamp(13px,1.6vw,25px)/1.1 var(--moon-display);}
 .galaxy-mission {position:absolute;left:50%;bottom:3%;transform:translateX(-50%);white-space:nowrap;font-weight:800;letter-spacing:.055em;font-size:clamp(10px,1.15vw,18px);padding:.65em 1em;background:#081327db;border:1px solid #76e6fa66;border-radius:5px;}
 .galaxy-interface[data-celebrate="true"] .galaxy-mission {background:#bafdff;color:#092044;border-color:#fff;}
-.galaxy-sector {position:absolute;left:2.5%;top:21%;border-left:2px solid #94f7ff;padding:.35em .7em;background:#081327b3;min-width:10%;}
-.galaxy-sector[data-player="1"] {left:auto;right:2.5%;border-color:#ffb8ec;}
+.galaxy-sector {position:absolute;left:2.5%;top:21%;border:1px solid #94f7ff33;padding:.35em .7em;background:#081327b3;min-width:10%;}
+.galaxy-sector[data-player="1"] {left:auto;right:2.5%;border-color:#ffb8ec33;}
 .galaxy-sector small {display:block;font-size:clamp(8px,.7vw,11px);letter-spacing:.12em;}
 .galaxy-sector strong {display:block;font:800 clamp(20px,2.4vw,38px)/1.15 var(--moon-display);}
 .galaxy-sector span {display:block;color:#a7f8ff;font-size:clamp(9px,.85vw,14px);font-weight:700;}
