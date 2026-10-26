@@ -3,7 +3,7 @@ import type { GraphNode } from 'playcanvas';
 import { flat, lit, node, shapes } from './engine.ts';
 export type Equipment = 'ninja' | 'keeper' | 'sponge' | 'boxing';
 export function equipmentFactory(kind: Equipment) {
-  const ball=shapes.sphere(1,10), box=shapes.box(1,1,1), pill=shapes.capsule(.12,.5);
+  const ball=shapes.sphere(1,20), box=shapes.box(1,1,1), pill=shapes.capsule(.12,.5);
   const cream=lit('#fff6dc',{fog:false}), ink=lit('#18243a',{fog:false}), coral=lit('#ff6b68',{fog:false}), cyan=lit('#45d8de',{fog:false}), yellow=lit('#ffe16b',{fog:false});
   const green=lit('#119b84',{fog:false}), foam=flat('#e3ffff',{opacity:.78,fog:false});
   return (parent: GraphNode, side: number, tone: string) => {
@@ -18,6 +18,10 @@ export function equipmentFactory(kind: Equipment) {
       part(box,ink,0,-.43,.01,.84,.32,.4);
       part(box,cream,0,-.43,.23,.56,.12,.04);
       part(ball,cream,-.13,.36,.27,.17,.08,.02);
+      for(let k=0;k<4;k++)part(ball,glove,(k-1.5)*.22,.4,.24,.13,.2,.06);
+      part(box,coral,0,-.43,.255,.62,.055,.02);
+      for(const side of [-1,1])part(box,cream,side*.28,-.43,.26,.025,.16,.02);
+      part(ball,glove,.08,.12,.29,.3,.28,.04);
     } else if (kind==='sponge') {
       part(box,green,0,-.2,0,1.35,.26,.4);
       part(box,yellow,0,.04,.05,1.35,.48,.46);

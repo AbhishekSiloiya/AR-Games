@@ -1,4 +1,5 @@
 import './shapeup-overlay.css';
+import { poseBuild } from './pose-build.ts';
 import type { ShapePhase, ShapeSeat } from './shapeup-rules.ts';
 const NS='http://www.w3.org/2000/svg';
 const JOINTS=[[-.75,2],[0,0],[.75,2],[0,0],[-.4,0],[0,0],[.4,0],[0,0]];
@@ -11,13 +12,16 @@ export function shapeupOverlay(n:number,live:boolean){
   const quests=Array.from({length:n},(_,p)=>{
     const quest=document.createElement('section');quest.className='shapeup-quest';quest.dataset.player=String(p);quest.style.setProperty('--seat',String(p));quest.style.setProperty('--players',String(n));quest.setAttribute('aria-label',`Player ${p+1} eight-pose quest`);
     const header=document.createElement('div');header.className='shapeup-quest-header';
-    const title=document.createElement('strong');title.textContent=n===2?`P${p+1} · POSE QUEST`:'POSE QUEST';
-    const goal=document.createElement('span');goal.textContent='8 poses · collect 24 stars';header.append(title,goal);
+    const title=document.createElement('strong');title.textContent=n===2?`P${p+1} · PORTAL QUEST`:'POWER THE PORTAL';
+    const goal=document.createElement('span');goal.textContent='Match poses. Charge 8 cells.';header.append(title,goal);
     const path=document.createElement('div');path.className='shapeup-quest-path';
     const steps=Array.from({length:8},(_,i)=>{const step=document.createElement('span');step.className='shapeup-quest-step';const number=document.createElement('b');number.textContent=String(i+1);const stars=document.createElement('small');stars.textContent='·';step.append(number,stars);path.append(step);return {step,stars};});
     const totals=document.createElement('div');totals.className='shapeup-quest-totals';const earned=document.createElement('strong'),combo=document.createElement('span'),score=document.createElement('span');totals.append(earned,combo,score);quest.append(header,path,totals);
     const reward=document.createElement('div');reward.className='shapeup-reward';reward.hidden=true;reward.dataset.player=String(p);reward.style.setProperty('--seat',String(p));reward.style.setProperty('--players',String(n));reward.setAttribute('role','status');
-    root.append(quest,reward);return {quest,steps,earned,combo,score,reward,celebrated:-1};
+    const world=document.createElement('section');world.className='shapeup-world';world.dataset.player=String(p);world.style.setProperty('--seat',String(p));world.style.setProperty('--players',String(n));
+    world.innerHTML='<div class="shapeup-portal"><div class="shapeup-portal__core"></div><div class="shapeup-portal__cells">'+Array.from({length:8},(_,i)=>'<i style="--cell:'+i+'"></i>').join('')+'</div><strong>0 / 8 CELLS</strong><span>MATCH TO CHARGE</span></div><div class="shapeup-buddy"><img src="/assets/moon/play/fuzzbyte-idle.webp" alt="Fuzzbyte, your portal guide" /><span>FUZZBYTE / YOUR GUIDE</span></div>';
+    const portal=world.querySelector<HTMLElement>('.shapeup-portal')!,core=world.querySelector<HTMLElement>('.shapeup-portal__core')!,cells=[...world.querySelectorAll<HTMLElement>('.shapeup-portal__cells i')],buildLabel=portal.querySelector('strong')!,buildHint=portal.querySelector('span')!,buddy=world.querySelector<HTMLImageElement>('.shapeup-buddy img')!;
+    root.append(quest,reward,world);return {quest,steps,earned,combo,score,reward,world,portal,core,cells,buildLabel,buildHint,buddy,celebrated:-1};
   });
   const cards=Array.from({length:n},(_,p)=>{
     const card=document.createElement('section');card.className='shapeup-coach-card';card.dataset.player=String(p);card.style.setProperty('--seat',String(p));card.style.setProperty('--players',String(n));
@@ -60,11 +64,16 @@ export function shapeupOverlay(n:number,live:boolean){
     },
     quest(p:number,state:ShapeSeat,index:number,phase:ShapePhase){
       const q=quests[p];q.earned.textContent=`★ ${state.stars} / 24`;q.combo.textContent=state.combo?`CHAIN ×${state.combo}`:'Match to build a chain';q.score.textContent=`${state.score} points`;
+      const build=poseBuild(state.path);q.world.dataset.cells=String(build.cells);q.world.dataset.complete=String(build.complete);q.core.style.transform=`scale(${.2+build.energy*.8})`;
+      q.cells.forEach((cell,i)=>cell.dataset.charged=String(i<build.cells));q.buildLabel.textContent=build.complete?'PORTAL OPEN!':`${build.cells} / 8 CELLS`;
+      q.buildHint.textContent=build.complete?'YOU BUILT THIS':phase==='rest'?'BREATHE. NEXT CELL AHEAD.':state.locked?'CELL CHARGED!':'MATCH TO CHARGE';
+      const celebrate=(phase==='result'||phase==='rest')&&state.path[index]>0;q.world.dataset.cheer=String(celebrate);
+      const buddySrc=`/assets/moon/play/fuzzbyte-${celebrate?'cheer':'idle'}.webp`;if(!q.buddy.src.endsWith(buddySrc))q.buddy.src=buddySrc;
       q.quest.dataset.stars=String(state.stars);q.quest.dataset.combo=String(state.combo);q.quest.dataset.score=String(state.score);
       q.steps.forEach((item,i)=>{const earned=state.path[i];item.step.dataset.state=earned>=0?'earned':i===index?'current':'next';item.stars.textContent=earned<0?'·':earned===0?'—':'★'.repeat(earned);item.step.setAttribute('aria-label',`Pose ${i+1}: ${earned<0?'upcoming':`${earned} stars`}`);});
       if(state.judged&&q.celebrated!==index){
         q.celebrated=index;q.reward.dataset.stars=String(state.path[index]);q.reward.dataset.milestone=String(state.milestone);
-        q.reward.textContent=state.path[index]>0?`${'★'.repeat(state.path[index])}  +${state.rewardPoints} points${state.milestone?` · CHAIN ×${state.combo} +${state.milestone} bonus!`:''}`:'A new pose. A new chance.';
+        q.reward.textContent=state.path[index]>0?`CELL CHARGED! ${'★'.repeat(state.path[index])}  +${state.rewardPoints} points${state.milestone?` · CHAIN ×${state.combo} +${state.milestone} bonus!`:''}`:'A new pose. A new chance.';
         q.reward.classList.remove('celebrate');void q.reward.offsetWidth;q.reward.classList.add('celebrate');
         if(state.path[index]>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches)q.steps[index].step.animate([{transform:'scale(1)'},{transform:'scale(1.2)',offset:.4},{transform:'scale(1)'}],{duration:550});
       }

@@ -1,0 +1,47 @@
+/* Jack Attack owns its layers and removes them when the round unmounts. */
+.moon-galaxy-stage {isolation:isolate;background:#080d27;overflow:hidden;}
+.moon-galaxy-stage>canvas {position:absolute;inset:0;z-index:1;}
+.moon-galaxy-stage>.hud,.moon-galaxy-stage>.pops {z-index:5;}
+.galaxy-backdrop {position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 20% 30%,#683b9b80,transparent 50%),radial-gradient(ellipse at 90% 10%,#14859e80,transparent 50%),#080d27;}
+.galaxy-nebula {position:absolute;inset:-3%;background-size:cover;background-position:center;opacity:.78;filter:saturate(1.2);will-change:transform;}
+.galaxy-haze {position:absolute;inset:0;background:linear-gradient(0deg,#070b24e6,transparent 65%),linear-gradient(90deg,#0c173333,transparent 30%,transparent 70%,#0c173333);}
+.galaxy-planet {position:absolute;width:22%;aspect-ratio:1;right:-7%;top:23%;border-radius:50%;background:radial-gradient(circle at 25% 25%,#e7b5fa,#8f58a0 25%,#1c2451 60%,#080d28 75%);box-shadow:-5px -2px 30px #b6bdff6b,inset -30px -20px 40px #090d2b;opacity:.7;}
+.galaxy-planet:after {content:'';position:absolute;inset:30% -30%;border:clamp(3px,.8vw,12px) solid #a9a6f14d;border-radius:50%;transform:rotate(-25deg);}
+.galaxy-horizon {position:absolute;left:-20%;right:-20%;bottom:-39%;height:59%;border-radius:50%;border-top:2px solid #9bfaff99;background:radial-gradient(ellipse at 50% 0,#2856a35c,#10172d 60%);box-shadow:0 -8px 60px #5f9fe644;}
+.galaxy-star {position:absolute;border-radius:50%;background:#e1f8ff;box-shadow:0 0 6px #aeceff;opacity:.65;}
+.galaxy-interface {position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden;color:#edf5ff;font-family:var(--moon-face);}
+.galaxy-title {position:absolute;right:2.5%;top:3%;text-align:right;}
+.galaxy-title small {display:block;font-size:clamp(9px,.85vw,13px);letter-spacing:.18em;color:#91f4ff;font-weight:700;}
+.galaxy-title strong {font:800 clamp(13px,1.6vw,25px)/1.1 var(--moon-display);}
+.galaxy-mission {position:absolute;left:50%;bottom:3%;transform:translateX(-50%);white-space:nowrap;font-weight:800;letter-spacing:.055em;font-size:clamp(10px,1.15vw,18px);padding:.65em 1em;background:#081327db;border:1px solid #76e6fa66;border-radius:5px;}
+.galaxy-interface[data-celebrate="true"] .galaxy-mission {background:#bafdff;color:#092044;border-color:#fff;}
+.galaxy-sector {position:absolute;left:2.5%;top:21%;border-left:2px solid #94f7ff;padding:.35em .7em;background:#081327b3;min-width:10%;}
+.galaxy-sector[data-player="1"] {left:auto;right:2.5%;border-color:#ffb8ec;}
+.galaxy-sector small {display:block;font-size:clamp(8px,.7vw,11px);letter-spacing:.12em;}
+.galaxy-sector strong {display:block;font:800 clamp(20px,2.4vw,38px)/1.15 var(--moon-display);}
+.galaxy-sector span {display:block;color:#a7f8ff;font-size:clamp(9px,.85vw,14px);font-weight:700;}
+.galaxy-boss {position:absolute;left:35%;right:35%;top:14%;text-align:center;font-size:clamp(9px,.85vw,14px);font-weight:800;letter-spacing:.07em;color:#ffc6ec;}
+.galaxy-boss[hidden] {display:none;}
+.galaxy-boss>div {height:5px;background:#2a103e;margin-top:6px;border:1px solid #ff97db7a;}
+.galaxy-boss i {display:block;height:100%;background:#ff8ed8;transform-origin:left;transition:transform 100ms;}
+.galaxy-impact {position:absolute;width:7%;aspect-ratio:1;border:2px solid #b6faff;border-radius:50%;box-shadow:0 0 18px #8cefff,inset 0 0 18px #8cefff;}
+.galaxy-impact:after {content:'';position:absolute;inset:18%;border:2px solid #fff;transform:rotate(45deg);}
+.galaxy-impact[data-kind="boss"] {width:22%;border-width:5px;color:#ff9bda;box-shadow:0 0 50px #ff7ac1;}
+.galaxy-impact[data-kind="breach"] {border-color:#ff859a;box-shadow:0 0 20px #ff859a;}
+.moon-galaxy-stage .hud.hint {top:auto!important;bottom:10%;font-size:clamp(10px,.95vw,15px);}
+.moon-galaxy-stage .hud.hint.solo {left:50%;transform:translateX(-50%);}
+.moon-galaxy-stage .hud.banner {top:34%;}
+.galaxy-pilot {position:absolute;z-index:2;pointer-events:none;width:29%;height:65%;transform:translate(-50%,-50%);transform-origin:50% 78%;}
+.galaxy-pilot[hidden] {display:none;}
+.galaxy-pilot img {position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 0 9px #68e6ff66);}
+.galaxy-pilot img[hidden] {display:none;}
+.galaxy-pilot[data-player="1"] img {filter:drop-shadow(0 0 9px #ff89c466);}
+.galaxy-pilot__aura {position:absolute;left:20%;right:20%;bottom:1%;height:6%;border:1px solid #9cefff;border-radius:50%;background:#62d3ff33;box-shadow:0 0 20px #62d3ff55;}
+.galaxy-pilot[data-state="fire"] .galaxy-pilot__aura {background:#b9fbff99;box-shadow:0 0 30px #9cefff;}
+.galaxy-pilot__name {position:absolute;left:50%;bottom:-4%;transform:translateX(-50%);font:800 clamp(8px,.75vw,12px)/1 var(--moon-face);letter-spacing:.15em;white-space:nowrap;color:#bdf5ff;}
+.galaxy-pilot__fallback {position:absolute;inset:0;width:100%;height:100%;}
+@media(prefers-reduced-motion:reduce) {.galaxy-boss i{transition:none;}}
+.galaxy-planet {display:none;}
+.galaxy-interface[data-players='2'] .galaxy-title {top:auto;bottom:2%;left:2.5%;right:auto;text-align:left;}
+.galaxy-interface[data-players='2'][data-team='false'] .galaxy-boss {left:12%;right:62%;top:14%;}
+.galaxy-interface[data-players='2'][data-team='false'] .galaxy-boss[data-player='1'] {left:62%;right:12%;}

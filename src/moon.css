@@ -241,3 +241,32 @@ th,td {padding:10px;}
 @media(max-width:767px){.split {grid-template-columns:minmax(0,1fr);}.badges {grid-template-columns:repeat(2,minmax(0,1fr));}.badge {padding:14px;}.camera-label {font-size:9px;}}
 /* The live preview sits clear of the poster title and game instructions. */
 .moon-presence {left:auto;right:clamp(18px,2.6vw,44px);bottom:24px;}
+/* Returning players get straight to the games. */
+.moon-playroom .moon-masthead {min-height:48px;padding-bottom:10px;}
+.moon-playroom .logo {font-size:42px;}
+.moon-session-compact {padding:16px 0;align-items:center;}
+.moon-session-compact>div:first-child {display:flex;align-items:center;gap:24px;flex-wrap:wrap;}
+.moon-session-compact h1 {font-size:clamp(26px,2.7vw,40px);line-height:1;}
+.moon-player-chip {display:flex;align-items:center;gap:12px;background:var(--moon-card);padding:5px 13px 5px 5px;min-height:52px;text-align:left;}
+.moon-player-chip>img {width:46px;height:46px;object-fit:cover;border-radius:7px;}
+.moon-player-chip b {font-size:14px;display:block;}
+.moon-player-chip small {font-size:10px;color:var(--moon-secondary);display:block;}
+.moon-player-chip>span:last-child {font-size:22px;color:var(--moon-acid);margin-left:12px;}
+.moon-playroom .moon-selection-label {padding:18px 0 12px;}
+.moon-playroom .moon-posters {gap:18px;}
+.moon-playroom .moon-poster-art {aspect-ratio:1.95;}
+.moon-playroom .moon-poster-copy {padding:11px 4px;}
+.moon-playroom .moon-poster h3 {font-size:clamp(26px,2.1vw,34px);}
+.moon-playroom .moon-dailies {margin-top:24px;}
+@media(max-width:1050px){.moon-session-compact {gap:12px;}.moon-session-compact>div:first-child {gap:12px;}.moon-player-chip small {font-size:9px;}}
+@media(max-width:767px){.moon-playroom .moon-masthead {gap:8px;}.moon-playroom .moon-masthead nav {width:auto;margin-left:auto;}.moon-playroom .moon-masthead>.moon-eyebrow {display:none;}.moon-playroom .moon-masthead nav button {padding:5px 7px;font-size:10px;min-height:36px;}.moon-session-compact h1 {font-size:30px;}.moon-player-chip {min-height:48px;}.moon-player-chip>img {width:38px;height:38px;}.moon-playroom .moon-poster-art {aspect-ratio:1.4;}.moon-playroom .moon-posters {gap:16px 12px;}}
+@media(max-width:430px){.moon-session-compact>div:first-child {width:100%;}.moon-session-compact .seg {width:auto;}.moon-playroom .moon-poster-art {aspect-ratio:1.85;}.moon-playroom .logo {font-size:35px;}.moon-playroom .moon-masthead nav {gap:0;}.moon-playroom .moon-masthead nav button {font-size:9px;padding-inline:6px;}}
+/* Cards use the same environments and crew that appear during the round. */
+.moon-poster-art {background:var(--moon-card);}
+.moon-poster[data-game=slice] .moon-poster-art {background:linear-gradient(135deg,#ff934a,#ae3f42);}
+.moon-poster .moon-poster-buddy {position:absolute;right:3%;bottom:-4%;height:105%;width:48%;object-fit:contain;object-position:bottom;z-index:0;filter:drop-shadow(0 3px 8px #0005);}
+.moon-poster-art::after {background:linear-gradient(0deg,#101211e6,transparent 52%);}
+.moon-brief-art .moon-brief-buddy {inset:auto 0 13% auto;height:74%;width:86%;object-fit:contain;object-position:center;}
+.moon-brief[data-game=slice] .moon-brief-art {background:linear-gradient(135deg,#ff934a,#9d3444);}
+.moon-welcome-art .moon-cover-buddy {box-shadow:none;object-fit:contain;height:85%;width:75%;left:8%;bottom:10%;filter:drop-shadow(0 10px 18px #0004);}
+.moon-art-stamp {z-index:2;}

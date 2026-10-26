@@ -8,4 +8,6 @@ export const MOON_CATALOG: Record<string,{name:string;world:string;hook:string;m
  jacks:{name:'Jack Attack',world:'ARMS UP. GAME ON.',hook:'The galaxy is in your hands.',move:'Raise · aim',art:'jacks',steps:['Raise either hand to fire along that arm.','Lower your hand to reload; raise it to fire again.','Point left or right to aim. Clear each wave.']},
  jab:{name:'Jab',world:'FIND YOUR FIGHT',hook:'Gloves on. World off.',move:'Punch · duck',art:'jab',steps:['Punch the pads with the hand on their side.','Gold pads want the opposite hand. Hit hard for a bonus.','Duck under the bar, then come back swinging.']},
 };
-export const moonArt = (id:string) => `/assets/moon/worlds/${MOON_CATALOG[id]?.art ?? 'slice'}.webp`;
+const WORLD_ART:Record<string,string>={slice:'juice',goalie:'stadium',freeze:'club',shapeup:'galaxy',jacks:'galaxy',jab:'boxing'};
+export const moonArt = (id:string) => `/assets/moon/play/${WORLD_ART[id] ?? 'galaxy'}.webp`;
+export const moonBuddy = (id:string) => `/assets/moon/play/${['goalie','jacks','jab'].includes(id)?'moodi-action':'fuzzbyte-cheer'}.webp`;

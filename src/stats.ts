@@ -2,7 +2,7 @@
 // stage/stars/xp arrived with the progression layer; sessions saved before it simply lack them.
 // `variant` tells rounds of one game apart when their scores cannot be compared: a mode ('classic'), a team round ('team'), or both ('classic+team').
 export type Session = { t: number; game: string; who: string; score: number; points: number; stage?: number; stars?: number; xp?: number; variant?: string };
-type Db = { profiles: string[]; sessions: Session[] };
+export type Db = { profiles: string[]; sessions: Session[]; avatars?: Record<string,string> };
 
 const KEY = 'romp.v1';
 export const DAY_GOAL = 50; // activity points that make a day count toward the streak

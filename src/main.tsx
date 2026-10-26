@@ -1,7 +1,9 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import './moon.css';
-import { MOON_GAME_IDS, MOON_CATALOG, moonArt } from './moon-catalog.ts';
+import { PlayerPicker } from './player-picker.tsx';
+import { crewOf } from './moon-profile.ts';
+import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
 import { PartyOptions } from './party-options.tsx';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
@@ -251,6 +253,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>({ at: 'start' });
   const [error, setError] = useState('');
   const [db, setDb] = useState(load);
+  const [editingPlayer, setEditingPlayer] = useState<number|null>(null);
   const [who, setWho] = useState([0, 1]); // profile index per player slot
   const [mode, setMode] = useState<Mode>('solo');
   const [fx, setFx] = useState(effects.on);
@@ -388,12 +391,7 @@ function App() {
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
   const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
-  const cycle = (slot: number) => setWho((w) => w.map((v, i) => (i === slot ? (v + 1) % db.profiles.length : v)));
-  const rename = (slot: number) => {
-    const old = name(slot), next = prompt('Name', old)?.trim();
-    if (!next || next === old || db.profiles.includes(next)) return;
-    update({ profiles: db.profiles.map((p) => (p === old ? next : p)), sessions: db.sessions.map((s) => (s.who === old ? { ...s, who: next } : s)) });
-  };
+
 
   const slots = mode === 'solo' ? [0] : [0, 1];
   const clash = slots.length === 2 && who[0] === who[1];
@@ -406,10 +404,10 @@ function App() {
       {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
         <div className="screen moon-start">
-          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">MOVE ON / FEEL SOMETHING</span><span className="moon-edition">THE MOVEMENT ARCADE</span></header>
+          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">MOVE ON / FEEL SOMETHING</span><span className="moon-edition">MOVE TOGETHER. PLAY YOUR WAY.</span></header>
           <div className="moon-welcome">
             <div className="moon-welcome-copy"><p className="moon-eyebrow">SIX WORLDS. ONE YOU.</p><h1>YOUR BODY.<br /><span>THE CONTROLLER.</span></h1><p className="moon-intro">Slice the chaos. Own the goal. Dance like the room is yours.</p><button className="primary giant" onClick={start}>Start <span aria-hidden="true">↗</span></button><p className="moon-camera-note">Camera on. Step back. Make your move.<br />Play on your Mac or tablet · no controller needed</p>{error && <p className="error">{error}</p>}</div>
-            <div className="moon-welcome-art" aria-label="Original artwork for the MOON movement arcade"><img className="moon-cover-main" src={moonArt('freeze')} alt="Fashionable dancer in the Freeze disco world" fetchPriority="high" /><img className="moon-cover-slice" src={moonArt('slice')} alt="Slice fruit world" /><img className="moon-cover-goalie" src={moonArt('goalie')} alt="Goalie stadium world" /><span className="moon-art-stamp">MOVE<br />LIKE YOU<br />MEAN IT.</span></div>
+            <div className="moon-welcome-art" aria-label="Original artwork for the MOON movement arcade"><img className="moon-cover-main" src={moonArt('freeze')} alt="Freeze club environment" fetchPriority="high" /><img className="moon-cover-slice" src={moonArt('slice')} alt="Slice fruit world" /><img className="moon-cover-goalie" src={moonArt('goalie')} alt="Goalie stadium world" /><img className="moon-cover-buddy" src={moonBuddy('freeze')} alt="Fuzzbyte, your playful party host" /><span className="moon-art-stamp">MOVE<br />LIKE YOU<br />MEAN IT.</span></div>
           </div>
           <footer className="moon-start-footer"><span>SLICE / GOALIE / FREEZE / SHAPE UP / JACK ATTACK / JAB</span><span>REAL MOVES. GOOD ENERGY.</span></footer>
         </div>
@@ -417,12 +415,11 @@ function App() {
       {screen.at === 'home' && (
         <div className="screen library moon-playroom">
           <header className="moon-masthead"><Logo /><span className="moon-eyebrow">YOUR PLAYROOM</span><nav aria-label="Playroom tools"><button className="ghost" onClick={toggleFx}>Effects {fx ? 'on' : 'off'}</button><button className="ghost" onClick={() => go({ at: 'tracking' })}>Tracking</button><button className="ghost" onClick={() => go({ at: 'badges' })}>Badges</button><button className="ghost" onClick={() => go({ at: 'stats' })}>Stats</button></nav></header>
-          <div className="moon-room-heading"><div><p className="moon-eyebrow">MOON / THE SELECT SIX</p><h1>MAKE YOUR<br /><span>NEXT MOVE.</span></h1></div><div className="moon-room-note"><b>Pick a world. Bring your energy.</b><p>Five stages to master in every game.<br />Earn two stars to open the next.</p><span className="moon-tracking-status"><i /> Camera ready · make room to move</span></div></div>
-          <section className="moon-session" aria-label="Players and play mode"><div className="seg">{(Object.keys(MODES) as Mode[]).map((m) => <button key={m} aria-pressed={mode === m} onClick={() => chooseMode(m)}>{MODES[m]}</button>)}</div><div className="moon-player-slots">{slots.map(i => <div className="moon-player-slot" key={i}><span className="moon-initial" style={vars({'--tone':PLAYER_COLORS[i]})}>{name(i)[0]}</span><span><b>{name(i)}</b><small>Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><button className="ghost" onClick={()=>cycle(i)} aria-label={`Switch player ${i+1}`}>Switch</button><button className="ghost" onClick={()=>rename(i)} aria-label={`Rename player ${i+1}`}>Rename</button></div>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
-          <div className="moon-selection-label"><h2>FIND YOUR PLAY</h2><span>06 EXPERIENCES / SOLO OR TOGETHER</span></div>
+          <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
+          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>REAL MOVES / GOOD COMPANY</span></div>
           <div className="moon-posters">
             {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
-              <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
+              <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><img className="moon-poster-buddy" src={moonBuddy(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
               <div className="moon-poster-copy"><div><h3>{g.name}</h3><p>{MOON_CATALOG[g.id].hook}</p></div><span className="moon-poster-move">{MOON_CATALOG[g.id].move}<small>Stage {open(g)} / {STAGES}</small></span></div>
             </button>)}
           </div>
@@ -430,13 +427,14 @@ function App() {
           <footer className="moon-room-footer"><Logo /><span>MOve ON. A little further every time.</span><span>{totalStars(db.sessions,name(0))} stars collected</span></footer>
         </div>
       )}
+      {editingPlayer!==null&&<PlayerPicker db={db} current={name(editingPlayer)} slot={editingPlayer} onSave={update} onSwitch={index=>setWho(w=>w.map((v,i)=>i===editingPlayer?index:v))} onClose={()=>setEditingPlayer(null)} />}
       {screen.at === 'brief' && (() => {
         const { game } = screen, team = teamOf(game), variant = variantOf(screen.mode, team), opened = open(game, screen.mode);
         return (
           <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
             <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="moon-brief-art"><img src={moonArt(game.id)} alt={`${game.name} original key art`} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">GAME WORLD / KEY ART</span></div>
+              <div className="moon-brief-art"><img src={moonArt(game.id)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={['goalie','jacks','jab'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
               <div className="col" style={{ gap: '1.3rem' }}>
                 <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
@@ -633,7 +631,7 @@ function App() {
         </div>
       )}
       {screen.at === 'brief' && <Presence small={false} />}
-      {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
+      {editingPlayer===null&&((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }

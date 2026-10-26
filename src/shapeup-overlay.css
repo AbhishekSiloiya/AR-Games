@@ -46,3 +46,28 @@
 @media(max-height:600px){.shapeup-quest{top:.4rem;padding:.4rem .65rem;}.shapeup-quest-path{margin:.25rem 0;}.shapeup-quest-step{padding:.12rem 0;}.shapeup-quest-header>span{font-size:.58rem;}.shapeup-reward{bottom:6rem;padding:.4rem .7rem;font-size:.9rem;}}
 @media(max-width:700px){.shapeup-coach[data-players="2"] .shapeup-quest{width:calc(50% - 1rem);padding:.4rem;}.shapeup-coach[data-players="2"] .shapeup-quest-header>span{display:none;}.shapeup-coach[data-players="2"] .shapeup-quest-path{gap:.15rem;}.shapeup-coach[data-players="2"] .shapeup-quest-step small{font-size:.5rem;}.shapeup-coach[data-players="2"] .shapeup-quest-totals{flex-wrap:wrap;gap:.1rem .4rem;}}
 @media(prefers-reduced-motion:reduce){.shapeup-reward.celebrate{animation:none;}}
+/* The player's matches build a visible world, rather than only filling a score row. */
+.shapeup-world {position:absolute;inset:0;pointer-events:none;}
+.shapeup-portal {position:absolute;left:calc(var(--seat) / var(--players) * 100% + 3%);bottom:8%;width:clamp(110px,13vw,185px);height:clamp(120px,15vw,210px);border:3px solid #b8a4ff66;border-radius:50%;background:radial-gradient(ellipse,#29134b70,#140b3470);box-shadow:0 0 25px #9372e633,inset 0 0 20px #a270ee44;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.shapeup-portal__core {position:absolute;inset:12%;border-radius:50%;background:radial-gradient(ellipse,#f8eaff,#77fff5 12%,#9b5fff88 45%,transparent 70%);transition:transform 500ms;opacity:.6;}
+.shapeup-portal strong {z-index:1;font:800 clamp(17px,2vw,30px)/1 var(--moon-display);color:#efffc2;text-shadow:0 2px 8px #100b29;}
+.shapeup-portal>span {z-index:1;font:700 clamp(7px,.65vw,10px)/1.5 var(--moon-face);margin-top:8px;text-align:center;color:#e2ccff;}
+.shapeup-portal__cells {position:absolute;inset:-3%;}
+.shapeup-portal__cells i {position:absolute;left:calc(50% + cos(var(--cell) * 45deg) * 50%);top:calc(50% + sin(var(--cell) * 45deg) * 50%);width:12%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);border:1px solid #e6d7ff88;background:#34265a;border-radius:4px;}
+.shapeup-portal__cells i[data-charged=true] {background:#deff75;border-color:#fffbd5;box-shadow:0 0 18px #dcff75aa;}
+.shapeup-world[data-complete=true] .shapeup-portal {border-color:#deff75;box-shadow:0 0 60px #b3fbe366,inset 0 0 30px #b3fbe388;}
+.shapeup-buddy {position:absolute;left:calc(var(--seat) / var(--players) * 100% + 1%);bottom:38%;width:clamp(90px,12vw,170px);height:25%;text-align:center;}
+.shapeup-buddy img {width:100%;height:95%;object-fit:contain;filter:drop-shadow(0 4px 8px #0005);}
+.shapeup-buddy span {display:block;font:700 clamp(7px,.6vw,10px)/1 var(--moon-face);color:#e9caff;letter-spacing:.08em;}
+.shapeup-world[data-cheer=true] .shapeup-buddy img {transform:rotate(-4deg) scale(1.05);}
+.shapeup-coach-card {border:1px solid #cbb2ff88;background:linear-gradient(155deg,#302147ee,#172132ed);}
+.shapeup-coach-card h2 {font-family:var(--moon-display);font-size:clamp(17px,1.6vw,25px);}
+.shapeup-quest {background:#201b38ed;border-color:#c7a9ff88;}
+.shapeup-quest-header strong {color:#e4ff91;}
+.shapeup-live-status[data-feedback=matched],.shapeup-live-status[data-feedback=perfect] {background:#dfff91;color:#1b2b1b;}
+.shapeup-live-status[data-feedback=matched] span,.shapeup-live-status[data-feedback=perfect] span {color:#355334;}
+.shapeup-coach[data-players='2'] .shapeup-portal {width:10%;height:23%;bottom:9%;}
+.shapeup-coach[data-players='2'] .shapeup-buddy {width:9%;height:21%;bottom:36%;}
+@media(max-width:700px){.shapeup-portal {width:110px;height:130px;left:calc(var(--seat) / var(--players) * 100% + 2%);}.shapeup-buddy {width:80px;height:25%;bottom:38%;}.shapeup-coach[data-players='2'] .shapeup-portal{width:14%;height:22%;}.shapeup-coach[data-players='2'] .shapeup-portal strong{font-size:12px;}.shapeup-coach[data-players='2'] .shapeup-portal>span{font-size:6px;}}
+@media(prefers-reduced-motion:reduce){.shapeup-portal__core {transition:none;}.shapeup-world[data-cheer=true] .shapeup-buddy img{transform:none;}}
+.shapeup-coach::before {content:'';position:absolute;inset:0;z-index:-1;background:url('/assets/moon/play/galaxy.webp') center/cover;opacity:.8;mask-image:linear-gradient(to right,#000 0%,transparent 17%,transparent 83%,#000 100%),linear-gradient(to bottom,#000,transparent 16%,transparent 87%,#000);mask-composite:add;}

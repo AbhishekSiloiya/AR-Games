@@ -16,18 +16,21 @@ export function moonSlice(scene:Scene,n:number,team:boolean){
   });
   const flashes=Array.from({length:10},()=>{
     const e=document.createElement('div');e.className='moon-slice__impact';e.hidden=true;e.setAttribute('aria-hidden','true');
-    e.innerHTML='<svg viewBox="0 0 160 100"><ellipse cx="80" cy="50" rx="49" ry="24"/><path d="M4 59L62 46 23 20 78 39 102 4 97 40 155 26 109 50 152 82 96 62 72 98 69 61Z"/><path class="moon-slice__cut" d="M2 72L158 28"/></svg><b></b>';root.append(e);return {e,text:e.querySelector('b')!,life:0,x:0,y:0,angle:0};
+    e.innerHTML='<img class="moon-slice__juice" src="/assets/moon/play/juice.webp" alt="" /><svg viewBox="0 0 160 100"><ellipse cx="80" cy="50" rx="49" ry="24"/><path d="M4 59L62 46 23 20 78 39 102 4 97 40 155 26 109 50 152 82 96 62 72 98 69 61Z"/><path class="moon-slice__cut" d="M2 72L158 28"/></svg><b></b>';root.append(e);return {e,text:e.querySelector('b')!,life:0,x:0,y:0,angle:0};
   });
   stage?.append(root);scene.cleanup(()=>{root.remove();stage?.classList.remove('moon-stage','moon-slice-stage');});
-  let next=0;
+  let next=0,cheer=0;
+  const buddy=document.createElement('img');buddy.className='moon-slice__buddy';buddy.src='/assets/moon/play/fuzzbyte-idle.webp';buddy.alt='Fuzzbyte cheering your fruit combos';root.append(buddy);
   return {
     impact(x:number,y:number,combo:number,kind:'cut'|'bomb'|'power'|'slash',direction=0){
+      if(kind==='slash'||kind==='power'||combo>0&&combo%5===0)cheer=1.1;
       if(!effects.on)return;
       const at=toScreen(x,y,0);if(!at)return;
       const f=flashes[next++%flashes.length];f.x=at[0]*100;f.y=at[1]*100;f.life=kind==='cut'?.28:.7;f.angle=direction;
       f.e.dataset.kind=kind;f.text.textContent=kind==='bomb'?'RESET':kind==='power'?'POWER UP':kind==='slash'?`${combo} IN ONE!`:combo>0&&combo%5===0?`${combo} STREAK`:'';
     },
     update(dt:number,t:number,mode:string,combos:number[],powers:({name:string;seconds:number}|null)[],finale:boolean){
+      cheer=Math.max(0,cheer-dt);const buddySrc=`/assets/moon/play/fuzzbyte-${cheer>0?'cheer':'idle'}.webp`;if(!buddy.src.endsWith(buddySrc))buddy.src=buddySrc;buddy.dataset.cheer=String(cheer>0);
       root.dataset.phase=finale?'finale':mode==='zen'?'zen':t<0?'ready':t>50&&mode===''?'frenzy':'play';
       text(phase,finale?'FINAL CUT':mode==='zen'?'ZEN SESSION':mode==='classic'?'CLASSIC':t<0?'GET READY':t>50?'FRENZY':'CITRUS CLUB');
       const action=finale?'SMASH THE MELON':t<6?'SWIPE FRUIT. SKIP BOMBS.':'CHAIN YOUR NEXT CUT';if(instruction.textContent!==action)text(instruction,action);

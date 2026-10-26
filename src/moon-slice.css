@@ -24,3 +24,10 @@
 .moon-slice[data-phase="finale"] .moon-slice__phase {color:var(--moon-ink);background:var(--moon-citrus);}
 @media(max-width:700px){.moon-slice__momentum {padding:7px;width:27%;top:15%;}.moon-slice__instruction {bottom:4%;max-width:53%;white-space:normal;text-align:center;font-size:11px;}.moon-slice__phase{top:4%;font-size:9px;}.moon-slice .moon-arena-brand{font-size:10px;top:4%;}.moon-slice__momentum strong{font-size:14px;}.moon-slice__momentum small {font-size:10px;}}
 @media(prefers-reduced-motion:reduce){.moon-slice__impact{display:none!important;}.moon-slice__track i {transition:none;}}
+.moon-slice__impact .moon-slice__juice {position:absolute;inset:-25%;width:150%;height:150%;object-fit:contain;opacity:.9;}
+.moon-slice__impact[data-kind=bomb] .moon-slice__juice {display:none;}
+.moon-slice__impact[data-kind=cut] svg {opacity:.3;}
+.moon-slice__buddy {position:absolute;left:2%;top:27%;height:21%;width:13%;object-fit:contain;filter:drop-shadow(0 5px 8px #0005);opacity:.9;}
+.moon-slice__buddy[data-cheer=true] {transform:rotate(-8deg) scale(1.08);opacity:1;}
+.moon-slice[data-players='2'] .moon-slice__buddy {height:14%;width:8%;left:46%;top:34%;}
+@media(prefers-reduced-motion:reduce){.moon-slice__buddy[data-cheer=true]{transform:none;}}
