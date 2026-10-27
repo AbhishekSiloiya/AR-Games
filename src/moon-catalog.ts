@@ -6,8 +6,8 @@ export const MOON_CATALOG: Record<string,{name:string;world:string;hook:string;m
  freeze:{name:'Freeze',world:'DANCE. STOP. ICON.',hook:'Go all out. Hold the pose.',move:'Dance · freeze',art:'freeze',steps:['Dance freely while the music plays.','When FREEZE appears, stop and hold completely still.','Keep the pose until the music returns to build your chain.']},
  shapeup:{name:'Shape Up',world:'STRIKE YOUR SHAPE',hook:'Make a pose. Make it yours.',move:'Pose · hold',art:'shapeup',steps:['Watch your live view and copy the pose reference.','Hold a good match to lock it and collect stars.','Relax during the reset. Chain the next pose for a combo.']},
  jacks:{name:'Jack Attack',world:'ARMS UP. GAME ON.',hook:'The galaxy is in your hands.',move:'Raise · aim',art:'jacks',steps:['Raise either hand to fire along that arm.','Lower your hand to reload; raise it to fire again.','Point left or right to aim. Clear each wave.']},
- jab:{name:'Jab',world:'FIND YOUR FIGHT',hook:'Gloves on. World off.',move:'Punch · duck',art:'jab',steps:['Punch the pads with the hand on their side.','Gold pads want the opposite hand. Hit hard for a bonus.','Duck under the bar, then come back swinging.']},
+ jab:{name:'Jab',world:'FIND YOUR FIGHT',hook:'Gloves on. World off.',move:'Punch · duck',art:'jab',steps:['Follow LEFT or RIGHT. Reach the raised mitt with that glove.','Land four punches to complete a combination. Reset between hits.','When DUCK appears, bend your knees. Then return to guard.']},
 };
 const WORLD_ART:Record<string,string>={slice:'juice',goalie:'stadium',freeze:'club',shapeup:'galaxy',jacks:'galaxy',jab:'boxing'};
-export const moonArt = (id:string) => `/assets/moon/play/${WORLD_ART[id] ?? 'galaxy'}.webp`;
-export const moonBuddy = (id:string) => `/assets/moon/play/${['goalie','jacks','jab'].includes(id)?'moodi-action':'fuzzbyte-cheer'}.webp`;
+export const moonArt = (id:string) => id==='jab'?'/assets/moon/jab/pavilion.webp':`/assets/moon/play/${WORLD_ART[id] ?? 'galaxy'}.webp`;
+export const moonBuddy = (id:string) => id==='jab'?'/assets/moon/crew/rizzquake.webp':`/assets/moon/play/${['goalie','jacks','jab'].includes(id)?'moodi-action':'fuzzbyte-cheer'}.webp`;

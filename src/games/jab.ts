@@ -1,103 +1,44 @@
-// Jab — punch the pads before they close, duck under the bar. A pad wants the hand on its own side;
-// a gold "cross" pad wants the opposite hand, so you twist. Hard punches score extra.
-// Pads sit inside each player's own zone, so together-play stays shoulder-wide.
-import { jabCoach } from '../jab-coach.ts';
-import { isLow, players, sim } from '../pose.ts';
-import { hardness } from '../meta.ts';
-import { fade, flat, lit, node, shapes, show, tint } from '../engine.ts';
-import { bursts as makeBursts, comboText, divider, hands as makeHands, hitSound, hitStop, music, round, scoreHud, sfx, swept, zoneHalf, zoneX, type Game } from '../kit.ts';
-
-const ROUND = 60, PAD_R = 0.9, PAD_LIFE = 1.6, PADS = 6;
-const PUNCH_SPEED = 5; // stage units/s a hand must be moving when it lands — tune on device
-const BAR_EVERY = 8, BAR_WARN = 1.5, BAR_LIVE = 0.7;
-
-export default function jab({ n, stage, onEnd, hud, scene }: Game) {
-  const hard = hardness(stage);
-  const experience=jabCoach(scene,n);
-  const stageEl=document.querySelector<HTMLElement>('.stage');stageEl?.classList.add('moon-sport-stage','moon-sport-stage--jab');scene.cleanup(()=>stageEl?.classList.remove('moon-sport-stage','moon-sport-stage--jab'));
-  const padMesh = shapes.circle(PAD_R, 32), ringMesh = shapes.ring(0.94, 1, 48), padLook = lit('#f43f5e', { opacity: 1,emissive:'#55182e',glow:.3 }), ringLook = flat('#fafafa');
-  const pads = Array.from({ length: PADS * n }, (_, i) => ({ zone: i % n, x: 0, y: 0, life: 0, pop: 0, hand: 0, cross: false, pad: node(scene.root, padMesh, padLook), back:node(scene.root,shapes.sphere(PAD_R,20),lit('#251b30')),target:node(scene.root,shapes.ring(.27,.34,32),flat('#fff7de')), ring: node(scene.root, ringMesh, ringLook) }));
-  const barLook = flat('#fbbf24', { opacity: 1 });
-  const bars = Array.from({ length: n }, (_, p) => node(scene.root, shapes.quad(zoneHalf(n) * 1.9, 0.5), barLook, [zoneX(n, p), 2.6, 0.2]));
-  for (const e of [...pads.flatMap((p) => [p.pad, p.ring,p.back,p.target]), ...bars]) e.enabled = false;
-  divider(scene, n);
-
-  const g = { spawnIn: [0.5, 0.5], side: [1, -1], scores: [0, 0], combo: [0, 0], barAt: BAR_EVERY, ducked: [false, false] };
-  const hands = makeHands(scene, n, {cx:p=>zoneX(n,p),hw:zoneHalf(n),hh:4.5,equipment:'boxing'}), bursts = makeBursts(scene.root);
-  const said = [{ text: '', until: 0 }, { text: '', until: 0 }];
-  if(import.meta.env.DEV||sim){Object.assign(window,{__jab:{g,pads}});scene.cleanup(()=>{delete(window as Window&{__jab?:unknown}).__jab;});}
-  const tick = round(hud, ROUND, () => { music.stop(); onEnd(g.scores.slice(0, n)); });
-  music.start('boxing');
-
-  return (rawDt: number) => {
-    const dt = Math.min(rawDt, 0.05), t = tick(rawDt);
-    if (t === null) return;
-
-    if (t >= 0)
-      for (let z = 0; z < n; z++) {
-        if (!players[z].present || (g.spawnIn[z] -= dt) > 0) continue;
-        g.spawnIn[z] = (0.95 - 0.45 * (t / ROUND)) / hard;
-        const pad = pads.find((p) => p.zone === z && p.life <= 0 && p.pop <= 0);
-        if (!pad) continue;
-        g.side[z] = -g.side[z];
-        const cross = t > 10 && Math.random() < 0.25, side = g.side[z] < 0 ? 0 : 1;
-        Object.assign(pad, { cross, hand: cross ? 1 - side : side, life: (PAD_LIFE * (cross ? 1.3 : 1)) / Math.sqrt(hard), x: zoneX(n, z) + g.side[z] * zoneHalf(n) * (0.3 + Math.random() * 0.35), y: Math.random() * 3.2 - 0.2 });
-      }
-
-    hands.update(dt).forEach((h, i) => {
-      if (!h.on || h.speed < PUNCH_SPEED) return;
-      const pad = pads.find((p) => p.zone === h.p && p.life > 0 && p.hand === (i & 1) && swept(h, p.x, p.y, PAD_R * 1.1, 4)); // a punch travels ~half a pad per frame: test the path, not the point
-      if (!pad) return;
-      const pow = h.speed > PUNCH_SPEED * 2.2;
-      pad.life = 0;
-      pad.pop = 0.2;
-      g.scores[h.p] += (pad.cross ? 3 : 1) + (pow ? 1 : 0) + Math.floor(++g.combo[h.p] / 5);
-      hitSound(pow ? 'impactPunch_heavy' : 'impactPunch_medium', g.combo[h.p], pow ? 1 : 0.7);
-      if (pow) { hud.shake(0.5); hitStop(70); }
-      bursts.burst(pad.x, pad.y, 0.5, pad.cross ? '#fde047' : '#f43f5e', pow ? 28 : 12, pow ? 10 : 6);
-      experience.react(h.p,'hit',g.combo[h.p],t);
-      if(g.combo[h.p]%4===0){bursts.burst(pad.x,pad.y,.6,'#ffe08a',36,8);sfx('confirmation');}
-      if (pow) said[h.p] = { text: 'Pow!', until: t + 0.6 };
-    });
-
-    // The bar: warn, go live, and anyone who crouched at any moment while it was live is safe.
-    const barIn = g.barAt - t, live = barIn <= 0 && barIn > -BAR_LIVE;
-    for (let p = 0; p < n; p++) {
-      if (live && isLow(players[p])) g.ducked[p] = true;
-      const cross = pads.some((pad) => pad.zone === p && pad.life > 0 && pad.cross);
-      hud.p('h', p, barIn < BAR_WARN && barIn > -BAR_LIVE ? 'Duck!' : said[p].until > t ? said[p].text : cross ? 'Cross!' : comboText(g.combo[p]));
-      if (show(bars[p], barIn < BAR_WARN && barIn > -BAR_LIVE)) fade(bars[p], live ? 1 : 0.35);
+// One focused sports round: coach, visible mitt and collision share one target.
+import {jabCoach} from '../jab-coach.ts';
+import {jabActor} from '../jab-actor.ts';
+import {jabArena} from '../jab-arena.ts';
+import {jabGloves} from '../jab-gloves.ts';
+import {jabTargets,stepJabSeat,strikeJab} from '../jab-pattern.ts';
+import {isLow,players,sim} from '../pose.ts';
+import {effects,pace} from '../pace.ts';
+import {flat,node,shapes,show} from '../engine.ts';
+import {round,zoneX,swept,music,hitSound,sfx,type Game} from '../kit.ts';
+export const view={position:[0,0,11] as [number,number,number],fov:44.5,near:.1,far:80};
+export default async function jab({n,stage,onEnd,hud,scene}:Game){
+ const ui=jabCoach(scene,n,stage),states=ui.states;
+ const [arena,actors]=await Promise.all([jabArena(scene),Promise.all(Array.from({length:n},(_,p)=>jabActor(scene,p,n)))]);
+ if(!arena||actors.some(actor=>!actor))return ()=>{};
+ const gloves=jabGloves(scene,n),barLook=flat('#f1c46a',{opacity:.65}),bars=states.map((_,p)=>node(scene.root,shapes.quad(n===1?6.2:4.4,.16),barLook,[zoneX(n,p),2,.95]));bars.forEach(bar=>bar.enabled=false);
+ const impactMesh=shapes.ring(.7,.74,48),impactLook=flat('#fff5dc',{opacity:.8}),impacts=states.map(()=>node(scene.root,impactMesh,impactLook));impacts.forEach(e=>e.enabled=false);
+ const tick=round(hud,60,()=>{music.stop();onEnd(states.map(s=>s.score),states.map(s=>[`${s.completed} clean combinations`,`${s.hits} hits · best streak ${s.best}`]));},1.1);
+ music.start('boxing');let time=-3;
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const advance=(ms:number)=>{for(let i=0;i<Math.ceil(ms/(1000/60));i++)update(1/60);};
+ const snapshot=()=>({time,coordinates:'stage x right, y up; glove/mitt positions in world units',seats:states.map((s,p)=>({phase:s.phase,action:s.action,score:s.score,hits:s.hits,completed:s.completed,mitts:actors[p]!.state().mitts,gloves:gloves.all.slice(p*2,p*2+2).map(g=>({x:g.state.x,y:g.state.y,on:g.state.on}))}))});
+ const diagnostic={states,actors,gloves,arena,advance,snapshot,get time(){return time;},get pads(){return states.map((s,p)=>{const target=actors[p]!.state().mitts[s.action.hand];return {...target,zone:p,life:s.phase==='strike'?1:0};});}};
+ if(import.meta.env.DEV||sim){Object.assign(window,{__jab:diagnostic,advanceTime:advance});scene.cleanup(()=>{delete(window as Window&{__jab?:unknown}).__jab;delete (window as Window&{advanceTime?:unknown}).advanceTime;});}
+ const update=(rawDt:number)=>{
+  const t=tick(rawDt);if(t===null)return;time=t;const dt=Math.min(rawDt,.05),hands=gloves.update(dt);
+  states.forEach((s,p)=>{
+   if(t>=0&&t<60)stepJabSeat(s,dt,t,players[p].present,isLow(players[p]));
+   const targets=jabTargets(s,zoneX(n,p),n===1?1:.78).map(target=>t>=60?{...target,active:false,y:1.1}:target),duck=t>=60?0:s.phase==='duck'?1:s.phase==='duckWarn'?Math.min(1,s.age/1.4)*.4:0;
+   const mitts=actors[p]!.update(t,dt,targets,t>=60||s.phase==='combo'?1:0,duck,effects.on&&!pace.lean&&!reduced),active=mitts[s.action.hand];
+   if(t>=0&&t<60&&s.phase==='strike'&&players[p].present){
+    const index=p*2+s.action.hand,h=hands[index],glove=gloves.all[index];
+    if(h.on&&glove.armed&&swept(h,active.x,active.y,n===1?.81:.65,4)&&strikeJab(s,s.action.hand,h.speed)){
+     glove.armed=false;actors[p]!.hit(s.impactSide);hitSound('impactPunch_medium',s.streak,.65);if(s.index===4)sfx('confirmation',{vol:.5});
+     impacts[p].setLocalPosition(active.x,active.y,1.3);show(impacts[p],effects.on);
     }
-    if (barIn <= -BAR_LIVE) {
-      for (let p = 0; p < n; p++) {
-        if (!players[p].present) continue;
-        if (g.ducked[p]) { g.scores[p] += 3; experience.react(p,'duck',g.combo[p],t);sfx('phaseJump', { vol: 0.5 }); } else { g.scores[p] = Math.max(0, g.scores[p] - 2); g.combo[p] = 0; experience.react(p,'miss',0,t);sfx('impactMetal_heavy'); hud.flash('#fbbf24'); hud.shake(); }
-      }
-      g.ducked = [false, false];
-      g.barAt = t + BAR_EVERY;
-    }
-
-    for (const pad of pads) {
-      if (pad.life > 0 && (pad.life -= dt) <= 0) g.combo[pad.zone] = 0; // closed unpunched
-      if (pad.pop > 0) pad.pop -= dt;
-      if (show(pad.ring, pad.life > 0)) {
-        const k = PAD_R * (1 + (1.0 * pad.life) / PAD_LIFE); // closes onto the pad as time runs out
-        pad.ring.setLocalPosition(pad.x, pad.y, 0.1);
-        pad.ring.setLocalScale(k, k, 1);
-      }
-      const visible=pad.life>0||pad.pop>0;show(pad.back,visible);show(pad.target,visible);
-      if (!show(pad.pad, visible)) continue;
-      const k = pad.pop > 0 ? 1 + (0.2 - pad.pop) * 4 : 1;
-      pad.pad.setLocalPosition(pad.x, pad.y, .2);
-      pad.back.setLocalPosition(pad.x,pad.y,-.05);pad.back.setLocalScale(k,k,pad.pop>0?.12:.22);
-      pad.target.setLocalPosition(pad.x,pad.y,.23);pad.target.setLocalScale(k,k,1);
-      pad.pad.setLocalScale(k, k, 1);
-      fade(pad.pad, pad.pop > 0 ? pad.pop * 5 : 0.85);
-      tint(pad.pad, pad.cross ? '#fde047' : pad.zone ? '#34d399' : '#f43f5e');
-    }
-    experience.update(t,dt,pads,g.combo,barIn,players.slice(0,n).map(p=>p.present));
-    bursts.update(dt);
-    music.intensity(0.3 + Math.max(g.combo[0], g.combo[1]) / 14);
-    scoreHud(hud, n, g.scores);
-  };
+   }
+   if(s.impact>0&&t<60){const k=1+(1-s.impact)*.5;impacts[p].setLocalScale(k,k,1);}else show(impacts[p],false);
+   const isBar=s.phase==='duckWarn'||s.phase==='duck';show(bars[p],isBar&&t<60);if(isBar)bars[p].setLocalPosition(zoneX(n,p),s.phase==='duck'?1.4:2.7-s.age/1.4*.9,.95);
+  });
+  ui.update(states,t,players.slice(0,n).map(p=>p.present));music.intensity(.28+Math.min(.5,Math.max(...states.map(s=>s.streak))*.025));
+ };
+ return update;
 }
