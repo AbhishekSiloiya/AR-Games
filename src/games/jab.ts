@@ -6,14 +6,33 @@ import {jabGloves} from '../jab-gloves.ts';
 import {jabTargets,stepJabSeat,strikeJab} from '../jab-pattern.ts';
 import {isLow,players,sim} from '../pose.ts';
 import {effects,pace} from '../pace.ts';
-import {flat,node,shapes,show} from '../engine.ts';
+import {flat,lit,node,shapes,show} from '../engine.ts';
 import {round,zoneX,swept,music,hitSound,sfx,type Game} from '../kit.ts';
 export const view={position:[0,0,11] as [number,number,number],fov:44.5,near:.1,far:80};
 export default async function jab({n,stage,onEnd,hud,scene}:Game){
  const ui=jabCoach(scene,n,stage),states=ui.states;
  const [arena,actors]=await Promise.all([jabArena(scene),Promise.all(Array.from({length:n},(_,p)=>jabActor(scene,p,n)))]);
  if(!arena||actors.some(actor=>!actor))return ()=>{};
- const gloves=jabGloves(scene,n),barLook=flat('#f1c46a',{opacity:.65}),bars=states.map((_,p)=>node(scene.root,shapes.quad(n===1?6.2:4.4,.16),barLook,[zoneX(n,p),2,.95]));bars.forEach(bar=>bar.enabled=false);
+ const gloves=jabGloves(scene,n);
+ // A physical padded training rail, with sleeves and front-facing down marks.
+ const barPad=lit('#31595c'),barCream=lit('#fff1d2'),barCoral=lit('#eb8567');
+ const barBall=shapes.sphere(1,32),width=n===1?6.2:4.4;
+ const bars=states.map((_,p)=>{
+  const rail=node(scene.root);rail.name=`jab-duck-rail-${p}`;
+  const tube=(x:number,radius:number,length:number,look:typeof barPad)=>{
+   const part=node(rail,shapes.cylinder(radius,length,48),look,[x,0,0]);part.setLocalEulerAngles(0,0,90);return part;
+  };
+  tube(0,.155,width-.31,barPad);
+  for(const sign of [-1,1]){
+   const cap=node(rail,barBall,barCream,[sign*(width/2-.155),0,0]);cap.setLocalScale(.155,.155,.155);
+   tube(sign*(width/2-.36),.166,.17,barCoral);
+   tube(sign*(width/2-.5),.16,.035,barCream);
+  }
+  for(const x of [-.35,.35])for(const sign of [-1,1]){
+   const chevron=node(rail,shapes.box(.19,.046,.025),barCream,[x+sign*.062,-.008,.156]);chevron.setLocalEulerAngles(0,0,sign*42);
+  }
+  rail.setLocalPosition(zoneX(n,p),2,.95);rail.enabled=false;return rail;
+ });
  const impactMesh=shapes.ring(.7,.74,48),impactLook=flat('#fff5dc',{opacity:.8}),impacts=states.map(()=>node(scene.root,impactMesh,impactLook));impacts.forEach(e=>e.enabled=false);
  const tick=round(hud,60,()=>{music.stop();onEnd(states.map(s=>s.score),states.map(s=>[`${s.completed} clean combinations`,`${s.hits} hits · best streak ${s.best}`]));},1.1);
  music.start('boxing');let time=-3;

@@ -10,8 +10,8 @@ export async function jabActor(scene:Scene,seat=0,n=1){
  const [{entity:model},wool]=await Promise.all([instantiate('/assets/moon/jab/rizzquake.glb'),woolTexture()]);
  if(disposed){model.destroy();return null;}
  const holder=node(scene.root);holder.name=`jab-rizzquake-${seat}`;
- const scale=n===1?1.48:1.34,cx=n===1?0:seat===0?-4:4;
- holder.setLocalPosition(cx,-3.55,-.8);holder.setLocalScale(scale,scale,scale);holder.addChild(model);
+ const scale=n===1?1.48:1.34,cx=n===1?0:seat===0?-4:4,depth=n===1?-1.25:-1.0;
+ holder.setLocalPosition(cx,-3.55,depth);holder.setLocalScale(scale,scale,scale);holder.addChild(model);
  const bones=(side:string)=>['UpperArm.','LowerArm.','Hand.'].map(name=>model.findByName(name+side)!);
  const arms=[bones('L'),bones('R')],spine=model.findByName('Spine')!,head=model.findByName('Head')!;
  const faceEyes=['L','R'].map(side=>model.findByName('Eye.'+side)!),brows=['L','R'].map(side=>model.findByName('Brow.'+side)!),smile=model.findByName('Smile')!;
@@ -41,7 +41,7 @@ export async function jabActor(scene:Scene,seat=0,n=1){
   root.setLocalScale(n===1?1:.78,n===1?1:.78,1);
   return {root,face,ring,impact:0};
  });
- const contact=node(scene.root,disc,shadow,[cx,-3.535,-.55]);contact.setLocalEulerAngles(-90,0,0);contact.setLocalScale(1.22,.58,1);
+ const contact=node(scene.root,disc,shadow,[cx,-3.535,depth+.25]);contact.setLocalEulerAngles(-90,0,0);contact.setLocalScale(1.22,.58,1);
  const scratchA=new Vec3(),scratchB=new Vec3(),quat=new Quat();
  let lastTime=0;
  const neutral=():MittTarget[]=>[0,1].map(side=>({x:cx+(side?1.45:-1.45)*(n===1?1:.78),y:.55,z:.6,active:false,hand:side as 0|1}));
