@@ -1,4 +1,4 @@
-import {jabPunch} from './jab-contact.mjs';
+import {jabPunch,jabGuardFeint} from './jab-contact.mjs';
 const { chromium } = await import(process.env.AR_PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,7 +10,7 @@ const page=await context.newPage();
 page.setDefaultTimeout(15000);
 const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&m.text()!=='INFO: Created TensorFlow Lite XNNPACK delegate for CPU.') errors.push(m.text());});
 try {
-await page.addInitScript(()=>{Element.prototype.requestFullscreen=()=>Promise.resolve();const Native=window.Worker;window.__testWorkers=[];window.Worker=class extends Native {constructor(...args){super(...args);window.__testWorkers.push(this);}};});
+await page.addInitScript(()=>{if(!localStorage.getItem('romp.v1'))localStorage.setItem('romp.v1',JSON.stringify({profiles:['Player 1','Player 2'],sessions:[1,2,3,4].map(stage=>({t:Date.now(),who:'Player 1',game:'jab',stage,score:300,points:0,stars:3,xp:0}))}));Element.prototype.requestFullscreen=()=>Promise.resolve();const Native=window.Worker;window.__testWorkers=[];window.Worker=class extends Native {constructor(...args){super(...args);window.__testWorkers.push(this);}};});
 // Static deployments have no optional /report collector; stub only that endpoint.
 await page.route('**/report',route=>route.fulfill({status:204,body:''}));
 await page.goto(process.env.AR_GAME_TEST_URL || 'http://127.0.0.1:5180/');
@@ -60,9 +60,10 @@ pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||wind
 });
 
 async function mode(v){await page.evaluate(v=>window.__testMode=v,v);}
-async function enter(name,entity){
+async function enter(name,entity,stage=1){
  await mode('noHands');console.log('VISUAL',name);
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
+ if(name==='Jab')await page.locator('.node').nth(stage-1).click();
  if(name==='Jack Attack'&&await page.evaluate(()=>!!window.__versus))await page.getByRole('button',{name:'⚔️ Versus',exact:true}).click();
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
@@ -89,7 +90,7 @@ assert.ok(pixels.top[0]>pixels.top[2]+15,'warm pavilion architecture actually re
 assert.ok(pixels.floor[1]>pixels.floor[0]+10,'teal mat renders at the bottom');
 assert.ok(await page.evaluate(()=>window.__pc.root.findByName('jab-pavilion-backplate').render.meshInstances[0].mesh.vertexBuffer.format.elements.some(e=>e.name==='TEXCOORD0')));
 const punch=(seat=0,wrong=false)=>jabPunch(page,seat,wrong);
-await punch(0,true);await punch();await page.screenshot({path:out+'/jab-contact.png'});
+await jabGuardFeint(page);await punch(0,true);await punch();await page.screenshot({path:out+'/jab-contact.png'});
 for(let i=0;i<3;i++)await punch();
 assert.equal(await page.evaluate(()=>window.__jab.states[0].completed),1);
 assert.equal(await page.evaluate(()=>window.__jab.states[0].streak),4);
@@ -101,7 +102,19 @@ await page.setViewportSize({width:1440,height:900});
 await mode('lost');const lostScore=await page.evaluate(()=>window.__jab.states[0].score);await page.waitForTimeout(1300);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),lostScore,'absent player cannot score');await mode('neutral');await page.waitForFunction(()=>!JSON.parse(window.render_game_to_text()).trackingLost,null,{timeout:6000});
 await page.evaluate(()=>window.__jab.advance(12000));await punch();await page.waitForFunction(()=>window.__jab.states[0].phase==='duckWarn');await page.screenshot({path:out+'/jab-duck-warning.png'});
 const duckScore=await page.evaluate(()=>window.__jab.states[0].score);await page.evaluate(()=>{window.__testMode='squat';window.__injectPose();if(window.__romp.players[0].lift!==-.85)throw new Error('crouch fixture was not injected');window.__jab.advance(2300);});assert.equal(await page.evaluate(()=>window.__jab.states[0].score),duckScore+3,'real crouch earns exactly one duck bonus');await mode('neutral');
+await page.evaluate(()=>window.__jab.advance(Math.max(0,(50.1-window.__jab.time)*1000)));
+await page.waitForFunction(()=>window.__jab.time>=50);assert.match(await page.locator('.jab-session-world').textContent(),/FINAL 10/);
+for(let i=0;i<4;i++)await punch();
+assert.equal(await page.evaluate(()=>window.__jab.states[0].finaleWon),true,'four actual final-ten punches complete the finish challenge');
+await page.screenshot({path:out+'/jab-final-challenge.png'});
 await page.evaluate(()=>window.__jab.advance(70000));await page.getByRole('button',{name:'Play again',exact:true}).waitFor();await page.waitForTimeout(1000);assert.equal(await page.locator('.moon-results .result h2').first().evaluate(el=>getComputedStyle(el).color),'rgb(32, 51, 56)','player name stays readable on the daylight results card');await page.screenshot({path:out+'/jab-results.png'});assert.equal(await page.locator('.jab-session').count(),0);await page.getByRole('button',{name:'Home',exact:true}).click();
+for(const [stage,name,theme] of [[2,'Golden Hour','jabSunset'],[3,'City Lights','jabNight'],[4,'Main Event','jabMain'],[5,'Championship','jabFinal']]){
+ await enter('Jab','.jab-session',stage);
+ const info=await page.evaluate(()=>({world:window.__jab.arena.name,theme:window.__jab.snapshot().music.theme}));
+ assert.equal(info.world,name);assert.equal(info.theme,theme);await punch();
+ if(stage>=3)assert.equal(await page.locator('.hud.clock').evaluate(el=>getComputedStyle(el).color),'rgb(255, 243, 218)','evening clock has a readable light face');
+ await page.screenshot({path:out+`/jab-stage-${stage}.png`});await home();
+}
 await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;window.__jabHands=[];});await enter('Jab','.jab-session');
 assert.equal(await page.evaluate(()=>window.__jab.states.length),2);await punch(1);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0,'second seat cannot award first seat');assert.ok(await page.evaluate(()=>window.__jab.states[1].score)>0);
 await page.setViewportSize({width:1024,height:768});await page.waitForTimeout(100);await page.screenshot({path:out+'/jab-two-player.png'});

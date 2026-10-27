@@ -434,7 +434,7 @@ function App() {
           <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
             <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="moon-brief-art"><img src={moonArt(game.id)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={game.id==='jab'?"Rizzquake":['goalie','jacks'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
+              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={game.id==='jab'?"Rizzquake":['goalie','jacks'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
               <div className="col" style={{ gap: '1.3rem' }}>
                 <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
@@ -490,7 +490,7 @@ function App() {
       )}
       {screen.at === 'results' && (
         <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id}>
-          <img className="moon-result-art" src={moonArt(screen.game.id)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
+          <img className="moon-result-art" src={moonArt(screen.game.id,screen.stage)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
           {party && <Confetti />}
           <h1>{screen.game.name}{screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
           <div className="results">

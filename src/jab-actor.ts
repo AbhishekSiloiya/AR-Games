@@ -1,6 +1,7 @@
 import {Color,Texture,Vec2,Quat, Vec3, ADDRESS_REPEAT,type MeshInstance, type StandardMaterial} from 'playcanvas';
 import {app,instantiate,node,shapes,lit,flat,own,type Scene} from './engine.ts';
 import {solveArm,type V3} from './jab-kinematics.ts';
+import {jabSpace} from './jab-presentation.ts';
 
 export type MittTarget={x:number;y:number;z:number;active:boolean;hand:0|1};
 let woolAsset:Promise<Texture>|undefined;
@@ -38,13 +39,13 @@ export async function jabActor(scene:Scene,seat=0,n=1){
   part(trim,0,0,-.10,.66,.79,.23);const face=part(tones[side],0,0,.04,.59,.71,.17);
   const ring=node(root,shapes.ring(.31,.34,48),ivory,[0,0,.213]);ring.setLocalScale(.95,1.2,1);
   const stamp=node(root,disc,ivory,[0,0,.216]);stamp.setLocalScale(.07,.07,1);
-  root.setLocalScale(n===1?1:.78,n===1?1:.78,1);
+  const size=jabSpace(n).padScale;root.setLocalScale(size,size,1);
   return {root,face,ring,impact:0};
  });
  const contact=node(scene.root,disc,shadow,[cx,-3.535,depth+.25]);contact.setLocalEulerAngles(-90,0,0);contact.setLocalScale(1.22,.58,1);
  const scratchA=new Vec3(),scratchB=new Vec3(),quat=new Quat();
  let lastTime=0;
- const neutral=():MittTarget[]=>[0,1].map(side=>({x:cx+(side?1.45:-1.45)*(n===1?1:.78),y:.55,z:.6,active:false,hand:side as 0|1}));
+ const neutral=():MittTarget[]=>[0,1].map(side=>({x:cx+(side?1.65:-1.65)*(n===1?1:.78),y:.55,z:-.15,active:false,hand:side as 0|1}));
  let positions=neutral();
  return {
   holder,model,mitts,scale,cx,
@@ -65,7 +66,8 @@ export async function jabActor(scene:Scene,seat=0,n=1){
    positions=targets.map((target,side)=>{
     const m=mitts[side];m.impact=Math.max(0,m.impact-dt*5);
     const [upper,lower,hand]=arms[side],sign=side===0?-1:1;
-    const shoulder=upper.getPosition();const targetV:V3=[target.x,target.y, target.z-m.impact*.24];
+    const flourish=secondary&&celebrate?Math.sin(t*11+side*.8)*.085:0;
+    const shoulder=upper.getPosition();const targetV:V3=[target.x+flourish,target.y+Math.abs(flourish)*1.6,target.z-m.impact*.24];
     const solved=solveArm([shoulder.x,shoulder.y,shoulder.z],targetV,.74*scale,.76*scale,sign);
     scratchA.set(sign,0,0);scratchB.set(solved.elbow[0]-shoulder.x,solved.elbow[1]-shoulder.y,solved.elbow[2]-shoulder.z).normalize();
     upper.setRotation(quat.setFromDirections(scratchA,scratchB));

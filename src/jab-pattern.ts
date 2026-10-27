@@ -1,24 +1,24 @@
 export type JabAction={hand:0|1;cross:boolean;height:number};
 export type JabPhase='present'|'strike'|'recover'|'combo'|'duckWarn'|'duck'|'reset';
-export type JabSeat={phase:JabPhase;age:number;stage:number;pattern:number;index:number;action:JabAction;score:number;streak:number;best:number;hits:number;misses:number;completed:number;nextDuck:number;ducked:boolean;roundAt:number;feedback:string;impactSide:number;impact:number};
+export type JabSeat={phase:JabPhase;age:number;stage:number;pattern:number;index:number;action:JabAction;score:number;streak:number;best:number;hits:number;misses:number;completed:number;nextDuck:number;ducked:boolean;roundAt:number;feedback:string;impactSide:number;impact:number;finaleStreak:number;finaleWon:boolean;finaleAt:number};
 const action=(pattern:number,index:number,t:number):JabAction=>{
  const sequences=[[0,1,0,1],[0,0,1,1],[1,0,1,0]];
- return {hand:sequences[t<12?0:pattern%3][index] as 0|1,cross:t>24&&pattern%3===2&&index===3,height:index%2===0?1.02:1.25};
+ return {hand:sequences[t<12?0:pattern%3][index] as 0|1,cross:t>24&&pattern%3===2&&index===3,height:index%2===0?.9:1.36};
 };
-export const newJabSeat=(stage:number):JabSeat=>({phase:'present',age:0,stage,pattern:0,index:0,action:action(0,0,0),score:0,streak:0,best:0,hits:0,misses:0,completed:0,nextDuck:14,ducked:false,roundAt:0,feedback:'',impactSide:-1,impact:0});
+export const newJabSeat=(stage:number):JabSeat=>({phase:'present',age:0,stage,pattern:0,index:0,action:action(0,0,0),score:0,streak:0,best:0,hits:0,misses:0,completed:0,nextDuck:14,ducked:false,roundAt:0,feedback:'',impactSide:-1,impact:0,finaleStreak:0,finaleWon:false,finaleAt:-100});
 export const jabWindow=(s:JabSeat)=>Math.max(1.3,2.7-s.roundAt*.014-(s.stage-1)*.13);
 const phase=(s:JabSeat,value:JabPhase)=>{s.phase=value;s.age=0;};
 const next=(s:JabSeat)=>{s.action=action(s.pattern,s.index,s.roundAt);phase(s,'present');};
 export function stepJabSeat(s:JabSeat,dt:number,t:number,present:boolean,low:boolean){
  if(!present)return;s.roundAt=t;s.age+=dt;s.impact=Math.max(0,s.impact-dt*5);
  if(s.phase==='present'&&s.age>=.28)phase(s,'strike');
- else if(s.phase==='strike'&&s.age>=jabWindow(s)){s.misses++;s.streak=0;s.index=0;s.feedback='NEXT ONE';phase(s,'reset');}
- else if(s.phase==='recover'&&s.age>=.32){if(t>=s.nextDuck){s.ducked=false;phase(s,'duckWarn');}else next(s);}
- else if(s.phase==='combo'&&s.age>=.9){s.pattern++;s.index=0;if(t>=s.nextDuck){s.ducked=false;phase(s,'duckWarn');}else next(s);}
+ else if(s.phase==='strike'&&s.age>=jabWindow(s)){s.misses++;s.streak=0;s.finaleStreak=0;s.index=0;s.feedback='NEXT ONE';phase(s,'reset');}
+ else if(s.phase==='recover'&&s.age>=.32){if(t>=s.nextDuck&&t<50){s.ducked=false;phase(s,'duckWarn');}else next(s);}
+ else if(s.phase==='combo'&&s.age>=.9){s.pattern++;s.index=0;if(t>=s.nextDuck&&t<50){s.ducked=false;phase(s,'duckWarn');}else next(s);}
  else if(s.phase==='duckWarn'&&s.age>=1.4)phase(s,'duck');
  else if(s.phase==='duck'){
   s.ducked ||= low;
-  if(s.age>=.75){if(s.ducked){s.score+=3;s.feedback='NICE DUCK';}else{s.misses++;s.streak=0;s.feedback='BACK TO GUARD';}s.nextDuck=t+10;phase(s,'reset');}
+  if(s.age>=.75){if(s.ducked){s.score+=3;s.feedback='NICE DUCK';}else{s.misses++;s.streak=0;s.finaleStreak=0;s.feedback='BACK TO GUARD';}s.nextDuck=t+10;phase(s,'reset');}
  }else if(s.phase==='reset'&&s.age>=.55)next(s);
 }
 export function strikeJab(s:JabSeat,hand:number,speed:number){
@@ -27,19 +27,23 @@ export function strikeJab(s:JabSeat,hand:number,speed:number){
  s.index++;s.feedback=speed>12?'SOLID HIT':'CLEAN HIT';
  if(s.index===4){s.completed++;s.score+=4;s.feedback='COMBO COMPLETE';phase(s,'combo');}
  else phase(s,'recover');
+ if(s.roundAt>=50&&s.roundAt<60&&!s.finaleWon){
+  s.finaleStreak++;
+  if(s.finaleStreak===4){s.finaleWon=true;s.finaleAt=s.roundAt;s.score+=6;s.feedback='FINISH BONUS +6';}
+ }
  return true;
 }
 export function jabTargets(s:JabSeat,cx:number,k:number){
  const raise=Math.max(0,Math.min(1,s.age/.28)),ease=raise*raise*(3-2*raise);
  return [0,1].map(hand=>{
   const sign=hand===0?-1:1,active=hand===s.action.hand;
-  let x=sign*1.45,y=.48;
+  let x=sign*1.65,y=.48;
   if(active&&['present','strike','recover'].includes(s.phase)){
    const amount=s.phase==='present'?ease:s.phase==='recover'?Math.max(0,1-s.age/.32):1;
-   x+=(s.action.cross?-sign*1.57:sign*.40)*amount;y+=(s.action.height-.48)*amount;
+   x+=(s.action.cross?-sign*2.1:sign*.8)*amount;y+=(s.action.height-.48)*amount;
   }
-  if(s.phase==='combo')y=1.1;
+  if(s.phase==='combo'){y=1.35;x=sign*1.85;}
   if(s.phase==='duck'||s.phase==='duckWarn'){x=sign*1.2;y=.25;}
-  return {x:cx+x*k,y:y*k,z:.6,hand:hand as 0|1,active:active&&s.phase==='strike'};
+  return {x:cx+x*k,y:y*k,z:-.15,hand:hand as 0|1,active:active&&s.phase==='strike'};
  });
 }

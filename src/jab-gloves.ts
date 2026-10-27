@@ -2,8 +2,10 @@ import {Color,StandardMaterial} from 'playcanvas';
 import {node,own,color,shapes,show,type Scene} from './engine.ts';
 import {players,predict} from './pose.ts';
 import {zoneX,type StageHand} from './kit.ts';
+import {jabMapHand,jabSpace} from './jab-presentation.ts';
 // Jab-only glove rendering: fresh tracked positions, without another smoothing queue.
 export function jabGloves(scene:Scene,n:number){
+ const layout=jabSpace(n);
  const ball=shapes.sphere(1,32),box=shapes.box(1,1,1);
  const paint=(hex:string)=>{const m=own(new StandardMaterial());m.diffuse=color(hex);m.specular=new Color(.08,.08,.08);m.gloss=.28;m.useSkybox=false;m.update();return m;};
  const cream=paint('#fff0d6'),ink=paint('#34464a'),tones=[paint('#e97b65'),paint('#4b9da0')];
@@ -21,12 +23,12 @@ export function jabGloves(scene:Scene,n:number){
   const pl=players[g.state.p],hand=pl.hands[g.side],s=g.state,at=predict(hand);
   s.on=pl.present&&hand.seen&&performance.now()-hand.t<350;show(g.root,s.on);
   if(!s.on){g.was=false;g.armed=false;return s;}
-  const x=zoneX(n,s.p)+at.x*(n===1?4:2.4),y=1.05+at.y*2.4;
+  const {x,y}=jabMapHand(at.x,at.y,zoneX(n,s.p),n);
   s.px=g.was?s.x:x;s.py=g.was?s.y:y;s.x=x;s.y=y;
   if(g.was)s.pts.copyWithin(2,0,10);else for(let k=0;k<6;k++)s.pts.set([x,y],k*2);s.pts.set([x,y],0);
-  const raw=Math.hypot(hand.vx*(n===1?4:2.4),hand.vy*2.4),travel=g.was?Math.hypot(x-s.px,y-s.py)/Math.max(dt,.01):0;
+  const raw=Math.hypot(hand.vx*layout.gloveGain,hand.vy*2.4),travel=g.was?Math.hypot(x-s.px,y-s.py)/Math.max(dt,.01):0;
   s.speed=Math.max(raw,Math.min(35,travel));if(s.speed<2.3)g.armed=true;
-  g.root.setLocalPosition(x,y,1.23);g.root.setLocalEulerAngles(-8,g.side===0?-12:12,(g.side===0?1:-1)*-8);
+  g.root.setLocalPosition(x,y,layout.gloveZ);g.root.setLocalEulerAngles(-8,g.side===0?-12:12,(g.side===0?1:-1)*-8);
   g.was=true;return s;
  });}};
 }
