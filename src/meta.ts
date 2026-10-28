@@ -1,5 +1,6 @@
 // Progression: stars, stages, XP and levels, achievements, daily challenges.
 // Everything is *derived* from the list of sessions — there is no second copy of progress to fall out of sync.
+import {keeperFromVariant,keeperStageStars} from './goalie-settings.ts';
 import { MOON_GAME_IDS } from './moon-catalog.ts';
 import { DAY_GOAL, summary, type Session } from './stats.ts';
 
@@ -16,7 +17,9 @@ export const MODE_STARS: Record<string, [number, number, number]> = { 'slice:cla
 export const variantOf = (mode: string, team: boolean) => [mode, team ? 'team' : ''].filter(Boolean).join('+');
 export const starGoals = (game: string, stage: number, variant = '') => {
   const team = variant.endsWith('team'), mode = variant.replace(/\+?team$/, '');
-  return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * 0.3) * (team ? 1.8 : 1)));
+  // Goalie presents one deliberate shot at a time; its shorter scoring ceiling needs gentler goal growth.
+  const growth=game==='goalie'?.075:.3;
+  return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * growth) * (game==='goalie'?Math.pow(keeperFromVariant(mode).speed/100,.35):1) * (team ? 1.8 : 1)));
 };
 export const starsFor = (game: string, stage: number, score: number, variant = '') => starGoals(game, stage, variant).filter((goal) => score >= goal).length;
 
@@ -25,14 +28,14 @@ const rounds = (sessions: Session[], who: string, game: string, stage: number, v
   mine(sessions, who).filter((s) => s.game === game && (s.stage ?? 1) === stage && (s.variant ?? '') === variant);
 export const bestStars = (sessions: Session[], who: string, game: string, stage: number, variant = '') => Math.max(0, ...rounds(sessions, who, game, stage, variant).map((s) => s.stars ?? 0));
 export const bestScore = (sessions: Session[], who: string, game: string, stage: number, variant = '') => Math.max(0, ...rounds(sessions, who, game, stage, variant).map((s) => s.score));
-// Stage n opens once stage n-1 has two stars — counted per variant, so an easy mode cannot open a hard one's stages.
+// Stage n opens after two stars. Goalie shares access across setups; bests remain per exact variant.
 export function unlockedStage(sessions: Session[], who: string, game: string, variant = '') {
   let stage = 1;
-  while (stage < STAGES && bestStars(sessions, who, game, stage, variant) >= 2) stage++;
+  while (stage < STAGES && (game==='goalie'?keeperStageStars(sessions,who,stage):bestStars(sessions, who, game, stage, variant)) >= 2) stage++;
   return stage;
 }
 export const totalStars = (sessions: Session[], who: string) =>
-  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
+  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => game==='goalie'?keeperStageStars(sessions,who,i+1):bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
 
 // XP: moving pays, stars pay, harder stages pay, beating yourself pays.
 export const sessionXp = (s: { points: number; stars: number; stage: number; newBest: boolean }) =>

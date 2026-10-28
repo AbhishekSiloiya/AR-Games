@@ -62,6 +62,7 @@ async function enter(name,entity){
  await mode('noHands');console.log('VISUAL',name);
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
  if(name==='Jack Attack'&&await page.evaluate(()=>!!window.__versus))await page.getByRole('button',{name:'⚔️ Versus',exact:true}).click();
+ if(['Goalie','Jab'].includes(name))await page.getByRole('checkbox',{name:/Practice first/}).setChecked(false);
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
  if(entity.startsWith('.'))await page.locator(entity).first().waitFor();else await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
@@ -97,11 +98,11 @@ for(const name of ['Freeze','Jack Attack','Goalie','Jab','Shape Up','Slice']){
  }
  if(name==='Jab'){for(let k=0;k<4;k++)await jabPunch(page);assert.equal(await page.evaluate(()=>window.__jab.states[0].completed),1);await page.screenshot({path:out+'/Jab-combination.png'});await page.evaluate(()=>window.__jabHands=[]);}
  if(name==='Goalie'){
-  // A slower real shot keeps its contact manifold observable through all four physics substeps.
-  await page.evaluate(()=>{const a=window.__goalie;a.g.spawnIn=[999,999];a.shots.forEach(s=>s.state='off');a.balls.forEach(b=>b.body.setEnabled(false));const pos=window.__pc.root.findByName('equipment-keeper-0').getLocalPosition();Object.assign(a.shots[0],{state:'in',tx:pos.x,ty:pos.y,left:.1,dur:1,age:0,gold:false,contactUntil:-1});const b=a.balls[0].body;b.setEnabled(true);b.setTranslation({x:pos.x,y:pos.y,z:-1.1},true);b.setLinvel({x:0,y:0,z:3},true);window.__saveBefore=a.g.scores[0];});
-  await page.waitForFunction(()=>window.__goalie.g.scores[0]>window.__saveBefore);await page.screenshot({path:out+'/Goalie-real-save.png'});
-  const score=await page.evaluate(()=>window.__goalie.g.scores[0]);
-  await page.evaluate(()=>{const a=window.__goalie;Object.assign(a.shots[1],{state:'in',tx:0,ty:2,left:.1,dur:1,age:0,gold:false,contactUntil:-1});const b=a.balls[1].body;b.setEnabled(true);b.setTranslation({x:0,y:2,z:-2},true);b.setLinvel({x:0,y:0,z:-4},true);});await page.waitForFunction(()=>window.__goalie.shots[1].state==='saved');assert.equal(await page.evaluate(()=>window.__goalie.g.scores[0]),score,'passive rebound never earns a save');
+  await page.waitForFunction(()=>['windup','flight'].includes(window.__goalie.states[0].phase));
+  const before=await page.evaluate(()=>window.__goalie.states[0].score);
+  await page.evaluate(()=>{const s=window.__goalie.states[0];window.__jabHands=[{x:s.tx/5.1,y:(s.ty-.1)/2.8,vx:0,vy:0},{x:1,y:-1,vx:0,vy:0}];});
+  await page.waitForFunction(before=>window.__goalie.states[0].score>before,before);await page.screenshot({path:out+'/Goalie-real-save.png'});
+  const score=await page.evaluate(()=>window.__goalie.states[0].score);await page.evaluate(()=>{window.__jabHands=[{x:-1,y:-1,vx:0,vy:0},{x:1,y:-1,vx:0,vy:0}];});await page.waitForFunction(()=>window.__goalie.states[0].phase==='miss');assert.equal(await page.evaluate(()=>window.__goalie.states[0].score),score,'off-target gloves never earn a save');await page.evaluate(()=>window.__jabHands=[]);
  }
  if(name==='Shape Up'){
   await page.evaluate(()=>window.__matchShape=true);await page.waitForFunction(()=>Number(document.querySelector('.shapeup-world').dataset.cells)>0,null,{timeout:15000});await page.screenshot({path:out+'/Shape-Up-earned-cell.png'});await page.evaluate(()=>window.__matchShape=false);
@@ -124,5 +125,5 @@ for(const name of ['Jack Attack','Goalie','Jab','Shape Up','Freeze','Slice']){
  await home();
 }
 await page.reload();await page.getByRole('button',{name:'Start',exact:true}).click();await page.getByRole('button',{name:'Choose player 1: J',exact:true}).waitFor();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('romp.v1')).avatars.J),'fuzzbyte');
-assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['compact hub','six identity choices','name/duplicate/save/reload','responsive hub/picker','all six actual scenes and sprites','Freeze music/visual stop and earned cheer','Jack arm shots and actual kills','independent rival bosses','Goalie physical glove save and no passive score','Jab earned combination','Shape earned portal cell','Slice actual cuts','all six two-player tablet layouts','mobile independent pose portals','round cleanup'],errors},null,2));
+assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['compact hub','six identity choices','name/duplicate/save/reload','responsive hub/picker','all six actual scenes and sprites','Freeze music/visual stop and earned cheer','Jack arm shots and actual kills','independent rival bosses','Goalie continuous glove save and off-target rejection','Jab earned combination','Shape earned portal cell','Slice actual cuts','all six two-player tablet layouts','mobile independent pose portals','round cleanup'],errors},null,2));
 }catch(error){await page.screenshot({path:out+'/failure.png'});console.error(JSON.stringify({error:String(error),errors,state:await page.evaluate(()=>window.render_game_to_text?.())},null,2));throw error;}finally{await browser.close();}

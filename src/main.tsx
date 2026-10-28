@@ -1,3 +1,4 @@
+import {goalieSettings,keeperVariant,keeperFromVariant,keeperDifficulty} from './goalie-settings.ts';
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import './moon.css';
@@ -6,6 +7,7 @@ import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
 import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
 import {JabOptions} from './jab-options.tsx';
+import {GoalieOptions} from './goalie-options.tsx';
 import { PartyOptions } from './party-options.tsx';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
@@ -44,7 +46,7 @@ const LEGACY_GAMES: Game[] = [
   { id: 'forge', name: 'Forge', icon: '🔨', tone: ['#f59e0b', '#7f1d1d'], blurb: 'Hold the squat. Strike when it glows.', how: 'Sink into a squat and hold it to heat the blade. Deeper heats faster. When it glows white, drive up hard to strike. Rest while it is quenched. Every blade wants a longer hold.', maxPlayers: 2, Play: Forge, team: true },
   { id: 'lumber', name: 'Lumberjack', icon: '🪓', tone: ['#65a30d', '#713f12'], blurb: 'Chop along the stripe.', how: 'Wind up high on one side and chop down across your body to the other, along the stripe on the log. Chop hard for a clean split. The stripe changes sides. Thick logs take two.', maxPlayers: 2, Play: Lumber, team: true },
   { id: 'smash', name: 'Smash', icon: '🤖', tone: ['#fbbf24', '#c2570c'], blurb: 'Demolish the robot. Expose its core.', how: 'Punch the armour plates. The yellow ring marks a weak spot that takes extra damage. Break all six plates, then strike the glowing core. Slow your hand between punches to reload. Each demolished robot brings a tougher one.', maxPlayers: 2, Play: Smash },
-  { id: 'goalie', name: 'Goalie', icon: '🧤', tone: ['#38bdf8', '#2f55e0'], blurb: 'Get a hand to every shot.', how: 'The ring shows where the shot will land. Get a glove there in time. Swat it and it flies. Gold balls are fast and worth 3.', maxPlayers: 2, Play: Goalie },
+  { id: 'goalie', name: 'Goalie', icon: '🧤', tone: ['#38bdf8', '#2f55e0'], blurb: 'Get a hand to every shot.', how: 'The ring shows where the shot will land. Get a glove there in time. Swat it and it flies. Gold balls are worth 3. Each stage brings a new shot pattern.', maxPlayers: 2, Play: Goalie },
   { id: 'jab', name: 'Jab', icon: '🥊', tone: ['#ff5a76', '#a3154a'], blurb: 'Punch the pads, duck the bar.', how: 'Punch each pad with the hand on its side. Gold pads want the opposite hand. Punch hard for extra. Squat when the bar comes.', maxPlayers: 2, Play: Jab },
   { id: 'beat', name: 'Beat', icon: '🎵', tone: ['#c084fc', '#6d28d9'], blurb: 'Hit the moves on the beat.', how: 'Hold the move as its shape reaches the line. Left hand up, right hand up, both up, squat, or jump. On the beat is Perfect.', maxPlayers: 2, Play: Beat },
   { id: 'rocket', name: 'Rocket', icon: '🚀', tone: ['#818cf8', '#3b2fb0'], blurb: 'Every squat is a burn.', how: 'Squat to fire the engine. Deeper squats burn harder. Stop and gravity wins. Highest altitude is your score.', maxPlayers: 2, Play: Rocket },
@@ -230,7 +232,7 @@ function App() {
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
   useEffect(() => {
-    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(activeGame==='jab'?{play:(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot()}:{} )});
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(['jab','goalie'].includes(activeGame)?{play:activeGame==='jab'?(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot():(window as Window&{__goalie?:{snapshot:()=>unknown}}).__goalie?.snapshot()}:{} )});
     Object.assign(window,{render_game_to_text:render});
     return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
   }, [screen,n,paused,trackingLost,playerView]);
@@ -337,7 +339,7 @@ function App() {
           <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
           <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>RIGHT HAND · HOLD 3s TO CHOOSE</span></div>
           <div className="moon-posters">
-            {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
+            {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:g.id==='goalie'?keeperVariant(goalieSettings()):''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
               <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><img className="moon-poster-buddy" src={moonBuddy(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
               <div className="moon-poster-copy"><div><h3>{g.name}</h3><p>{MOON_CATALOG[g.id].hook}</p></div><span className="moon-poster-move">{MOON_CATALOG[g.id].move}<small>Stage {open(g)} / {STAGES}</small></span></div>
             </button>)}
@@ -353,7 +355,7 @@ function App() {
           <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
             <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={game.id==='jab'?"Rizzquake":['goalie','jacks'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
+              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={['jab','goalie'].includes(game.id)?"Rizzquake":['goalie','jacks'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
               <div className="col" style={{ gap: '1.3rem' }}>
                 <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
@@ -378,7 +380,7 @@ function App() {
                   {starGoals(game.id, screen.stage, variant).map((goal, k) => <span className="goal" key={k}><Stars n={k + 1} /> {goal}</span>)}
                   <span className="dim">Two stars open the next stage · best here {bestScore(db.sessions, name(0), game.id, screen.stage, variant)}</span>
                 </div>
-                {game.id==='freeze'&&<PartyOptions />}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
+                {game.id==='freeze'&&<PartyOptions />}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}{game.id==='goalie'&&<GoalieOptions stage={screen.stage} mode={screen.mode} onChange={mode=>go({...screen,mode})}/>}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
               </div>
             </div>
           </div>
@@ -411,7 +413,7 @@ function App() {
         <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id}>
           <img className="moon-result-art" src={moonArt(screen.game.id,screen.stage)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
           {party && <Confetti />}
-          <h1>{screen.game.name}{screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
+          <h1>{screen.game.name}{screen.game.id==='goalie'?` · ${keeperDifficulty(keeperFromVariant(screen.mode))}`:screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
           <div className="results">
             {screen.scores.map((score, i) => {
               const r = screen.rewards[i], top = screen.scores.length === 2 && score > screen.scores[1 - i] && !teamOf(screen.game);
@@ -421,7 +423,7 @@ function App() {
                   <h2>{top && <span className="crown">👑 </span>}{name(i)}</h2>
                   <p className="score num"><CountUp to={score} /></p>
                   <div className="bigstars">{[0, 1, 2].map((k) => <span key={k} className={k < r.stars ? 'on' : ''} style={vars({ '--i': k })}>★</span>)}</div>
-                  {screen.notes[i]?.length > 0 && (screen.game.id==='jab'?<ul className="jab-result-notes num">{screen.notes[i].map(note=><li key={note}>{note}</li>)}</ul>:<p className="dim num notes">{screen.notes[i].join(' · ')}</p>)}
+                  {screen.notes[i]?.length > 0 && (['jab','goalie'].includes(screen.game.id)?<ul className={`${screen.game.id==='jab'?'jab':'keeper'}-result-notes num`}>{screen.notes[i].map(note=><li key={note}>{note}</li>)}</ul>:<p className="dim num notes">{screen.notes[i].join(' · ')}</p>)}
                   <p className="num">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
                   <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
                   {r.newBest && <p className="toast gold" style={vars({ '--i': toast++ })}>🏆 New best!</p>}
