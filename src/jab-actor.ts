@@ -40,7 +40,7 @@ export async function jabActor(scene:Scene,seat=0,n=1){
   const ring=node(root,shapes.ring(.31,.34,48),ivory,[0,0,.213]);ring.setLocalScale(.95,1.2,1);
   const stamp=node(root,disc,ivory,[0,0,.216]);stamp.setLocalScale(.07,.07,1);
   const size=jabSpace(n).padScale;root.setLocalScale(size,size,1);
-  return {root,face,ring,impact:0};
+  return {root,face,ring,stamp,impact:0};
  });
  const contact=node(scene.root,disc,shadow,[cx,-3.535,depth+.25]);contact.setLocalEulerAngles(-90,0,0);contact.setLocalScale(1.22,.58,1);
  const scratchA=new Vec3(),scratchB=new Vec3(),quat=new Quat();
@@ -49,7 +49,7 @@ export async function jabActor(scene:Scene,seat=0,n=1){
  let positions=neutral();
  return {
   holder,model,mitts,scale,cx,
-  hit(side:number){mitts[side].impact=1;},
+  hit(side:number,speed=8){mitts[side].impact=Math.min(1,.7+speed/60);},
   update(t:number,dt:number,targets:MittTarget[]=neutral(),celebrate=0,duck=0,secondary=true){
    lastTime=t;const breathing=secondary?Math.sin(t*2.6):0;
    // Reach from the upper body with feet planted, rather than stretching arm bones.
@@ -74,15 +74,17 @@ export async function jabActor(scene:Scene,seat=0,n=1){
     const m=mitts[side];m.impact=Math.max(0,m.impact-dt*5);
     const [upper,lower,hand]=arms[side],sign=side===0?-1:1;
     const flourish=secondary&&celebrate?Math.sin(t*11+side*.8)*.085:0;
-    const shoulder=upper.getPosition();const targetV:V3=[target.x+flourish,target.y+Math.abs(flourish)*1.6,target.z-m.impact*.24];
+    const shoulder=upper.getPosition();const targetV:V3=[target.x+flourish,target.y+Math.abs(flourish)*1.6,target.z-m.impact*.36];
     const solved=solveArm([shoulder.x,shoulder.y,shoulder.z],targetV,.74*scale,.76*scale,sign);
     scratchA.set(sign,0,0);scratchB.set(solved.elbow[0]-shoulder.x,solved.elbow[1]-shoulder.y,solved.elbow[2]-shoulder.z).normalize();
     upper.setRotation(quat.setFromDirections(scratchA,scratchB));
     scratchB.set(solved.hand[0]-solved.elbow[0],solved.hand[1]-solved.elbow[1],solved.hand[2]-solved.elbow[2]).normalize();lower.setRotation(quat.setFromDirections(scratchA,scratchB));
     hand.setRotation(Quat.IDENTITY);
     m.root.setPosition(solved.hand[0],solved.hand[1],solved.hand[2]+.4);m.root.setLocalEulerAngles(-m.impact*8,side===0?-5:5,(side===0?-1:1)*(target.active?-8:8));
-    m.face.setLocalScale(.59+m.impact*.05,.71+m.impact*.025,.17-m.impact*.065);
-    m.ring.enabled=target.active;m.face.setLocalPosition(0,0,.04-m.impact*.04);
+    m.face.setLocalScale(.59+m.impact*.08,.71+m.impact*.04,.17-m.impact*.10);
+    m.ring.enabled=target.active;m.face.setLocalPosition(0,0,.04-m.impact*.065);
+    m.ring.setLocalPosition(0,0,.213-m.impact*.165);m.stamp.setLocalPosition(0,0,.216-m.impact*.165);
+    m.ring.setLocalScale(.95*(1+m.impact*.08),1.2*(1+m.impact*.05),1);
     return {...target,x:solved.hand[0],y:solved.hand[1],z:solved.hand[2]};
    });
    return positions;

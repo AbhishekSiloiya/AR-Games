@@ -60,15 +60,15 @@ pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||wind
 });
 
 async function mode(v){await page.evaluate(v=>window.__testMode=v,v);}
-async function enter(name,entity,stage=1){
+async function enter(name,entity,stage=1,practice=false,reach='full'){
  await mode('noHands');console.log('VISUAL',name);
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
- if(name==='Jab')await page.locator('.node').nth(stage-1).click();
+ if(name==='Jab'){await page.locator('.node').nth(stage-1).click();await page.getByRole('button',{name:reach==='full'?'Full stretch':'Comfortable',exact:true}).click();await page.getByRole('checkbox',{name:/Practice first/}).setChecked(practice);await page.screenshot({path:out+`/jab-briefing-${reach}.png`});}
  if(name==='Jack Attack'&&await page.evaluate(()=>!!window.__versus))await page.getByRole('button',{name:'⚔️ Versus',exact:true}).click();
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
  if(entity.startsWith('.'))await page.locator(entity).first().waitFor();else await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
- await page.waitForTimeout(4500);
+ await page.waitForTimeout(practice?300:4500);
  if(!entity.startsWith('.'))assert.equal(await page.evaluate(name=>window.__pc.root.findByName(name).enabled,entity),true);
 }
 async function home(){await page.keyboard.press('Escape');await page.getByRole('button',{name:'Back to home',exact:true}).click();}
@@ -77,6 +77,26 @@ async function home(){await page.keyboard.press('Escape');await page.getByRole('
 
 
 
+
+// First-use coaching uses actual tracked glove contacts without leaking score or response metrics.
+if(!process.env.AR_JAB_PAIR_ONLY){
+await enter('Jab','.jab-session',1,true);
+assert.equal(await page.evaluate(()=>window.__jab.practicing),true);
+assert.match(await page.locator('.jab-session-world').textContent(),/NO SCORE/);
+await page.screenshot({path:out+'/jab-practice.png'});
+await page.keyboard.press('Escape');const practicePaused=await page.evaluate(()=>window.__jab.snapshot());await page.waitForTimeout(300);assert.deepEqual(await page.evaluate(()=>window.__jab.snapshot()),practicePaused,'practice pauses with the game');await page.getByRole('button',{name:'Keep playing'}).click();
+for(let i=0;i<3;i++){await jabPunch(page,0,false,true);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0);assert.equal(await page.evaluate(()=>window.__jab.states[0].responseCount),0);await page.evaluate(()=>window.__jab.advance(750));}
+assert.equal(await page.evaluate(()=>window.__jab.practiceSeats[0].index),3);
+await page.screenshot({path:out+'/jab-practice-duck.png'});
+await page.evaluate(()=>{window.__testMode='squat';window.__injectPose();window.__jab.advance(1700);});
+assert.equal(await page.evaluate(()=>window.__jab.practicing),false);assert.equal(await page.evaluate(()=>window.__jab.states[0].hits),0,'practice contacts reset before the real round');assert.ok(await page.evaluate(()=>window.__jab.time<0),'practice ends with a fresh countdown');assert.equal(await page.locator('.jab-skip-practice:visible').count(),0);await mode('neutral');await home();
+await page.getByRole('button',{name:/Jab/}).first().click();assert.equal(await page.getByRole('checkbox',{name:/Practice first/}).isChecked(),false,'completed practice is remembered');await page.getByRole('button',{name:'← Back',exact:true}).click();
+// Closer reach keeps the full-size mitt geometry; skipping also starts a clean countdown.
+await enter('Jab','.jab-session',1,true,'comfort');await page.getByRole('button',{name:'Skip practice',exact:true}).click();await page.waitForFunction(()=>window.__jab.practicing===false);assert.ok(await page.evaluate(()=>window.__jab.time<0));await page.waitForTimeout(3400);await page.waitForFunction(()=>window.__jab.states[0].phase==='strike');
+const comfortable=await page.evaluate(()=>({x:Math.abs(window.__jab.actors[0].state().mitts[0].x),reach:window.__jab.snapshot().reach}));assert.equal(comfortable.reach,'comfort');assert.ok(comfortable.x<2.75&&comfortable.x>2.5,'comfortable reach brings the active pad in');await jabPunch(page);await page.screenshot({path:out+'/jab-comfortable.png'});await home();
+await page.getByRole('button',{name:/Jab/}).first().click();assert.equal(await page.getByRole('button',{name:'Comfortable',exact:true}).getAttribute('aria-pressed'),'true','reach persists');await page.getByRole('button',{name:'← Back',exact:true}).click();
+// No-input demonstrations finish without holding the real round open indefinitely.
+await enter('Jab','.jab-session',1,true);await page.evaluate(()=>{window.__jabHands=[];window.__jab.advance(15000);});assert.equal(await page.evaluate(()=>window.__jab.practicing),false);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0);await home();
 
 await enter('Jab','.jab-session');
 assert.equal(await page.locator('.mascot-puppet').count(),0,'no raster puppet in the focused game');
@@ -107,17 +127,19 @@ await page.waitForFunction(()=>window.__jab.time>=50);assert.match(await page.lo
 for(let i=0;i<4;i++)await punch();
 assert.equal(await page.evaluate(()=>window.__jab.states[0].finaleWon),true,'four actual final-ten punches complete the finish challenge');
 await page.screenshot({path:out+'/jab-final-challenge.png'});
-await page.evaluate(()=>window.__jab.advance(70000));await page.getByRole('button',{name:'Play again',exact:true}).waitFor();await page.waitForTimeout(1000);assert.equal(await page.locator('.moon-results .result h2').first().evaluate(el=>getComputedStyle(el).color),'rgb(32, 51, 56)','player name stays readable on the daylight results card');await page.screenshot({path:out+'/jab-results.png'});assert.equal(await page.locator('.jab-session').count(),0);await page.getByRole('button',{name:'Home',exact:true}).click();
+await page.evaluate(()=>window.__jab.advance(70000));await page.getByRole('button',{name:'Play again',exact:true}).waitFor();await page.waitForTimeout(1000);assert.equal(await page.locator('.moon-results .result h2').first().evaluate(el=>getComputedStyle(el).color),'rgb(32, 51, 56)','player name stays readable on the daylight results card');assert.match(await page.locator('.jab-result-notes').textContent(),/Pad accuracy \d+%.*Avg cue-to-hit \d+ ms.*Full stretch reach/);await page.screenshot({path:out+'/jab-results.png'});assert.equal(await page.locator('.jab-session').count(),0);await page.getByRole('button',{name:'Home',exact:true}).click();
 for(const [stage,name,theme] of [[2,'Golden Hour','jabSunset'],[3,'City Lights','jabNight'],[4,'Main Event','jabMain'],[5,'Championship','jabFinal']]){
  await enter('Jab','.jab-session',stage);
  const info=await page.evaluate(()=>({world:window.__jab.arena.name,theme:window.__jab.snapshot().music.theme}));
- assert.equal(info.world,name);assert.equal(info.theme,theme);await punch();
+ assert.equal(info.world,name);assert.equal(info.theme,theme);await page.evaluate(()=>window.__jab.advance(15000));await punch();
+ const pattern=await page.evaluate(async()=>{const {jabSequence}=await import('/src/jab-pattern.ts');const s=window.__jab.states[0];return {expected:jabSequence(s.stage,s.pattern,s.patternAt).map(a=>`${a.hand===0?'L':'R'}${a.cross?'×':''}`),actual:[...document.querySelectorAll('.jab-session-pattern>span')].map(e=>e.textContent)};});assert.deepEqual(pattern.actual,pattern.expected,'the displayed combination matches the stage drill');
  if(stage>=3)assert.equal(await page.locator('.hud.clock').evaluate(el=>getComputedStyle(el).color),'rgb(255, 243, 218)','evening clock has a readable light face');
  await page.screenshot({path:out+`/jab-stage-${stage}.png`});await home();
 }
-await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;window.__jabHands=[];});await enter('Jab','.jab-session');
-assert.equal(await page.evaluate(()=>window.__jab.states.length),2);await punch(1);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0,'second seat cannot award first seat');assert.ok(await page.evaluate(()=>window.__jab.states[1].score)>0);
+}
+await page.getByRole('button',{name:'Together',exact:true}).click();await page.evaluate(()=>{window.__pair=true;window.__secondReady=true;window.__jabHands=[];});await enter('Jab','.jab-session',1,true);
+assert.equal(await page.evaluate(()=>window.__jab.states.length),2);await jabPunch(page,1,false,true);assert.equal(await page.evaluate(()=>window.__jab.practiceSeats[0].hits),0,'second player practice cannot advance first player');assert.ok(await page.evaluate(()=>window.__jab.states.every(s=>s.score===0&&s.responseCount===0)),'paired practice remains score-free');await page.getByRole('button',{name:'Skip practice',exact:true}).click();await page.waitForTimeout(3400);await jabPunch(page,1);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0,'second seat cannot award first seat');assert.ok(await page.evaluate(()=>window.__jab.states[1].score)>0);
 await page.setViewportSize({width:1024,height:768});await page.waitForTimeout(100);await page.screenshot({path:out+'/jab-two-player.png'});
 await home();assert.equal(await page.locator('.jab-session').count(),0);assert.equal(await page.evaluate(()=>document.body.classList.contains('jab-focus-live')),false);assert.equal(await page.evaluate(()=>window.__pc.root.findByName('jab-rizzquake-0')),null);
-assert.deepEqual(errors,[]);console.log('PASS Jab actual glove travel, wrong hand rejection, contact, four-hit combination, pause, tablet/mobile and cleanup');
+assert.deepEqual(errors,[]);console.log(process.env.AR_JAB_PAIR_ONLY?'PASS Jab independent two-player practice, clean reset, scoring and cleanup':'PASS Jab practice, reach, stage cues, results, glove travel, pause, two-player isolation and cleanup');
 }catch(error){await page.screenshot({path:out+'/failure.png'});console.error(await page.evaluate(()=>({ui:window.render_game_to_text?.(),jab:window.__jab?.states,error:window.__testError})));throw error;}finally{await browser.close();}

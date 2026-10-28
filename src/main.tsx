@@ -4,6 +4,7 @@ import './moon.css';
 import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
 import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
+import {JabOptions} from './jab-options.tsx';
 import { PartyOptions } from './party-options.tsx';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
@@ -459,7 +460,7 @@ function App() {
                   {starGoals(game.id, screen.stage, variant).map((goal, k) => <span className="goal" key={k}><Stars n={k + 1} /> {goal}</span>)}
                   <span className="dim">Two stars open the next stage · best here {bestScore(db.sessions, name(0), game.id, screen.stage, variant)}</span>
                 </div>
-                {game.id==='freeze'&&<PartyOptions />}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
+                {game.id==='freeze'&&<PartyOptions />}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
               </div>
             </div>
           </div>
@@ -502,7 +503,7 @@ function App() {
                   <h2>{top && <span className="crown">👑 </span>}{name(i)}</h2>
                   <p className="score num"><CountUp to={score} /></p>
                   <div className="bigstars">{[0, 1, 2].map((k) => <span key={k} className={k < r.stars ? 'on' : ''} style={vars({ '--i': k })}>★</span>)}</div>
-                  {screen.notes[i]?.length > 0 && <p className="dim num notes">{screen.notes[i].join(' · ')}</p>}
+                  {screen.notes[i]?.length > 0 && (screen.game.id==='jab'?<ul className="jab-result-notes num">{screen.notes[i].map(note=><li key={note}>{note}</li>)}</ul>:<p className="dim num notes">{screen.notes[i].join(' · ')}</p>)}
                   <p className="num">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
                   <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
                   {r.newBest && <p className="toast gold" style={vars({ '--i': toast++ })}>🏆 New best!</p>}

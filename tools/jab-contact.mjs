@@ -13,10 +13,11 @@ export async function jabGuardFeint(page){
  assert.equal(await page.evaluate(()=>window.__jab.states[0].hits),before,'fast short guard movement cannot reach the outer mitt');
  await page.evaluate(hand=>window.__jabHands[hand].vx=0,hand);await page.waitForTimeout(100);
 }
-export async function jabPunch(page,seat=0,wrong=false){
+export async function jabPunch(page,seat=0,wrong=false,practice=false){
  // Start on a fresh presentation, rather than racing the end of an old window.
- await page.waitForFunction(p=>{const s=window.__jab.states[p];return s.phase==='strike'&&s.age<.25;},seat);
- const hitCount=await page.evaluate(p=>window.__jab.states[p].hits,seat);
+ await page.waitForFunction(({p,practice})=>{const s=window.__jab.states[p];return s.phase==='strike'&&(practice||s.age<.25);},{p:seat,practice});
+ const count=()=>page.evaluate(({p,practice})=>practice?window.__jab.practiceSeats[p].hits:window.__jab.states[p].hits,{p:seat,practice});
+ const hitCount=await count();
  const {target,hand,n}=await page.evaluate(({p,wrong})=>{const j=window.__jab,s=j.states[p],hand=wrong?1-s.action.hand:s.action.hand;return {hand,target:j.actors[p].state().mitts[s.action.hand],n:j.states.length};},{p:seat,wrong});
  const cx=n===1?0:seat===0?-4:4,hw=n===1?3.3:2.64,index=seat*2+hand,sign=Math.sign(target.x-cx)||1;
  const point=k=>({x:(target.x-cx-sign*1.3*(1-k/8))/hw,y:(target.y-.8*(1-k/8)-1.05)/2.4,vx:k?sign*1.8:0,vy:k?1.8:0});
@@ -27,6 +28,6 @@ export async function jabPunch(page,seat=0,wrong=false){
   await page.evaluate(({index,value})=>{window.__jabHands[index]=value;},{index,value:point(k)});await page.waitForTimeout(35);
  }
  await page.evaluate(index=>{window.__jabHands[index].vx=0;window.__jabHands[index].vy=0;},index);
- if(wrong)assert.equal(await page.evaluate(p=>window.__jab.states[p].hits,seat),hitCount,'wrong hand cannot earn a hit');
- else assert.equal(await page.evaluate(p=>window.__jab.states[p].hits,seat),hitCount+1,'traveling glove hits visible mitt');
+ if(wrong)assert.equal(await count(),hitCount,'wrong hand cannot earn a hit');
+ else assert.equal(await count(),hitCount+1,'traveling glove hits visible mitt');
 }
