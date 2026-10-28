@@ -12,7 +12,7 @@ try{
  const skin=()=>page.evaluate(()=>window.__jabProof.actor.model.findComponents('render').flatMap(r=>r.meshInstances).filter(m=>m.skinInstance).map(m=>Array.from(m.skinInstance.matrixPalette)));
  const a=await skin();assert.ok(a.length>0,'character actually renders skinned geometry');
  await page.evaluate(()=>window.__jabProof.setMode('present'));await page.waitForTimeout(1300);
- const after=await page.evaluate(()=>window.__jabProof.state());assert.notEqual(after.leftArm,before.leftArm,'presentation moves the arm joint');assert.ok(after.feet.every((foot,i)=>foot.every((v,j)=>Math.abs(v-before.feet[i][j])<.002)),'feet stay planted during presentation');
+ const after=await page.evaluate(()=>window.__jabProof.state());assert.notEqual(after.leftArm,before.leftArm,'presentation moves the arm joint');const outer=after.mitts.find(m=>m.active);assert.ok(outer&&Math.abs(Math.abs(outer.x)-3.234)<.04,'the actual IK hand reaches the newly widened outer pad');assert.ok(after.feet.every((foot,i)=>foot.every((v,j)=>Math.abs(v-before.feet[i][j])<.002)),'feet stay planted during presentation');
  assert.notDeepEqual(await skin(),a,'GPU skin palette changes with real joint articulation');await page.screenshot({path:out+'/proof-present.png'});
  await page.evaluate(()=>{window.__jabProof.actor.hit(0);});await page.waitForTimeout(70);await page.screenshot({path:out+'/proof-impact.png'});
  await page.evaluate(()=>window.__jabProof.setMode('celebrate'));await page.waitForTimeout(350);await page.screenshot({path:out+'/proof-celebrate.png'});

@@ -4,7 +4,7 @@ import {jabActor} from '../jab-actor.ts';
 import {jabArena} from '../jab-arena.ts';
 import {jabGloves} from '../jab-gloves.ts';
 import {jabTargets,stepJabSeat,strikeJab} from '../jab-pattern.ts';
-import {jabSpace,jabStage} from '../jab-presentation.ts';
+import {jabSpace,jabStage,JAB_HOME} from '../jab-presentation.ts';
 import {isLow,players,sim} from '../pose.ts';
 import {effects,pace} from '../pace.ts';
 import {flat,lit,node,shapes,show} from '../engine.ts';
@@ -35,7 +35,7 @@ export default async function jab({n,stage,onEnd,hud,scene}:Game){
   }
   rail.setLocalPosition(zoneX(n,p),2,.95);rail.enabled=false;return rail;
  });
- const impactMesh=shapes.ring(.84,.89,48),impactLook=flat('#fff5dc',{opacity:.8}),impacts=states.map(()=>node(scene.root,impactMesh,impactLook));impacts.forEach(e=>e.enabled=false);
+ const impactMesh=shapes.ring(1.08,1.13,48),impactLook=flat('#fff5dc',{opacity:.8}),impacts=states.map(()=>node(scene.root,impactMesh,impactLook));impacts.forEach(e=>e.enabled=false);
  const tick=round(hud,60,()=>{music.stop();onEnd(states.map(s=>s.score),states.map(s=>[`${s.completed} clean combinations`,`${s.hits} hits · best streak ${s.best}`,...(s.finaleWon?['Finish challenge +6']:[])]));},1.1);
  music.start(world.theme,undefined,world.intensity);let time=-3;
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -47,7 +47,7 @@ export default async function jab({n,stage,onEnd,hud,scene}:Game){
   const t=tick(rawDt);if(t===null)return;time=t;const dt=Math.min(rawDt,.05),hands=gloves.update(dt);
   states.forEach((s,p)=>{
    if(t>=0&&t<60)stepJabSeat(s,dt,t,players[p].present,isLow(players[p]));
-   const k=n===1?1:.78,targets=jabTargets(s,zoneX(n,p),k).map(target=>t>=60?{...target,active:false,x:zoneX(n,p)+(target.hand?1:-1)*1.85*k,y:1.35*k}:target),duck=t>=60?0:s.phase==='duck'?1:s.phase==='duckWarn'?Math.min(1,s.age/1.4)*.4:0;
+   const k=n===1?1:.78,targets=jabTargets(s,zoneX(n,p),k).map(target=>t>=60?{...target,active:false,x:zoneX(n,p)+(target.hand?1:-1)*JAB_HOME*k,y:1.35*k}:target),duck=t>=60?0:s.phase==='duck'?1:s.phase==='duckWarn'?Math.min(1,s.age/1.4)*.4:0;
    const mitts=actors[p]!.update(t,dt,targets,t>=60||s.phase==='combo'||t-s.finaleAt<.9?1:0,duck,effects.on&&!pace.lean&&!reduced),active=mitts[s.action.hand];
    if(t>=0&&t<60&&s.phase==='strike'&&players[p].present){
     const index=p*2+s.action.hand,h=hands[index],glove=gloves.all[index];

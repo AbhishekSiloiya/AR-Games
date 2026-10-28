@@ -1,11 +1,13 @@
 import type {Theme} from './audio.ts';
 
 /** Reach is deliberately less amplified than the shared arcade hand mapping. */
+export const JAB_HOME=2.2;
+export const JAB_OUTER=3.234;
 export const jabSpace=(n:number)=>({
- gloveGain:n===1?2.5:2,
+ gloveGain:n===1?3.3:2.64,
  gloveZ:.46,
- padScale:n===1?1.28:1.28*.78,
- hitRadius:n===1?.98:.79,
+ padScale:n===1?1.664:1.664*.78,
+ hitRadius:n===1?1.12:.91,
 });
 export const jabMapHand=(x:number,y:number,cx:number,n:number)=>({x:cx+x*jabSpace(n).gloveGain,y:1.05+y*2.4});
 

@@ -1,7 +1,7 @@
 import {Color,Texture,Vec2,Quat, Vec3, ADDRESS_REPEAT,type MeshInstance, type StandardMaterial} from 'playcanvas';
 import {app,instantiate,node,shapes,lit,flat,own,type Scene} from './engine.ts';
 import {solveArm,type V3} from './jab-kinematics.ts';
-import {jabSpace} from './jab-presentation.ts';
+import {jabSpace,JAB_HOME,JAB_OUTER} from './jab-presentation.ts';
 
 export type MittTarget={x:number;y:number;z:number;active:boolean;hand:0|1};
 let woolAsset:Promise<Texture>|undefined;
@@ -45,13 +45,20 @@ export async function jabActor(scene:Scene,seat=0,n=1){
  const contact=node(scene.root,disc,shadow,[cx,-3.535,depth+.25]);contact.setLocalEulerAngles(-90,0,0);contact.setLocalScale(1.22,.58,1);
  const scratchA=new Vec3(),scratchB=new Vec3(),quat=new Quat();
  let lastTime=0;
- const neutral=():MittTarget[]=>[0,1].map(side=>({x:cx+(side?1.65:-1.65)*(n===1?1:.78),y:.55,z:-.15,active:false,hand:side as 0|1}));
+ const neutral=():MittTarget[]=>[0,1].map(side=>({x:cx+(side?JAB_HOME:-JAB_HOME)*(n===1?1:.78),y:.55,z:-.15,active:false,hand:side as 0|1}));
  let positions=neutral();
  return {
   holder,model,mitts,scale,cx,
   hit(side:number){mitts[side].impact=1;},
   update(t:number,dt:number,targets:MittTarget[]=neutral(),celebrate=0,duck=0,secondary=true){
    lastTime=t;const breathing=secondary?Math.sin(t*2.6):0;
+   // Reach from the upper body with feet planted, rather than stretching arm bones.
+   const k=n===1?1:.78;
+   const reaching=targets.reduce((best,target)=>{
+    const amount=Math.max(0,Math.min(1,(Math.abs(target.x-cx)/k-JAB_HOME)/(JAB_OUTER-JAB_HOME)));
+    return amount>Math.abs(best)?Math.sign(target.x-cx)*amount:best;
+   },0);
+   spine.setLocalPosition(reaching*.4,.72,0);
    spine.setLocalEulerAngles(-2+breathing*.45-duck*8,0,secondary?celebrate*Math.sin(t*15)*2:0);
    head.setLocalEulerAngles(-1+breathing*.35,secondary?Math.sin(t*1.3)*1.2:0,secondary?celebrate*Math.sin(t*13)*5:0);
    const blinkAt=(t+12)%4,blink=secondary&&blinkAt<.22?Math.sin(blinkAt/.22*Math.PI):0;

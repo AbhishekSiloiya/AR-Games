@@ -16,6 +16,6 @@ assert.equal(strikeJab(duck,0,30),false,'duck/reset cannot receive a punch');
 const other=newJabSeat(1);assert.equal(other.score,0);assert.equal(other.completed,0,'seats own their own progress');
 for(let stage=1;stage<=5;stage++)for(let index=0;index<12;index++){
  const seat=newJabSeat(stage);seat.pattern=index;seat.roundAt=40;seat.phase='present';stepJabSeat(seat,.1,40,true,false);
- for(const target of jabTargets(seat,0,1))assert.ok(Number.isFinite(target.x)&&Math.abs(target.x)<2.6&&target.y<1.7,'all target reaches remain plausible');
+ for(const target of jabTargets(seat,0,1))assert.ok(Number.isFinite(target.x)&&Math.abs(target.x)<3.4&&target.y<1.7,'all target reaches remain within the visible arena');
 }
 console.log('Jab patterns: correct hand, single contact, four-hit reward, recovery, absence, misses, duck priority and independent seats pass.');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {newJabSeat,stepJabSeat,strikeJab,jabTargets} from './jab-pattern.ts';
 const seat=newJabSeat(1);stepJabSeat(seat,.3,1,true,false);
 const target=jabTargets(seat,0,1)[0];
-assert.ok(Math.abs(target.x)>=2.4,'a normal jab must present an outer target, not the old central 1.85-unit pad');
+assert.ok(Math.abs(target.x)>=3.2,'the new outer mitt must move beyond the previously tested 2.45-unit reach');
 const {jabSpace,jabMapHand,jabStage}=await import('./jab-presentation.ts');
 for(const n of [1,2]){
  const layout=jabSpace(n),cx=n===1?0:4,k=n===1?1:.78;

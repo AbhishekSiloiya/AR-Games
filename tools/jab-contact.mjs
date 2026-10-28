@@ -18,7 +18,7 @@ export async function jabPunch(page,seat=0,wrong=false){
  await page.waitForFunction(p=>{const s=window.__jab.states[p];return s.phase==='strike'&&s.age<.25;},seat);
  const hitCount=await page.evaluate(p=>window.__jab.states[p].hits,seat);
  const {target,hand,n}=await page.evaluate(({p,wrong})=>{const j=window.__jab,s=j.states[p],hand=wrong?1-s.action.hand:s.action.hand;return {hand,target:j.actors[p].state().mitts[s.action.hand],n:j.states.length};},{p:seat,wrong});
- const cx=n===1?0:seat===0?-4:4,hw=n===1?2.5:2,index=seat*2+hand,sign=Math.sign(target.x-cx)||1;
+ const cx=n===1?0:seat===0?-4:4,hw=n===1?3.3:2.64,index=seat*2+hand,sign=Math.sign(target.x-cx)||1;
  const point=k=>({x:(target.x-cx-sign*1.3*(1-k/8))/hw,y:(target.y-.8*(1-k/8)-1.05)/2.4,vx:k?sign*1.8:0,vy:k?1.8:0});
  for(let k=0;k<=8;k++){const p=point(k);assert.ok(Math.abs(p.x)<=1&&Math.abs(p.y)<=1,'punch fixture stays within real tracker bounds');}
  await page.evaluate(({index,start})=>{window.__jabHands??=[];window.__jabHands[index]=start;},{index,start:point(0)});

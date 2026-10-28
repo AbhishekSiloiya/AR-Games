@@ -37,13 +37,14 @@ export function jabTargets(s:JabSeat,cx:number,k:number){
  const raise=Math.max(0,Math.min(1,s.age/.28)),ease=raise*raise*(3-2*raise);
  return [0,1].map(hand=>{
   const sign=hand===0?-1:1,active=hand===s.action.hand;
-  let x=sign*1.65,y=.48;
+  let x=sign*JAB_HOME,y=.48;
   if(active&&['present','strike','recover'].includes(s.phase)){
    const amount=s.phase==='present'?ease:s.phase==='recover'?Math.max(0,1-s.age/.32):1;
-   x+=(s.action.cross?-sign*2.1:sign*.8)*amount;y+=(s.action.height-.48)*amount;
+   x+=(s.action.cross?-sign*(JAB_HOME+.45):sign*(JAB_OUTER-JAB_HOME))*amount;y+=(s.action.height-.48)*amount;
   }
-  if(s.phase==='combo'){y=1.35;x=sign*1.85;}
-  if(s.phase==='duck'||s.phase==='duckWarn'){x=sign*1.2;y=.25;}
+  if(s.phase==='combo'){y=1.35;x=sign*JAB_HOME;}
+  if(s.phase==='duck'||s.phase==='duckWarn'){x=sign*2.1;y=0;}
   return {x:cx+x*k,y:y*k,z:-.15,hand:hand as 0|1,active:active&&s.phase==='strike'};
  });
 }
+import {JAB_HOME,JAB_OUTER} from './jab-presentation.ts';
