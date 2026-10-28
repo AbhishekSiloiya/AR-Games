@@ -4,9 +4,9 @@ export type KeeperPoint={x:number;y:number;z:number};
 export type KeeperHand=KeeperPoint&{px:number;py:number;on:boolean;vx:number;vy:number};
 export type KeeperPhase='waiting'|'windup'|'flight'|'saved'|'miss';
 export const keeperLayout=(n:number,p:number)=>({cx:n===1?0:p===0?-3.35:3.35,k:n===1?1:.56,gain:n===1?5.1:2.85,vertical:n===1?2.8:2.15,hw:n===1?5.65:3.05,hitRadius:n===1?1.02:.82,gloveScale:n===1?1:.76});
-export type KeeperSeat={stage:number;seat:number;n:number;reach:number;phase:KeeperPhase;age:number;index:number;tx:number;ty:number;gold:boolean;duration:number;bend:number;drill:string;finale:boolean;from:KeeperPoint;position:KeeperPoint;velocity:KeeperPoint;score:number;saves:number;misses:number;streak:number;best:number;practiceSaves:number;hand:number;lastEvent:string};
-export function newKeeper(stage:number,seat:number,n:number,reach:number):KeeperSeat{
- const cx=keeperLayout(n,seat).cx;return {stage,seat,n,reach,phase:'waiting',age:0,index:0,tx:cx,ty:0,gold:false,duration:1.8,bend:0,drill:'',finale:false,from:{x:cx+.45,y:-2.85,z:-14.2},position:{x:cx+.45,y:-2.85,z:-14.2},velocity:{x:0,y:0,z:0},score:0,saves:0,misses:0,streak:0,best:0,practiceSaves:0,hand:-1,lastEvent:''};
+export type KeeperSeat={stage:number;seat:number;n:number;reach:number;speed:number;phase:KeeperPhase;age:number;index:number;tx:number;ty:number;gold:boolean;duration:number;bend:number;drill:string;finale:boolean;from:KeeperPoint;position:KeeperPoint;velocity:KeeperPoint;score:number;saves:number;misses:number;streak:number;best:number;practiceSaves:number;hand:number;lastEvent:string};
+export function newKeeper(stage:number,seat:number,n:number,reach:number,speed=1):KeeperSeat{
+ const cx=keeperLayout(n,seat).cx;return {stage,seat,n,reach,speed,phase:'waiting',age:0,index:0,tx:cx,ty:0,gold:false,duration:1.8,bend:0,drill:'',finale:false,from:{x:cx+.45,y:-2.85,z:-14.2},position:{x:cx+.45,y:-2.85,z:-14.2},velocity:{x:0,y:0,z:0},score:0,saves:0,misses:0,streak:0,best:0,practiceSaves:0,hand:-1,lastEvent:''};
 }
 // Earliest contact of two moving spheres in a frame. Relative motion catches both fast balls and swats.
 export function sweepContact(a:KeeperPoint,b:KeeperPoint,g0:KeeperPoint,g1:KeeperPoint,r:number):number|null{
@@ -20,7 +20,7 @@ export function stepKeeper(s:KeeperSeat,dt:number,t:number,present:boolean,hands
  if(s.phase==='waiting'){
   if(s.age<.35)return null;
   const l=keeperLayout(s.n,s.seat),shot=keeperShot(s.stage,s.index,t,practice);
-  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8);s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002);s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
+  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8);s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002)/s.speed;s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
  }
  if(s.phase==='windup'){if(s.age<.85)return null;s.phase='flight';s.age=0;return 'kick';}
  if(s.phase==='flight'){
