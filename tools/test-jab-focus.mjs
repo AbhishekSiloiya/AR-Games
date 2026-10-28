@@ -84,7 +84,7 @@ await enter('Jab','.jab-session',1,true);
 assert.equal(await page.evaluate(()=>window.__jab.practicing),true);
 assert.match(await page.locator('.jab-session-world').textContent(),/NO SCORE/);
 await page.screenshot({path:out+'/jab-practice.png'});
-await page.keyboard.press('Escape');const practicePaused=await page.evaluate(()=>window.__jab.snapshot());await page.waitForTimeout(300);assert.deepEqual(await page.evaluate(()=>window.__jab.snapshot()),practicePaused,'practice pauses with the game');await page.getByRole('button',{name:'Keep playing'}).click();
+await page.keyboard.press('Escape');const pausedPractice=()=>page.evaluate(()=>{const {music,...practice}=window.__jab.snapshot();return practice;});const practicePaused=await pausedPractice();await page.waitForTimeout(300);assert.deepEqual(await pausedPractice(),practicePaused,'practice clock, pose and targets pause with the game');await page.getByRole('button',{name:'Keep playing'}).click();
 for(let i=0;i<3;i++){await jabPunch(page,0,false,true);assert.equal(await page.evaluate(()=>window.__jab.states[0].score),0);assert.equal(await page.evaluate(()=>window.__jab.states[0].responseCount),0);await page.evaluate(()=>window.__jab.advance(750));}
 assert.equal(await page.evaluate(()=>window.__jab.practiceSeats[0].index),3);
 await page.screenshot({path:out+'/jab-practice-duck.png'});

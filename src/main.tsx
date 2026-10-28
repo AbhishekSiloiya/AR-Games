@@ -1,6 +1,7 @@
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import './moon.css';
+import {HandCursor,menuSelectionView} from './hand-cursor.tsx';
 import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
 import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
@@ -10,7 +11,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
 import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
 import { createRoot } from 'react-dom/client';
-import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
+import { cutout, grip, measureDelay, perf, players, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
 import { report } from './report.ts';
 import { DAY_GOAL, load, save, summary, type Session } from './stats.ts';
 import { BADGES, CHALLENGE_XP, STAGES, badgeCatalog, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
@@ -107,7 +108,7 @@ function TrackingView() {
       // The picture is shown with object-fit: cover, so frame coordinates map through the same crop.
       const k = Math.max(c.width / (video.videoWidth || 1), c.height / (video.videoHeight || 1));
       const at = ([x, y]: number[]) => [(x - 0.5) * video.videoWidth * k + c.width / 2, (y - 0.5) * video.videoHeight * k + c.height / 2];
-      const h = players[0].hands; grip.hand = h[0].seen && (!h[1].seen || h[0].y > h[1].y) ? 0 : 1; // watch the higher hand, like the cursor does
+      grip.hand = 1; // Menu selection and the diagnostic hand model both use the right hand.
       players.forEach((pl, i) => {
         if (!pl.present || !pl.body.length) return void (trails[i * 2].length = trails[i * 2 + 1].length = 0);
         const [ls, rs, lh, rh, lp, rp] = [pl.body[11], pl.body[12], pl.body[23], pl.body[24], ...pl.palms].map(at);
@@ -147,89 +148,6 @@ function Confetti() {
     '--c': ['var(--pink)', 'var(--cyan)', 'var(--yellow)', 'var(--lime)', 'var(--orange)', 'var(--violet)'][i % 6],
   })), []);
   return <div className="confetti">{bits.map((style, i) => <i key={i} style={style} />)}</div>;
-}
-
-// The pointer is P1's higher hand. You press by CLOSING YOUR FIST over a button (pose.ts `grip`: a hand model looks at
-// the palm, in menus only). If the hand model cannot see a hand — too far, too dark — for a few seconds, holding still
-// over a button presses it instead, so nobody is ever stuck. It stays calm three ways: it glides, it only switches
-// hands when the other is clearly higher, and once on a button it sticks until it leaves by a margin — closing a fist
-// shifts the palm a little, and that must not slide you off the button you were aiming at.
-const DWELL = 1500, STICKY = 40, BLIND_AFTER = 4000;
-const POINTER_LEAD = 0.06; // seconds of prediction the menu pointer takes. Games take ~0.2; a pointer that runs ahead and falls back feels pulled about.
-const pressMode = () => { try { return localStorage.getItem('romp.press') === 'hold' ? 'hold' : 'fist'; } catch { return 'fist'; } };
-function HandCursor() {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const fistMode = pressMode() === 'fist';
-    let raf = 0, target: HTMLButtonElement | null = null, since = 0, last = 0, which = 1, x = NaN, y = NaN, shownAt = 0;
-    // Pressing with a fist, done properly:
-    //  · Closing the hand MOVES it — the palm point is built from the wrist and knuckles, and knuckles travel as fingers
-    //    curl — so the pointer used to lurch just before the press, sometimes onto the neighbouring button. The pointer
-    //    therefore remembers where it has been, and the moment the fingers start to curl it is held where it was a
-    //    fifth of a second earlier — before the hand began to close. The press lands there too.
-    //  · One fist is one press. The pointer must see an OPEN hand for a moment before a fist can press again (`armed`),
-    //    so a fist that is still closed when the next screen appears, or that the hand model loses and finds again,
-    //    cannot press whatever happens to be underneath.
-    const trail: { t: number; x: number; y: number; target: HTMLButtonElement | null }[] = [];
-    let armed = false, openSince = 0, holdUntil = 0, pin = { x: 0, y: 0, target: null as HTMLButtonElement | null }, curlWas = 9, readAt = 0;
-    grip.want = fistMode;
-    const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (now - last) / 1000), hands = players[0].hands;
-      last = now;
-      const other = 1 - which;
-      if (hands[other].seen && (!hands[which].seen || hands[other].y > hands[which].y + 0.3)) which = other;
-      grip.hand = which;
-      const hand = hands[which], on = players[0].present && hand.seen;
-      el.current!.style.display = on ? '' : 'none';
-      if (!on) return void ((x = NaN), (shownAt = 0));
-      shownAt ||= now;
-      const at = predict(hand, undefined, POINTER_LEAD), tx = ((at.x + 1) / 2) * innerWidth, ty = ((1 - at.y) / 2) * innerHeight;
-      // Gentle when it is nearly there (a hand held over a button must not shiver), quick when there is ground to cover.
-      const k = Number.isNaN(x) ? 1 : 1 - Math.exp(-dt * (7 + 26 * Math.min(1, Math.hypot(tx - x, ty - y) / (innerHeight * 0.14))));
-      x = (Number.isNaN(x) ? tx : x) + (tx - (Number.isNaN(x) ? tx : x)) * k;
-      y = (Number.isNaN(y) ? ty : y) + (ty - (Number.isNaN(y) ? ty : y)) * k;
-      // A new reading from the hand model: are the fingers starting to curl? (a sharp drop, or already past "open")
-      if (fistMode && grip.seenAt !== readAt) {
-        readAt = grip.seenAt;
-        if ((curlWas - grip.curl > 0.22 || grip.curl < tuning.openAt) && now > holdUntil) { pin = trail.find((q) => now - q.t <= 200) ?? { x, y, target }; holdUntil = now + 420; }
-        curlWas = grip.curl;
-      }
-      const holding = now < holdUntil || (fistMode && grip.closed && performance.now() - grip.seenAt < BLIND_AFTER);
-      if (holding) { x = pin.x; y = pin.y; } // stay put while the hand closes, and for as long as it is a fist
-      else { trail.push({ t: now, x, y, target }); while (trail.length && now - trail[0].t > 450) trail.shift(); }
-      el.current!.style.transform = `translate(${x}px, ${y}px)`;
-
-      const r = target?.isConnected ? target.getBoundingClientRect() : null;
-      const held = r && x > r.left - STICKY && x < r.right + STICKY && y > r.top - STICKY && y < r.bottom + STICKY;
-      const over = held ? target : (document.elementFromPoint(x, y)?.closest('button:not(:disabled)') as HTMLButtonElement | null);
-      if (over !== target) {
-        target?.classList.remove('hot');
-        over?.classList.add('hot');
-        if (over) sfx('tick', { vol: 0.35 });
-        target = over;
-        since = now;
-      }
-      // Fist: press on the moment the hand closes. A fist that was already closed when it arrived does not count.
-      const sees = fistMode && performance.now() - grip.seenAt < BLIND_AFTER, closed = sees && grip.closed;
-      el.current!.classList.toggle('closed', closed);
-      el.current!.classList.toggle('fist', sees);
-      if (sees && !grip.closed) { openSince ||= now; if (now - openSince > 180) armed = true; } else openSince = 0;
-      if (closed && armed) {
-        armed = false;
-        const aim = pin.target?.isConnected && now < holdUntil + 400 ? pin.target : target; // where the pointer was before the hand began to close
-        if (aim && !aim.disabled) aim.click();
-      }
-      // Dwell: only in "hold" mode, or while the hand model is blind (and then only after giving it time to find the hand).
-      const dwell = !fistMode || (!sees && now - shownAt > BLIND_AFTER);
-      const p = dwell && target ? Math.min(1, Math.max(0, (now - since) / DWELL)) : 0;
-      el.current!.style.setProperty('--p', String(p));
-      if (p === 1) { target!.click(); since = now + DWELL; } // pause before it can re-fire
-    };
-    raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); target?.classList.remove('hot'); grip.want = false; };
-  }, []);
-  return <div className="cursor" ref={el} />;
 }
 
 // A quiet live preview on briefings: the player, rather than a proxy mannequin.
@@ -312,7 +230,7 @@ function App() {
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
   useEffect(() => {
-    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(activeGame==='jab'?{play:(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot()}:{} )});
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(activeGame==='jab'?{play:(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot()}:{} )});
     Object.assign(window,{render_game_to_text:render});
     return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
   }, [screen,n,paused,trackingLost,playerView]);
@@ -417,7 +335,7 @@ function App() {
         <div className="screen library moon-playroom">
           <header className="moon-masthead"><Logo /><span className="moon-eyebrow">YOUR PLAYROOM</span><nav aria-label="Playroom tools"><button className="ghost" onClick={toggleFx}>Effects {fx ? 'on' : 'off'}</button><button className="ghost" onClick={() => go({ at: 'tracking' })}>Tracking</button><button className="ghost" onClick={() => go({ at: 'badges' })}>Badges</button><button className="ghost" onClick={() => go({ at: 'stats' })}>Stats</button></nav></header>
           <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
-          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>REAL MOVES / GOOD COMPANY</span></div>
+          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>RIGHT HAND · HOLD 3s TO CHOOSE</span></div>
           <div className="moon-posters">
             {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
               <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><img className="moon-poster-buddy" src={moonBuddy(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
@@ -546,14 +464,7 @@ function App() {
                 <button aria-pressed={tuning.model === 'lite'} onClick={() => setTracker('romp.model', 'lite')}>Fast</button>
               </div>
             </div>
-            <div className="row">
-              <span className="label">Press with</span>
-              <div className="seg">
-                <button aria-pressed={pressMode() === 'fist'} onClick={() => setTracker('romp.press', 'fist')}>Fist</button>
-                <button aria-pressed={pressMode() === 'hold'} onClick={() => setTracker('romp.press', 'hold')}>Hold still</button>
-              </div>
-              <span className="dim">Close your fist over a button.</span>
-            </div>
+            <div className="row"><span className="label">Menu selection</span><span>Right hand · hold for 3 seconds</span><span className="dim">Let the ring fill to choose. Move away to cancel or choose again.</span></div>
             <div className="row">
               <span className="label">Sharp motion</span>
               <div className="seg">
@@ -632,7 +543,7 @@ function App() {
         </div>
       )}
       {screen.at === 'brief' && <Presence small={false} />}
-      {editingPlayer===null&&((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
+      {((screen.at !== 'play' && screen.at !== 'start') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }
