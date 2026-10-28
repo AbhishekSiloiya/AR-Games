@@ -1,3 +1,4 @@
+import {jabPunch} from './jab-contact.mjs';
 const { chromium } = await import(process.env.AR_PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -50,6 +51,7 @@ await page.evaluate(async()=>{
  if(window.__testMode==='aim'&&window.__jacks){const rig=pose.players[i].rig,at=window.__jacks.bodies[i].at,target=window.__jacks.invaders.find(v=>v.on&&v.zone===0);if(target){const sx=rig[12][0],sy=rig[12][1],dx=target.x-at.x-sx*at.scale,dy=(target.y-at.y-sy*.8*at.scale)/.8,len=Math.hypot(dx,dy);rig[16]=[sx+dx/len*1.9,sy+dy/len*1.9,1,0,0];}}
 
  for(let h=0;h<2;h++){const r=pose.players[i].rig[15+h];Object.assign(pose.players[i].hands[h],{x:r[0]/pose.tuning.reachX[window.__pair?1:0],y:(r[1]-pose.tuning.centerY)/pose.tuning.reachY,seen:r[2]>.5&&!!document.querySelector('.stage'),t:performance.now()});}
+if(window.__jabHands)for(let h=0;h<2;h++){const q=window.__jabHands[i*2+h];if(q)Object.assign(pose.players[i].hands[h],q,{seen:true,t:performance.now()});}
 pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||window.__secondReady);
  if(window.__testMode!=='stale')pose.trackingSeen[i]=performance.now();
  }
@@ -83,7 +85,7 @@ await enter('Freeze','.stage');await page.waitForFunction(()=>window.__freeze?.t
 const raw=await page.evaluate(()=>{const v=document.querySelector('video'),c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const x=c.getContext('2d');x.drawImage(v,0,0);return [...x.getImageData(c.width/2,c.height/3,1,1).data];});console.log('raw camera sample',raw);await page.screenshot({path:out+'/dance-clear-camera.png'});
 await page.waitForFunction(()=>!window.__freeze.dancing,null,{timeout:15000});const stopped=await partner.getAttribute('data-frame');await mode('armUp');await page.waitForTimeout(200);assert.equal(await partner.getAttribute('data-frame'),stopped,'partner stops on Freeze even while test body moves');await page.screenshot({path:out+'/dance-stop.png'});await mode('neutral');await home();
 await enter('Shape Up','.stage');assert.equal(await page.locator('.shapeup-quest,.shapeup-portal,.shapeup-reference').count(),0,'old competing panels removed');await page.evaluate(()=>window.__matchShape=true);await page.waitForFunction(()=>Number(document.querySelector('.shapeup-world').dataset.cells)>0,null,{timeout:20000});await page.screenshot({path:out+'/shape-earned-tower.png'});await page.waitForFunction(()=>window.__shapeup.phase==='rest',null,{timeout:10000});assert.match(await page.locator('.shapeup-live-status>span').textContent(),/Next pose/);await page.screenshot({path:out+'/shape-breather.png'});await page.evaluate(()=>window.__matchShape=false);await home();
-await enter('Jab','.stage');await page.waitForFunction(()=>window.__jab?.pads.some(p=>p.life>0));const coach=page.locator('.jab-coach .mascot-puppet').first();const start=await coach.getAttribute('data-right-arm');await page.waitForTimeout(1200);assert.notEqual(await coach.getAttribute('data-right-arm'),start,'coach moves mitts with spawned targets');
-for(let k=0;k<4;k++){await page.evaluate(()=>{const pl=window.__romp.players[0],pos=window.__pc.root.findByName('equipment-boxing-0').getLocalPosition();pl.hands[0].vx=12;const pad=window.__jab.pads[0];Object.assign(pad,{x:pos.x,y:pos.y,life:4,pop:0,hand:0,cross:false});});await page.waitForTimeout(160);}
-assert.ok(await page.evaluate(()=>window.__jab.g.combo[0]>=4));assert.equal(await page.locator('.jab-coach-cue').first().getAttribute('data-reward'),'true');await page.screenshot({path:out+'/jab-earned-combo.png'});await home();assert.equal(await page.locator('.mascot-puppet').count(),0,'all game puppets cleaned up');assert.deepEqual(errors,[]);console.log('PASS movement, clear-camera, pose result/rest, active coach, earned combo and cleanup.');
+await enter('Jab','.stage');assert.equal(await page.evaluate(()=>window.__jab.actors[0].state().mesh),'skinned-3d');
+for(let k=0;k<4;k++)await jabPunch(page);
+assert.equal(await page.evaluate(()=>window.__jab.states[0].completed),1);await page.screenshot({path:out+'/jab-earned-combo.png'});await home();assert.equal(await page.locator('.mascot-puppet,.jab-session').count(),0,'all game actors cleaned up');assert.deepEqual(errors,[]);console.log('PASS movement, clear-camera, pose result/rest, skinned coach, earned combo and cleanup.');
 }catch(error){await page.screenshot({path:out+'/failure.png'});console.error(error);console.error(await page.evaluate(async()=>({ui:window.render_game_to_text?.(),freeze:window.__freeze?.time,audio:(await import('/src/audio.ts')).audio().state,mode:window.__testMode,injectError:window.__testError})));throw error;}finally{await browser.close();}

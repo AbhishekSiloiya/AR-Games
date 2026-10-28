@@ -148,12 +148,6 @@ th { color: var(--ink-dim); font-weight: 500; font-size: 1rem; } td.lead, .lead 
 .badge em { font-style: normal; font-size: 2rem; line-height: 1; filter: grayscale(1) opacity(0.4); } .badge small { font-size: 0.9rem; line-height: 1.25; }
 .badge.has { background: linear-gradient(140deg, rgba(255, 225, 77, 0.25), rgba(255, 159, 67, 0.18)); border-color: var(--yellow); color: var(--ink); } .badge.has em { filter: none; } .badge.has b { color: var(--yellow); }
 
-/* ---- Hand cursor: a glowing ring that fills while you hold it over a button ---- */
-.cursor { position: fixed; left: 0; top: 0; width: 5rem; height: 5rem; margin: -2.5rem 0 0 -2.5rem; border-radius: 50%; pointer-events: none; z-index: 20;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 14%, transparent 16%), conic-gradient(var(--yellow) calc(var(--p, 0) * 360deg), rgba(255, 255, 255, 0.25) 0);
-  -webkit-mask: radial-gradient(circle, #000 0 15%, transparent 16% 60%, #000 62%); mask: radial-gradient(circle, #000 0 15%, transparent 16% 60%, #000 62%);
-  box-shadow: 0 0 2rem var(--cyan); }
-
 /* ---- In-game HUD ---- */
 .stage { position: fixed; inset: 0; margin: auto; width: min(100vw, 100vh * 16 / 9); height: min(100vh, 100vw * 9 / 16); cursor: pointer; }
 .hud { position: absolute; top: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 0 0.2rem 0 rgba(0, 0, 0, 0.45); pointer-events: none; }
@@ -175,8 +169,6 @@ th { color: var(--ink-dim); font-weight: 500; font-size: 1rem; } td.lead, .lead 
 .pause .panel { align-items: center; text-align: center; gap: 1.2rem; padding: 2.4rem 3.4rem; border-width: 0.2rem; border-color: var(--cyan); }
 
 /* Cursor in fist mode: an open ring while the hand is open, a solid gold disc the instant it closes. */
-.cursor.fist { background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 14%, transparent 16%), conic-gradient(rgba(255, 255, 255, 0.55) 360deg, transparent 0); transition: scale 120ms var(--bounce); }
-.cursor.closed { scale: 0.6; background: var(--yellow); -webkit-mask: none; mask: none; box-shadow: 0 0 2.5rem var(--yellow); }
 
 /* ---- Presence: where the camera sees you, as a stick figure in a little frame, bottom-left on every screen ---- */
 .presence { position: fixed; left: 1.2rem; bottom: 0.7rem; display: flex; align-items: center; gap: 0.8rem; pointer-events: none; z-index: 4; }

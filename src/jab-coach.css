@@ -1,13 +1,66 @@
-.jab-coaches {position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-.jab-coach {position:absolute;inset:0;}.jab-coach .mascot-puppet {filter:drop-shadow(0 8px 12px #0005);}
-.jab-character-stage canvas {z-index:1;}
-.jab-coach-cue {position:absolute;bottom:2%;transform:translateX(-50%);width:32%;text-align:center;padding:8px 12px;background:#271c30ed;color:#fff4df;}
-.jab-coach-cue>strong {display:block;font:800 clamp(22px,3vw,42px)/1 var(--moon-display);}
-.jab-coach-cue>span {display:block;font:600 clamp(10px,1vw,15px) var(--moon-face);margin-top:5px;}
-.jab-coach-cue>div {display:flex;gap:8px;justify-content:center;margin-top:7px;}
-.jab-coach-cue i {width:20px;height:7px;background:#67576d;border-radius:3px;}.jab-coach-cue i[data-on='true'] {background:#ffe08a;}
-.jab-coach-cue[data-reward='true'] {background:#ffe08a;color:#37202b;}
-.jab-coaches[data-players='2'] .jab-coach-cue {width:40%;}
-@media(max-width:700px){.jab-coach-cue{width:58%;}.jab-coach-cue>strong{font-size:23px;}.jab-coaches[data-players='2'] .jab-coach-cue{width:43%;padding:6px;}.jab-coach-cue>span{font-size:9px;}}
-.jab-character-stage {isolation:isolate;background:#29182a url('/assets/moon/play/boxing.webp') center/cover;}
-.jab-character-stage>canvas {position:relative;z-index:1;}
+.jab-focus-stage {isolation:isolate;background:#d9e6df!important;color:#203338;}
+.jab-focus-stage>canvas {position:relative;z-index:0;}
+.jab-focus-stage .hud {text-shadow:none!important;color:#203338!important;}
+.jab-focus-stage .hud.score,.jab-focus-stage .hud.hint {display:none;}
+.jab-focus-stage .hud.clock {left:auto;right:3%;top:4%;transform:none;background:none!important;border:0!important;padding:0;min-width:0;height:auto;font:700 clamp(28px,4vw,64px)/1 var(--moon-face);}
+.jab-focus-stage .hud.big {color:#233d40!important;font-family:var(--moon-face);font-size:clamp(60px,10vw,140px);}
+.jab-focus-stage .hud.banner {display:none;}
+.jab-session {position:absolute;inset:0;pointer-events:none;z-index:3;font-family:var(--moon-face);}
+.jab-session-brand {position:absolute;left:3%;top:4%;color:#203338;}
+.jab-session-brand>span {display:block;font-size:clamp(9px,1vw,16px);letter-spacing:.45em;font-weight:700;}
+.jab-session-brand>b {display:block;font-size:clamp(26px,3.8vw,58px);line-height:1.1;letter-spacing:-.05em;}
+.jab-session-seat {position:absolute;inset:0;}
+.jab-session-score {position:absolute;left:3%;top:18%;color:#203338;}
+.jab-session-score>b {font-size:clamp(32px,4.3vw,68px);font-variant-numeric:tabular-nums;line-height:1;}
+.jab-session-score>span {display:block;font-size:clamp(9px,1vw,15px);font-weight:700;margin-top:.4em;letter-spacing:.04em;}
+.jab-session-cue {position:absolute;top:3.5%;left:50%;transform:translateX(-50%);text-align:center;min-width:32%;color:#203338;}
+.jab-session-cue>strong {font-size:clamp(28px,4.25vw,64px);font-weight:800;letter-spacing:-.035em;white-space:nowrap;}
+.jab-session-pattern {display:flex;gap:10px;justify-content:center;margin-top:10px;}
+.jab-session-pattern>span {display:grid;place-items:center;width:clamp(25px,2.8vw,42px);height:clamp(27px,3vw,45px);font-size:clamp(12px,1.3vw,19px);font-weight:800;background:#e8e7dda6;color:#7b8b88;border-radius:8px;}
+.jab-session-pattern>span[data-state='current'] {background:#e97b65;color:#182b2f;}
+.jab-session-seat[data-hand='1'] .jab-session-pattern>span[data-state='current'] {background:#4b9da0;color:#fff;}
+.jab-session-pattern>span[data-state='done'] {background:#244c49;color:#fff;}
+.jab-session-window {height:3px;width:80%;margin:9px auto 0;overflow:hidden;}
+.jab-session-window>i {display:block;height:100%;background:#203338;transform-origin:left;}
+.jab-session-feedback {position:absolute;left:50%;bottom:8%;transform:translateX(-50%);font-weight:800;font-size:clamp(16px,2.3vw,32px);letter-spacing:.04em;color:#fff7df;}
+.jab-session-feedback:not(:empty) {background:#244c49ed;padding:8px 20px;border-radius:24px;}
+.jab-session-seat[data-phase='combo'] .jab-session-cue>strong {color:#1d6460;}
+.jab-session-seat[data-phase='duckWarn'] .jab-session-pattern,.jab-session-seat[data-phase='duck'] .jab-session-pattern {visibility:hidden;}
+.jab-session[data-players='2'] .jab-session-cue {left:calc(25% + var(--seat)*50%);top:5%;min-width:45%;}
+.jab-session[data-players='2'] .jab-session-cue>strong {font-size:clamp(22px,3.4vw,48px);}
+.jab-session[data-players='2'] .jab-session-brand {display:none;}
+.jab-session[data-players='2'] .jab-session-score {left:calc(3% + var(--seat)*50%);top:22%;}
+.jab-session[data-players='2'] .jab-session-score>b {font-size:clamp(28px,3.6vw,52px);}
+.jab-session[data-players='2'] .jab-session-score>span {max-width:140px;line-height:1.25;font-size:10px;}
+.jab-session[data-players='2'] .jab-session-feedback {display:none;left:calc(25% + var(--seat)*50%);font-size:clamp(14px,1.6vw,24px);white-space:nowrap;}
+.jab-focus-live .player-inset {border:1px solid #fff7df;border-radius:12px;box-shadow:0 6px 22px #20333826;width:clamp(130px,17vw,245px);bottom:3%;right:3%;}
+.jab-focus-live .player-inset span {font-size:10px;background:#203338a8;color:#fff7df;}
+@media(max-width:700px){.jab-session-brand{top:5%;}.jab-session-score{top:23%;}.jab-session-cue{top:2.5%;}.jab-session-cue>strong{font-size:clamp(23px,4.2vw,32px);}.jab-session-pattern{margin-top:6px;gap:5px;}.jab-session-pattern>span{width:24px;height:26px;border-radius:5px;}.jab-session-score>span{font-size:8px;max-width:95px;}.jab-focus-live .player-inset{width:115px;}.jab-session-feedback{bottom:7%;}.jab-session[data-players='2'] .jab-session-score>span{font-size:8px;max-width:95px;}}
+@media(prefers-reduced-motion:reduce){.jab-focus-stage .hud{animation:none!important;}.jab-focus-stage .hud.big{transition:none;}}
+
+/* The same daylight palette continues into Jab's results only. */
+.moon-results[data-game='jab'] {background:#ede9dc;color:#203338;}
+.moon-results[data-game='jab']::before {background:#f3eee4c9;}
+.moon-results[data-game='jab'] .moon-result-art {opacity:.5;filter:blur(5px);}
+.moon-results[data-game='jab']>h1 {font-family:var(--moon-face);font-size:clamp(26px,4vw,54px);letter-spacing:-.04em;}
+.moon-results[data-game='jab'] .moon-eyebrow,.moon-results[data-game='jab'] .score {color:#285b58;}
+.moon-results[data-game='jab'] .result {background:#fff9edf2;color:#203338;border:0;border-radius:18px;box-shadow:0 10px 35px #20333814;}
+.moon-results[data-game='jab'] .result h2 {color:#203338;}
+.moon-results[data-game='jab'] .dim {color:#536864;}
+.moon-results[data-game='jab'] .primary {background:#285b58;color:#fff9ed;border:0;}
+.moon-results[data-game='jab'] button:not(.primary) {background:#fff9ed;color:#203338;border:1px solid #c4cdc2;}
+
+.jab-session-world {position:absolute;left:3%;top:14%;max-width:24%;font-size:clamp(8px,.85vw,12px);font-weight:700;letter-spacing:.05em;line-height:1.25;color:#203338;}
+.jab-session[data-players='2'] .jab-session-world {left:50%;top:1.5%;transform:translateX(-50%);text-align:center;max-width:34%;font-size:10px;}
+.jab-session[data-lighting='evening'] .jab-session-cue>strong {color:#fff3da;text-shadow:0 2px 6px #142d3040;}
+.jab-session[data-lighting='evening'] .jab-session-brand,.jab-session[data-lighting='evening'] .jab-session-score,.jab-session[data-lighting='evening'] .jab-session-world {color:#fff3da;text-shadow:0 1px 3px #142d30,0 0 7px #142d3080;}
+.jab-focus-stage[data-jab-lighting='evening'] .hud.clock {color:#fff3da!important;text-shadow:0 1px 3px #142d30,0 0 7px #142d3080!important;}
+.jab-session[data-players='2'][data-lighting='evening'] .jab-session-world {color:#fff3da;}
+.jab-session[data-finale='true'] .jab-session-window>i {background:#b9543e;}
+@media(max-width:700px){.jab-session-world{top:17%;font-size:8px;max-width:24%;}.jab-session[data-players='2'] .jab-session-world{font-size:8px;}}
+.jab-skip-practice {position:absolute;bottom:3%;left:50%;transform:translateX(-50%);pointer-events:auto;background:#fff3da;color:#203338;border:1px solid #94a49a;border-radius:8px;padding:10px 18px;font:600 14px var(--moon-face);}
+.jab-skip-practice[hidden] {display:none;}
+.jab-session[data-practice='true'] .jab-session-window {visibility:hidden;}
+.jab-result-notes {list-style:none;padding:0;margin:14px 0;display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;color:#365c58;font-size:13px;line-height:1.5;text-align:left;}
+.jab-result-notes li {border-bottom:1px solid #d8dfd4;padding-bottom:8px;}
+@media(max-width:700px){.jab-skip-practice{padding:6px 12px;font-size:12px;}.jab-result-notes{font-size:12px;gap:10px;}}

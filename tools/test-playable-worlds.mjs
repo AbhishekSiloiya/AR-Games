@@ -1,3 +1,4 @@
+import {jabPunch} from './jab-contact.mjs';
 const { chromium } = await import(process.env.AR_PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -49,6 +50,7 @@ await page.evaluate(async()=>{
  if(window.__testMode==='aim'&&window.__jacks){const rig=pose.players[i].rig,at=window.__jacks.bodies[i].at,target=window.__jacks.invaders.find(v=>v.on&&v.zone===0);if(target){const sx=rig[12][0],sy=rig[12][1],dx=target.x-at.x-sx*at.scale,dy=(target.y-at.y-sy*.8*at.scale)/.8,len=Math.hypot(dx,dy);rig[16]=[sx+dx/len*1.9,sy+dy/len*1.9,1,0,0];}}
 
  for(let h=0;h<2;h++){const r=pose.players[i].rig[15+h];Object.assign(pose.players[i].hands[h],{x:r[0]/pose.tuning.reachX[window.__pair?1:0],y:(r[1]-pose.tuning.centerY)/pose.tuning.reachY,seen:r[2]>.5&&!!document.querySelector('.stage'),t:performance.now()});}
+if(window.__jabHands)for(let h=0;h<2;h++){const q=window.__jabHands[i*2+h];if(q)Object.assign(pose.players[i].hands[h],q,{seen:true,t:performance.now()});}
 pose.players[i].present=window.__testMode!=='lost'&&(!window.__pair||i===0||window.__secondReady);
  if(window.__testMode!=='stale')pose.trackingSeen[i]=performance.now();
  }
@@ -93,12 +95,10 @@ for(const name of ['Freeze','Jack Attack','Goalie','Jab','Shape Up','Slice']){
   for(let k=0;k<18;k++){await mode('neutral');await page.waitForTimeout(230);await mode('aim');await page.waitForTimeout(280);}
   assert.ok(await page.evaluate(()=>window.__jacks.me[0].hits>0));assert.ok(await page.evaluate(()=>window.__jacks.crews[0].score>0));await page.screenshot({path:out+'/Jack-Attack-earned-hits.png'});
  }
- if(name==='Jab'){
-  for(let k=0;k<4;k++){await page.evaluate(()=>{const pl=window.__romp.players[0],pos=window.__pc.root.findByName('equipment-boxing-0').getLocalPosition();pl.hands[0].vx=12;const pad=window.__jab.pads[0];Object.assign(pad,{x:pos.x,y:pos.y,life:4,pop:0,hand:0,cross:false});});await page.waitForTimeout(180);}
-  assert.ok(await page.evaluate(()=>window.__jab.g.combo[0]>=4));await page.screenshot({path:out+'/Jab-combination.png'});
- }
+ if(name==='Jab'){for(let k=0;k<4;k++)await jabPunch(page);assert.equal(await page.evaluate(()=>window.__jab.states[0].completed),1);await page.screenshot({path:out+'/Jab-combination.png'});await page.evaluate(()=>window.__jabHands=[]);}
  if(name==='Goalie'){
-  await page.evaluate(()=>{const a=window.__goalie;a.g.spawnIn=[999,999];a.shots.forEach(s=>s.state='off');a.balls.forEach(b=>b.body.setEnabled(false));const pos=window.__pc.root.findByName('equipment-keeper-0').getLocalPosition();Object.assign(a.shots[0],{state:'in',tx:pos.x,ty:pos.y,left:.1,dur:1,age:0,gold:false,contactUntil:-1});const b=a.balls[0].body;b.setEnabled(true);b.setTranslation({x:pos.x,y:pos.y,z:-1.1},true);b.setLinvel({x:0,y:0,z:8},true);window.__saveBefore=a.g.scores[0];});
+  // A slower real shot keeps its contact manifold observable through all four physics substeps.
+  await page.evaluate(()=>{const a=window.__goalie;a.g.spawnIn=[999,999];a.shots.forEach(s=>s.state='off');a.balls.forEach(b=>b.body.setEnabled(false));const pos=window.__pc.root.findByName('equipment-keeper-0').getLocalPosition();Object.assign(a.shots[0],{state:'in',tx:pos.x,ty:pos.y,left:.1,dur:1,age:0,gold:false,contactUntil:-1});const b=a.balls[0].body;b.setEnabled(true);b.setTranslation({x:pos.x,y:pos.y,z:-1.1},true);b.setLinvel({x:0,y:0,z:3},true);window.__saveBefore=a.g.scores[0];});
   await page.waitForFunction(()=>window.__goalie.g.scores[0]>window.__saveBefore);await page.screenshot({path:out+'/Goalie-real-save.png'});
   const score=await page.evaluate(()=>window.__goalie.g.scores[0]);
   await page.evaluate(()=>{const a=window.__goalie;Object.assign(a.shots[1],{state:'in',tx:0,ty:2,left:.1,dur:1,age:0,gold:false,contactUntil:-1});const b=a.balls[1].body;b.setEnabled(true);b.setTranslation({x:0,y:2,z:-2},true);b.setLinvel({x:0,y:0,z:-4},true);});await page.waitForFunction(()=>window.__goalie.shots[1].state==='saved');assert.equal(await page.evaluate(()=>window.__goalie.g.scores[0]),score,'passive rebound never earns a save');

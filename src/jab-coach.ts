@@ -1,20 +1,33 @@
-import type { Scene } from './engine.ts';
-import { effects, pace } from './pace.ts';
-import { mascotPuppet } from './mascot-puppet.ts';
-import { mascotPose, MASCOT_STAND } from './mascot-motion.ts';
+import type {Scene} from './engine.ts';
+import {newJabSeat,jabWindow,jabSequence,type JabSeat} from './jab-pattern.ts';
+import type {JabPractice} from './jab-practice.ts';
+import {jabStage} from './jab-presentation.ts';
 import './jab-coach.css';
-type Pad={zone:number;x:number;y:number;life:number;pop:number;hand:number;cross:boolean};
-export function jabCoach(scene:Scene,n:number){
- const stage=document.querySelector<HTMLElement>('.stage'),root=document.createElement('div');root.className='jab-coaches';root.dataset.players=String(n);stage?.append(root);stage?.classList.add('jab-character-stage');
- const crew=Array.from({length:n},(_,p)=>{const wrap=document.createElement('div');wrap.className='jab-coach';wrap.dataset.player=String(p);root.append(wrap);const puppet=mascotPuppet(wrap,'rizzquake',`Rizzquake holds the targets for player ${p+1}`);puppet.world(n===1?0:p===0?-4:4,-.4,n===1?.9:.8);const cue=document.createElement('div');cue.className='jab-coach-cue';cue.innerHTML='<strong>HIT THE MITTS</strong><span>Four clean hits. One combo.</span><div><i></i><i></i><i></i><i></i></div>';cue.style.left=`${n===1?50:p?75:25}%`;root.append(cue);return {puppet,cue,title:cue.querySelector('strong')!,hint:cue.querySelector('span')!,dots:[...cue.querySelectorAll('i')],until:-1,recoil:0,event:'',combo:0};});
- scene.cleanup(()=>{root.remove();stage?.classList.remove('jab-character-stage');});
- return {react(p:number,kind:'hit'|'duck'|'miss',combo:number,t:number){const c=crew[p];c.until=t+.9;c.recoil=kind==='hit'?1:.4;c.event=kind==='duck'?'SMOOTH DUCK!':kind==='miss'?'RESET. NEXT ONE.':combo%4===0?'COMBO!':'NICE HIT!';c.combo=combo;},
- update(t:number,dt:number,pads:Pad[],combos:number[],barIn:number,present:boolean[]){crew.forEach((c,p)=>{const center=n===1?0:p===0?-4:4,scale=n===1?.9:.8,rig=mascotPose(MASCOT_STAND),bob=effects.on&&!pace.lean&&!matchMedia('(prefers-reduced-motion: reduce)').matches?Math.sin(t*3)*.07:0;
-  rig[0][0]+=bob;rig[0][1]+=bob;
-  for(const side of [0,1]){const pad=pads.find(q=>q.zone===p&&q.hand===side&&q.life>0);if(pad){rig[15+side]=[(pad.x-center)/scale,(pad.y+.4)/(.8*scale),1];rig[13+side]=[(rig[11+side][0]+rig[15+side][0])*.5,-.15,1];}else{rig[15+side]=[(side?1:-1)*1.25,.7,1];rig[13+side]=[(side?1:-1)*.9,-.3,1];}}
-  const duck=barIn<=0&&barIn>-.7;if(duck){for(const j of [0,11,12,13,14,15,16,23,24])rig[j][1]-=.65;}
-  c.recoil=Math.max(0,c.recoil-dt*4);c.puppet.update(rig,t,c.recoil);root.dataset.combo=String(Math.max(...combos));c.cue.dataset.reward=String(t<c.until&&c.event==='COMBO!');
-  const warning=barIn<1.5&&barIn>-.7;c.title.textContent=!present[p]?'STEP INTO VIEW':warning?'DUCK!':t<c.until?c.event:'HIT THE MITTS';c.hint.textContent=warning?'Bend your knees under the bar':t<c.until&&c.event==='COMBO!'?'Rizzquake felt that one!':'Gold mitt? Use the opposite glove.';
-  const count=combos[p]>0&&combos[p]%4===0?4:combos[p]%4;c.dots.forEach((dot,i)=>dot.dataset.on=String(i<count));c.cue.dataset.hits=String(combos[p]);
- });},};
+export function jabCoach(scene:Scene,n:number,stage:number){
+ const host=document.querySelector<HTMLElement>('.stage'),root=document.createElement('div');root.className='jab-session';root.dataset.players=String(n);host?.classList.add('jab-focus-stage');host?.append(root);document.body.classList.add('jab-focus-live');
+ const world=jabStage(stage);root.dataset.lighting=stage>=3?'evening':'day';if(host)host.dataset.jabLighting=root.dataset.lighting;
+ const caption=document.createElement('small');caption.className='jab-session-world';root.append(caption);
+ const brand=document.createElement('div');brand.className='jab-session-brand';brand.innerHTML='<span>MOON</span><b>JAB</b>';root.append(brand);
+ const skip=document.createElement('button');skip.className='jab-skip-practice';skip.textContent='Skip practice';skip.hidden=true;root.append(skip);let skipAction=()=>{};
+ skip.onclick=event=>{event.stopPropagation();skipAction();};
+ const seats=Array.from({length:n},(_,p)=>{
+  const el=document.createElement('div');el.className='jab-session-seat';el.dataset.player=String(p);el.style.setProperty('--seat',String(p));
+  el.innerHTML='<div class="jab-session-score"><b>0</b><span>BUILD A COMBO</span></div><div class="jab-session-cue"><strong>READY</strong><div class="jab-session-pattern" aria-label="Four-punch combination"><span>L</span><span>R</span><span>L</span><span>R</span></div><div class="jab-session-window"><i></i></div></div><div class="jab-session-feedback" role="status" aria-live="polite"></div>';
+  root.append(el);return {el,score:el.querySelector('b')!,sub:el.querySelector('.jab-session-score>span')!,cue:el.querySelector('strong')!,dots:[...el.querySelectorAll<HTMLElement>('.jab-session-pattern>span')],window:el.querySelector<HTMLElement>('.jab-session-window>i')!,feedback:el.querySelector('.jab-session-feedback')!,last:''};
+ });
+ scene.cleanup(()=>{root.remove();host?.classList.remove('jab-focus-stage');if(host)delete host.dataset.jabLighting;document.body.classList.remove('jab-focus-live');});
+ return {seats,states:Array.from({length:n},()=>newJabSeat(stage)),onSkip(fn:()=>void){skipAction=fn;},update(states:JabSeat[],t:number,present:boolean[],practice?:{seats:JabPractice[];left:number}){
+ skip.hidden=!practice;root.dataset.practice=String(!!practice);
+ caption.textContent=practice?`PRACTICE · ${Math.ceil(Math.max(0,practice.left))}s · NO SCORE`:t>=50&&t<60?'FINAL 10 · FOUR CLEAN HITS':`${world.name} · ${world.stage}/5`;root.dataset.finale=String(t>=50&&t<60);
+ seats.forEach((ui,p)=>{
+   const s=states[p],duck=s.phase==='duck'||s.phase==='duckWarn';
+   const lesson=practice?.seats[p];
+   const label=!present[p]?'STEP INTO VIEW':lesson?lesson.done?'READY':lesson.mode==='success'?'GOT IT':['LEFT JAB','RIGHT JAB','CROSS · RIGHT','DUCK'][lesson.index]:t>=60?'ROUND COMPLETE':t<0?'GLOVES UP':duck?'DUCK':s.phase==='combo'?'COMBO COMPLETE':s.phase==='reset'?'RESET YOUR GUARD':s.phase==='recover'?'NICE HIT':s.action.cross?`CROSS · ${s.action.hand===0?'LEFT':'RIGHT'}`:`${s.action.hand===0?'LEFT':'RIGHT'} JAB`;
+   ui.cue.textContent=label;ui.score.textContent=String(s.score);ui.sub.textContent=t>=50&&t<60?s.finaleWon?'FINISH BONUS +6':`FINISH ${s.finaleStreak}/4 · BONUS +6`:s.completed?`${s.completed} COMBO${s.completed===1?'':'S'} · BEST STREAK ${s.best}`:'FOUR CLEAN HITS · ONE COMBO';
+   if(lesson)ui.sub.textContent=lesson.done?'READY FOR THE ROUND':['Left glove to the coral mitt','Right glove to the teal mitt','Right glove across toward the centre','Bend your knees under the rail'][lesson.index];
+   ui.el.dataset.phase=s.phase;ui.el.dataset.hand=String(s.action.hand);ui.el.dataset.combo=String(s.completed);
+   ui.dots.forEach((dot,i)=>{const move=jabSequence(s.stage,s.pattern,s.patternAt)[i];dot.textContent=lesson?['L','R','C','↓'][i]:`${move.hand===0?'L':'R'}${move.cross?'×':''}`;const index=lesson?lesson.done?4:lesson.index:s.index;dot.dataset.state=i<index?'done':i===index?'current':'next';});
+   ui.window.style.transform=`scaleX(${s.phase==='strike'?Math.max(0,1-s.age/jabWindow(s)):0})`;
+   const feedback=t-s.finaleAt<1.2?'FINISH BONUS +6':s.phase==='combo'?'FOUR FOR FOUR':s.phase==='reset'?s.feedback:s.phase==='recover'?s.feedback:'';if(ui.last!==feedback){ui.feedback.textContent=feedback;ui.last=feedback;}
+  });}};
 }
