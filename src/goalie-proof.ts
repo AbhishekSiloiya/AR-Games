@@ -12,7 +12,8 @@ const hud=((key,text)=>{if(key==='clock')clock.textContent=text;if(key==='big')b
 saveGoalieSettings({reach:'comfort',practice:false});players[0].present=true;
 let x=.5,y=-.65;window.addEventListener('pointermove',e=>{x=e.clientX/innerWidth*2-1;y=1-e.clientY/innerHeight*2;});
 const input=()=>players[0].hands.forEach((hand,i)=>Object.assign(hand,{x:i?x:-.8,y:i?y:-.85,seen:true,t:performance.now(),vx:0,vy:0,ax:0,ay:0}));
-const update=await goalie({n:1,stage:1,mode:'',team:false,best:0,hud,scene,cleanup:scene.cleanup,onEnd(){}});
+const stage=Math.max(1,Math.min(5,Number(new URLSearchParams(location.search).get('stage'))||1));
+const update=await goalie({n:1,stage,mode:'',team:false,best:0,hud,scene,cleanup:scene.cleanup,onEnd(){}});
 run(dt=>{input();update(dt);});
 const debug=()=> (window as Window&{__goalie?:{snapshot:()=>unknown;advance:(ms:number)=>void}}).__goalie;
 Object.assign(window,{render_game_to_text:()=>JSON.stringify(debug()?.snapshot()),advanceTime:(ms:number)=>{input();debug()?.advance(ms);}});

@@ -5,3 +5,6 @@
 - Goal, net, gloves, rings and reaction geometry are authored in code. The existing panelled ball material is reused on a higher-resolution sphere.
 - Crowd swell is original filtered procedural noise, not a recording of people. Existing stadium synth music and CC0 Kenney impact samples retain their original project credits. Sound runs through the shared pauseable audio clock.
 - No Nintendo assets, logos or characters were used. The clear sporting presentation is an influence, not an affiliation.
+
+
+28 October progression: stadium-sunset-v1.png and stadium-floodlit-v1.png are original built-in image-generation lighting edits of stadium-v1.png. Exact prompts: stadium-sunset-prompt.txt and stadium-floodlit-prompt.txt. Same architecture/camera, no new characters. Three authored backplates, not five modeled stadiums; the goal, gloves, striker and ball remain real time. Music: five code-authored arrangements using the existing synth engine; no imported music recording.

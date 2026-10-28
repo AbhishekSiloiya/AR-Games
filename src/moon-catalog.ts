@@ -1,3 +1,4 @@
+import {keeperArt} from './goalie-stages.ts';
 import {jabStage} from './jab-presentation.ts';
 // The curated MOON release. Legacy game modules and saved sessions stay intact.
 export const MOON_GAME_IDS: string[] = ['slice','goalie','freeze','shapeup','jacks','jab'];
@@ -10,5 +11,5 @@ export const MOON_CATALOG: Record<string,{name:string;world:string;hook:string;m
  jab:{name:'Jab',world:'FIND YOUR FIGHT',hook:'Gloves on. World off.',move:'Punch · duck',art:'jab',steps:['Follow LEFT or RIGHT. Extend that arm toward the raised outer mitt.','Land four punches to complete a combination. Reset between hits.','When DUCK appears, bend your knees. Then return to guard.']},
 };
 const WORLD_ART:Record<string,string>={slice:'juice',goalie:'stadium',freeze:'club',shapeup:'galaxy',jacks:'galaxy',jab:'boxing'};
-export const moonArt = (id:string,stage=1) => id==='goalie'?'/assets/moon/goalie/stadium-v1.png':id==='jab'?jabStage(stage).art:`/assets/moon/play/${WORLD_ART[id] ?? 'galaxy'}.webp`;
+export const moonArt = (id:string,stage=1) => id==='goalie'?keeperArt(stage):id==='jab'?jabStage(stage).art:`/assets/moon/play/${WORLD_ART[id] ?? 'galaxy'}.webp`;
 export const moonBuddy = (id:string) => ['jab','goalie'].includes(id)?'/assets/moon/crew/rizzquake.webp':`/assets/moon/play/${['goalie','jacks','jab'].includes(id)?'moodi-action':'fuzzbyte-cheer'}.webp`;
