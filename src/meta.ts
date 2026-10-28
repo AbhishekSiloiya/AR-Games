@@ -13,12 +13,12 @@ export const STARS: Record<string, [number, number, number]> = {
 export const STAGES = 5;
 export const hardness = (stage: number) => 1 + (stage - 1) * 0.22; // games multiply speeds and spawn rates by this
 // A game's other modes have their own goals; a team of two is asked for a bit less than twice what one player is.
-export const MODE_STARS: Record<string, [number, number, number]> = { 'slice:classic': [30, 70, 120], 'slice:zen': [40, 70, 100], 'keepy:classic': [30, 70, 120], 'pulse:afterglow': [6500, 13000, 22000], 'pulse:hyperline': [7000, 14000, 24000] };
+export const MODE_STARS: Record<string, [number, number, number]> = { 'freeze:studio':[100,200,320], 'slice:classic': [30, 70, 120], 'slice:zen': [40, 70, 100], 'keepy:classic': [30, 70, 120], 'pulse:afterglow': [6500, 13000, 22000], 'pulse:hyperline': [7000, 14000, 24000] };
 export const variantOf = (mode: string, team: boolean) => [mode, team ? 'team' : ''].filter(Boolean).join('+');
 export const starGoals = (game: string, stage: number, variant = '') => {
   const team = variant.endsWith('team'), mode = variant.replace(/\+?team$/, '');
   // Goalie presents one deliberate shot at a time; its shorter scoring ceiling needs gentler goal growth.
-  const growth=game==='goalie'?.075:.3;
+  const growth=game==='goalie'||game==='freeze'&&mode==='studio'?.075:.3;
   return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * growth) * (game==='goalie'?Math.pow(keeperFromVariant(mode).speed/100,.35):1) * (team ? 1.8 : 1)));
 };
 export const starsFor = (game: string, stage: number, score: number, variant = '') => starGoals(game, stage, variant).filter((goal) => score >= goal).length;
@@ -31,11 +31,11 @@ export const bestScore = (sessions: Session[], who: string, game: string, stage:
 // Stage n opens after two stars. Goalie shares access across setups; bests remain per exact variant.
 export function unlockedStage(sessions: Session[], who: string, game: string, variant = '') {
   let stage = 1;
-  while (stage < STAGES && (game==='goalie'?keeperStageStars(sessions,who,stage):bestStars(sessions, who, game, stage, variant)) >= 2) stage++;
+  while (stage < STAGES && (game==='goalie'?keeperStageStars(sessions,who,stage):game==='freeze'&&(variant===''||variant==='studio')?Math.max(bestStars(sessions,who,game,stage,''),bestStars(sessions,who,game,stage,'studio')):bestStars(sessions, who, game, stage, variant)) >= 2) stage++;
   return stage;
 }
 export const totalStars = (sessions: Session[], who: string) =>
-  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => game==='goalie'?keeperStageStars(sessions,who,i+1):bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
+  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => game==='goalie'?keeperStageStars(sessions,who,i+1):game==='freeze'?Math.max(bestStars(sessions,who,game,i+1,''),bestStars(sessions,who,game,i+1,'studio')):bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
 
 // XP: moving pays, stars pay, harder stages pay, beating yourself pays.
 export const sessionXp = (s: { points: number; stars: number; stage: number; newBest: boolean }) =>

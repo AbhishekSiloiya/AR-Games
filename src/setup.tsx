@@ -72,7 +72,7 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
     raf=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf);
   }, [game,n]);
   const pilot=true;
-  const viewLabel=game==='shapeup'?'You + pose coach':game==='freeze'?'You + disco gear':['slice','keepy'].includes(game)?'See yourself':'Game + live tracking';
+  const viewLabel=game==='shapeup'?'You + pose coach':game==='freeze'?'You + dance partner':['slice','keepy'].includes(game)?'See yourself':'Game + live tracking';
   return <div className="player-setup">
     <header className="setup-heading"><div><p className="setup-eyebrow">GET READY · {title}</p><h1>Stand naturally. Let’s play.</h1></div><button className="ghost" onClick={onBack}>← Back</button></header>
     <div className="setup-workspace">
@@ -81,7 +81,7 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
         <h2>Just step into view</h2>
         <p>{config.upper?'Keep your shoulders and hands in view. No special pose needed.':'Step back enough to see your hands and feet. Relax your arms and face the camera.'}</p>
         <div className="joint-checks">{config.joints.filter(j=>j===11||(j>=15&&j%2===1)).map(j=><span key={j} className={status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'ready':''}>{status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'✓':'○'} {j===27?'Feet':`${jointName(j)}${j===0?'':'s'}`}</span>)}</div>
-        {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{viewLabel}</button><button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>Classic view</button></fieldset>}
+        {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{viewLabel}</button>{game!=='freeze'&&<button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>Classic view</button>}</fieldset>}
         {game==='jacks'&&<p className="player-style-note">Raise either hand to shoot; lower it to reload. Your space ranger follows along.</p>}
         <button className="primary" disabled={!status.usable} onClick={startGame}>Start game</button>
         <p className="dim">Starts automatically in about a second. You can stand anywhere in view — no need to match a pose.</p>
