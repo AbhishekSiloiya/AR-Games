@@ -20,7 +20,7 @@ export function stepKeeper(s:KeeperSeat,dt:number,t:number,present:boolean,hands
  if(s.phase==='waiting'){
   if(s.age<.35)return null;
   const l=keeperLayout(s.n,s.seat),shot=keeperShot(s.stage,s.index,t,practice);
-  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8);s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002)/s.speed;s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
+  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8);s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002)/(s.speed*1.5);s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
  }
  if(s.phase==='windup'){if(s.age<.85)return null;s.phase='flight';s.age=0;return 'kick';}
  if(s.phase==='flight'){
