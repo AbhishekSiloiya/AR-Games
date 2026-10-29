@@ -11,6 +11,7 @@ import {sliceArena} from '../slice-arena.ts';
 import {sliceFruit} from '../slice-fruit.ts';
 import {sliceHeroFruit} from '../slice-hero-fruit.ts';
 import {sliceInputGate} from '../slice-input.ts';
+import {sliceSpread,sliceArc} from '../slice-launch.ts';
 import { moonSlice } from '../moon-slice.ts';
 import { hardness } from '../meta.ts';
 import { cameraReach, players, sim, trackingSeen } from '../pose.ts';
@@ -138,14 +139,16 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     if (g.lives <= 0) { say('game_over'); finish(); }
   };
 
-  let launchSeat=0;
-  const launch = (piece: Piece, z: number, shot: Shot) => {
+  let launchSeat=0;const phraseSeat=[0,0];
+  const launch = (piece: Piece, z: number, shot: Shot, gravityScale:number) => {
     const side = shot.at, floaty = rules.gravity, help = 1 - 0.18 * g.assist[z]; // helped players get slower, higher-hanging fruit
     const owner=team?launchSeat++%n:z, reach=cameraReach[owner];
-    const area=mirrorOn()&&reach ? cameraLaunchArea(reach.left,reach.right,players[owner].frame.aspect,R) : null;
+    const area=mirrorOn()&&reach ? cameraLaunchArea(reach.left,reach.right,players[owner].frame.aspect,R*.35) : {centre:team?0:zoneX(n,z),half:(team?H*.8:zoneHalf(n))-R*.6};
+    const vy=((piece.kind === 'star' ? 11.5 : 10)+Math.random()*1.6)*(shot.lift??1)*Math.sqrt(floaty)*(.96+.04*help);
+    const arc=sliceArc(side,area,vy,-GRAVITY*floaty*gravityScale,Math.random());
     Object.assign(piece, {
-      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x: area ? area.centre+side*area.half*.85 : (team ? 0 : zoneX(n, z)) + side * (team ? H * 0.8 : zoneHalf(n)) * 0.78, y: -H / 2 - R,
-      vx: -side * (0.4 + Math.random() * 0.8) * help, vy: ((piece.kind === 'star' ? 11.5 : 10) + Math.random() * 1.6) * (shot.lift ?? 1) * Math.sqrt(floaty) * (0.96 + 0.04 * help), rx: Math.random() * 360, ry: Math.random() * 360,
+      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x:arc.x, y: -H / 2 - R,
+      vx:arc.vx, vy, rx: Math.random() * 360, ry: Math.random() * 360,
     });
     if (piece.kind === 'power') piece.power = (['frenzy', 'double', 'freeze'] as Power[])[Math.floor(Math.random() * 3)];
   };
@@ -177,11 +180,12 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       const name = rush ? (Math.random() < 0.5 ? 'fountain' : 'fan') : storm && Math.random() < 0.45 ? (Math.random() < 0.5 ? 'dare' : 'bomb') : pick(act[2]);
       // Now and then a power-up rides along instead (Arcade only, three a round, never in the last act).
       const power = rules.powers && g.powersLeft > 0 && progress > 0.2 && progress < 0.8 && Math.random() < 0.09 && !rush;
-      for (const shot of power ? [{ at: Math.random() * 1.2 - 0.6, delay: 0, kind: 'power' as Kind, lift: 1.1 }] : PHRASES[name]()) {
+      const phrase=power ? [{ at: Math.random() * 1.2 - 0.6, delay: 0, kind: 'power' as Kind, lift: 1.1 }] : PHRASES[name]();
+      for (const shot of sliceSpread(phrase,phraseSeat[z]++)) {
         const piece = take(shot.kind ?? 'fruit', rules.bombs && !rush && !frenzy && t > 6);
         if (!piece) continue;
         if (piece.kind === 'power') g.powersLeft--;
-        launch(piece, z, shot);
+        launch(piece, z, shot,moon?.45:1);
       }
     }
 
