@@ -1,44 +1,21 @@
-import { toScreen, type Scene } from './engine.ts';
-import { effects } from './pace.ts';
-import { players } from './pose.ts';
-import { mascotPuppet } from './mascot-puppet.ts';
-import { mascotPose } from './mascot-motion.ts';
-import { sliceMomentum } from './moon-experience.ts';
-const text=(node:Element,value:string)=>{if(node.textContent!==value)node.textContent=value;};
+import {toScreen,type Scene} from './engine.ts';
+import {effects,pace} from './pace.ts';
+import {sliceCoach} from './slice-coach.ts';
 import './moon-slice.css';
-
-export function moonSlice(scene:Scene,n:number,team:boolean){
-  const stage=document.querySelector('.stage');stage?.classList.add('moon-stage','moon-slice-stage');
-  const root=document.createElement('div');root.className='moon-slice';root.dataset.players=String(n);
-  root.innerHTML='<div class="moon-arena-brand">MOON / SLICE</div><div class="moon-slice__phase"></div><div class="moon-slice__instruction" role="status" aria-live="polite">SWIPE FRUIT. SKIP BOMBS.</div>';
-  const phase=root.querySelector<HTMLElement>('.moon-slice__phase')!,instruction=root.querySelector<HTMLElement>('.moon-slice__instruction')!;
-  const seats=Array.from({length:team?1:n},(_,p)=>{
-    const e=document.createElement('div');e.className='moon-slice__momentum';e.dataset.player=String(p);
-    e.innerHTML='<span class="moon-slice__label"></span><strong></strong><div class="moon-slice__track"><i></i></div><small></small>';root.append(e);
-    return {e,label:e.querySelector('span')!,value:e.querySelector('strong')!,fill:e.querySelector('i')!,next:e.querySelector('small')!};
-  });
-  const flashes=Array.from({length:10},()=>{
-    const e=document.createElement('div');e.className='moon-slice__impact';e.hidden=true;e.setAttribute('aria-hidden','true');
-    e.innerHTML='<img class="moon-slice__juice" src="/assets/moon/play/juice.webp" alt="" /><svg viewBox="0 0 160 100"><ellipse cx="80" cy="50" rx="49" ry="24"/><path d="M4 59L62 46 23 20 78 39 102 4 97 40 155 26 109 50 152 82 96 62 72 98 69 61Z"/><path class="moon-slice__cut" d="M2 72L158 28"/></svg><b></b>';root.append(e);return {e,text:e.querySelector('b')!,life:0,x:0,y:0,angle:0};
-  });
-  stage?.append(root);scene.cleanup(()=>{root.remove();stage?.classList.remove('moon-stage','moon-slice-stage');});
-  let next=0,cheer=0;
-  const buddy=document.createElement('div');buddy.className='moon-slice__buddy';root.append(buddy);const puppet=mascotPuppet(buddy,'fuzzbyte','Fuzzbyte joins your swipes and celebrates combos');
-  return {
-    impact(x:number,y:number,combo:number,kind:'cut'|'bomb'|'power'|'slash',direction=0){
-      if(kind==='slash'||kind==='power'||combo>0&&combo%5===0)cheer=1.1;
-      if(!effects.on)return;
-      const at=toScreen(x,y,0);if(!at)return;
-      const f=flashes[next++%flashes.length];f.x=at[0]*100;f.y=at[1]*100;f.life=kind==='cut'?.28:.7;f.angle=direction;
-      f.e.dataset.kind=kind;f.text.textContent=kind==='bomb'?'RESET':kind==='power'?'POWER UP':kind==='slash'?`${combo} IN ONE!`:combo>0&&combo%5===0?`${combo} STREAK`:'';
-    },
-    update(dt:number,t:number,mode:string,combos:number[],powers:({name:string;seconds:number}|null)[],finale:boolean){
-      cheer=Math.max(0,cheer-dt);buddy.dataset.cheer=String(cheer>0);const pl=players[0];buddy.hidden=!pl.present;puppet.update(cheer>0?mascotPose([2.1,1.6,1,1.5,-1.66,-1.57,-1.48,-1.57]):pl.rig,t,0);
-      root.dataset.phase=finale?'finale':mode==='zen'?'zen':t<0?'ready':t>50&&mode===''?'frenzy':'play';
-      text(phase,finale?'FINAL CUT':mode==='zen'?'ZEN SESSION':mode==='classic'?'CLASSIC':t<0?'GET READY':t>50?'FRENZY':'CITRUS CLUB');
-      const action=finale?'SMASH THE MELON':t<6?'SWIPE FRUIT. SKIP BOMBS.':'CHAIN YOUR NEXT CUT';if(instruction.textContent!==action)text(instruction,action);
-      seats.forEach((s,p)=>{const combo=team?Math.min(...combos.slice(0,n)):combos[p],m=sliceMomentum(combo),power=powers[team?0:p];text(s.label,team?'TEAM FLOW':n>1?`PLAYER ${p+1}`:'YOUR FLOW');text(s.value,power?power.name:m.label);s.fill.style.transform=`scaleX(${m.fill})`;text(s.next,power?`${Math.ceil(power.seconds)}s remaining · ${combo} streak`:`${combo} streak · ${m.next} to next milestone`);});
-      for(const f of flashes){f.life=Math.max(0,f.life-dt);f.e.hidden=f.life<=0;if(f.life>0){f.e.style.left=`${f.x}%`;f.e.style.top=`${f.y}%`;f.e.style.opacity=String(Math.min(1,f.life*7));f.e.style.transform=`translate(-50%,-50%) rotate(${f.angle}deg) scale(${1+(1-Math.min(1,f.life/.28))*.3})`;}}
-    },
-  };
+const put=(e:Element,value:string)=>{if(e.textContent!==value)e.textContent=value;};
+export async function moonSlice(scene:Scene,n:number,team:boolean,stageNumber:number){
+ let disposed=false;scene.cleanup(()=>{disposed=true;});const host=document.querySelector('.stage');if(!host)return null;const root=document.createElement('div');root.className='moon-slice';root.dataset.players=String(n);host.classList.add('moon-slice-stage');host.append(root);scene.cleanup(()=>{root.remove();host.classList.remove('moon-slice-stage');});
+ root.innerHTML='<div class="slice-brand"><small>MOON CITRUS CLUB</small><b>SLICE</b><span>STAGE '+stageNumber+'</span></div><div class="slice-cue"><strong>GET READY</strong><span>Swipe through fruit. Skip the bombs.</span></div><div class="slice-toast" role="status" aria-live="polite"></div><div class="slice-coach-label">RIZZQUAKE<br><small>NICE MOVES.</small></div>';
+ const title=root.querySelector('.slice-cue strong')!,hint=root.querySelector('.slice-cue span')!,toast=root.querySelector<HTMLElement>('.slice-toast')!,label=root.querySelector<HTMLElement>('.slice-coach-label')!,actor=await sliceCoach(scene,n);if(disposed||!actor)return null;
+ const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,seats=Array.from({length:team?1:n},(_,p)=>{const e=document.createElement('div');e.className='slice-flow';e.dataset.player=String(p);e.innerHTML='<small></small><strong>0 STREAK</strong><div><i></i></div><span>Every five cuts grows your bonus.</span>';root.append(e);return {e,name:e.querySelector('small')!,value:e.querySelector('strong')!,fill:e.querySelector<HTMLElement>('i')!,note:e.querySelector('span')!};});
+ const flashes=Array.from({length:12},()=>{const e=document.createElement('div');e.className='slice-swipe';e.hidden=true;e.setAttribute('aria-hidden','true');e.innerHTML='<svg viewBox="0 0 160 70"><path d="M8 48Q80 5 152 20"/><path d="M15 55Q87 12 146 27"/></svg>';root.append(e);return {e,life:0,x:0,y:0,angle:0};});let next=0,pop=0,clock=0;
+ return {actor,state:()=>({toast:toast.textContent,toastLeft:pop,coach:actor.state()}),impact(x:number,y:number,combo:number,kind:'cut'|'bomb'|'power'|'slash',direction=0){
+  const earned=kind==='slash'||kind==='power'||kind==='cut'&&combo>0&&combo%5===0;
+  if(earned){actor.cheer();pop=1.65;put(toast,kind==='slash'?`${combo} IN ONE SWIPE!`:kind==='power'?'POWER UP!':`${combo} CUT STREAK!`);}
+  if(kind==='bomb'){pop=1;put(toast,'BOMB · RESET YOUR STREAK');}
+  if(!effects.on||reduced||pace.lean)return;const at=toScreen(x,y,0);if(!at)return;const f=flashes[next++%flashes.length];Object.assign(f,{x:at[0]*100,y:at[1]*100,life:.22,angle:direction});
+ },update(dt:number,t:number,mode:string,combos:number[],powers:({name:string;seconds:number}|null)[],finale:boolean){clock=t;pop=Math.max(0,pop-dt);toast.hidden=pop<=0;root.dataset.phase=finale?'finale':t<0?'ready':'play';const motion=effects.on&&!pace.lean&&!reduced;actor.update(dt,t,motion);label.hidden=!actor.state().visible;put(label.querySelector('small')!,t<0?'YOUR SWIPES. YOUR GAME.':'NICE MOVES.');put(title,finale?'SMASH THE MELON':t<0?'GET READY':mode==='zen'?'FIND YOUR FLOW':mode==='classic'?'MAKE EVERY CUT COUNT':t>50?'FINAL FRENZY':'JUICE THE MOMENT');put(hint,finale?'Fast swipes. Move out, then back in.':t<6?'Swipe through fruit. Skip the bombs.':'Three fruit in one swipe earns a bonus.');
+  seats.forEach((s,p)=>{const combo=team?Math.min(...combos.slice(0,n)):combos[p],power=powers[team?0:p];put(s.name,team?'TEAM FLOW':n===1?'YOUR FLOW':`PLAYER ${p+1}`);put(s.value,power?`${power.name} ${Math.ceil(power.seconds)}s`:`${combo} STREAK`);s.fill.style.width=`${(combo%5)/5*100}%`;put(s.note,power?'Keep slicing while it lasts.':`${5-combo%5} cuts to the next bonus`);});
+  flashes.forEach(f=>{f.life=Math.max(0,f.life-dt);f.e.hidden=f.life<=0;if(f.life>0){f.e.style.left=f.x+'%';f.e.style.top=f.y+'%';f.e.style.opacity=String(f.life/.22);f.e.style.transform=`translate(-50%,-50%) rotate(${f.angle}deg) scale(${1+(1-f.life/.22)*.25})`;}});
+ },get time(){return clock;}};
 }

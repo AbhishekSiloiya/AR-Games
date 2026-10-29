@@ -1,0 +1,10 @@
+import './ui.css';
+import './moon.css';
+import {begin,mount,run} from './engine.ts';
+import slice from './games/slice.ts';
+import {players} from './pose.ts';
+import type {Hud} from './kit.ts';
+const host=document.createElement('div');host.className='stage';host.style.cssText='width:100vw;height:100vh';document.body.style.margin='0';document.body.append(host);mount(host);const scene=begin();const clock=document.createElement('div'),score=document.createElement('div');clock.className='hud clock';score.className='hud score';host.append(clock,score);
+const hud=((key,text)=>{if(key==='clock')clock.textContent=text;if(key==='s0')score.textContent=text;}) as Hud;Object.assign(hud,{flash(){},shake(){},p(kind:string,p:number,text:string){if(kind==='s'&&p===0)score.textContent=text;},banner(){},pop(){}});
+let x=0,y=0;addEventListener('pointermove',e=>{x=(e.clientX/innerWidth-.5)*16;y=(.5-e.clientY/innerHeight)*9;});players[0].present=true;const input=()=>players[0].hands.forEach((h,i)=>Object.assign(h,{x:i?1:x/8,y:i?-1:y/4.5,seen:!i,t:performance.now(),vx:0,vy:0}));
+const update=await slice({n:1,stage:1,mode:'',team:false,best:0,hud,scene,cleanup:scene.cleanup,onEnd(){}});run(dt=>{input();update(dt);});const debug=()=> (window as Window&{__slice?:{snapshot:()=>unknown;advance:(ms:number)=>void}}).__slice;Object.assign(window,{render_game_to_text:()=>JSON.stringify(debug()?.snapshot()),advanceTime:(ms:number)=>{input();debug()?.advance(ms);}});
