@@ -1,6 +1,7 @@
 import {Mesh,Texture,ShaderMaterial,SEMANTIC_POSITION,PIXELFORMAT_RGBA8,FILTER_LINEAR,ADDRESS_CLAMP_TO_EDGE} from 'playcanvas';
 import {app,flat,node,own,shapes,fade,type Scene} from './engine.ts';
 import {feed} from './pose.ts';
+import {freezeAtmosphere} from './freeze-studio-atmosphere.ts';
 let plateAsset:Promise<Texture>|undefined;
 export async function freezeStudioScene(scene:Scene){
  let disposed=false;scene.cleanup(()=>{disposed=true;});const art=await(plateAsset??=new Promise<Texture>((resolve,reject)=>app.assets.loadFromUrl('/assets/moon/freeze/studio-v1.png','texture',(e,a)=>e||!a?reject(e):resolve(a.resource as Texture))));if(disposed)return null;
@@ -13,5 +14,6 @@ export async function freezeStudioScene(scene:Scene){
  }else{const panel=node(scene.root,shapes.quad(width,height),flat('#e6d9c6'),[1.8,-.3,-1]);panel.name='freeze-camera-unavailable';}
  const floorLook=flat('#91c4b8',{opacity:.4}),floor=Array.from({length:12},(_,i)=>{const tile=node(scene.root,shapes.quad(.66,.075),floorLook,[-7.2+i*1.2,-3.85,.5]);tile.setLocalEulerAngles(0,0,i%2?2:-2);return tile;});
  const sparkLook=flat('#fff9e8',{opacity:.5}),glints=Array.from({length:7},(_,i)=>{const e=node(scene.root,shapes.circle(.018+(i%3)*.008,12),sparkLook,[-5.6+(i%3)*.42,3.15+Math.floor(i/3)*.3,0]);return e;});
- return {state:{filter:'none',source:camera?'live-camera':'no-feed',width,height,aspect,visualTime:0},update(t:number,motion:boolean){if(camera&&video!.readyState>=2){camera.texture.setSource(video as unknown as HTMLCanvasElement);camera.texture.upload();}this.state.visualTime=t;floor.forEach((e,i)=>fade(e,motion?.2+(.5+.5*Math.sin(t*3.1-i*.75))*.25:.25));glints.forEach((e,i)=>fade(e,motion?.15+(.5+.5*Math.sin(t*.8+i))*.45:.25));}};
+ const atmosphere=freezeAtmosphere(scene,width,height);
+ return {state:{atmosphere:atmosphere.state,filter:'none',source:camera?'live-camera':'no-feed',width,height,aspect,visualTime:0},update(t:number,motion:boolean){if(camera&&video!.readyState>=2){camera.texture.setSource(video as unknown as HTMLCanvasElement);camera.texture.upload();}this.state.visualTime=t;atmosphere.update(t,motion);floor.forEach((e,i)=>fade(e,motion?.2+(.5+.5*Math.sin(t*3.1-i*.75))*.25:.25));glints.forEach((e,i)=>fade(e,motion?.15+(.5+.5*Math.sin(t*.8+i))*.45:.25));}};
 }

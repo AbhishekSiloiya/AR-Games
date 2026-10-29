@@ -19,7 +19,7 @@ assert.equal(keeperShot(4,6,55,false).finale,false,'showdown belongs to stage5')
 const {newKeeper,stepKeeper,flightPoint}=await import('./goalie-rules.ts');
 const s=newKeeper(4,0,1,1);s.index=4;stepKeeper(s,.4,20,true,[],false);assert.notEqual(s.bend,0);const mid=flightPoint(s,.5),end=flightPoint(s,1);assert.ok(Math.abs(mid.x-(s.from.x+s.tx)/2)>.15,'curve changes real flight, not just copy');assert.equal(end.x,s.tx);assert.equal(end.y,s.ty,'ring remains the true endpoint');
 const frozen={bend:s.bend,tx:s.tx,ty:s.ty,duration:s.duration,drill:s.drill,finale:s.finale};stepKeeper(s,.1,55,true,[],false);assert.deepEqual({bend:s.bend,tx:s.tx,ty:s.ty,duration:s.duration,drill:s.drill,finale:s.finale},frozen,'time/phase changes cannot move a prepared target or curve');
-const ramp=[];for(let stage=1;stage<=5;stage++){const q=newKeeper(stage,0,1,1);stepKeeper(q,.4,0,true,[],false);ramp.push(q.duration);}assert.deepEqual(ramp.map(x=>Math.round(x*100)),[190,179,168,157,146]);
+const ramp=[];for(let stage=1;stage<=5;stage++){const q=newKeeper(stage,0,1,1);stepKeeper(q,.4,0,true,[],false);ramp.push(q.duration);}assert.deepEqual(ramp.map(x=>Math.round(x*100)),[127,119,112,105,97]);
 const p=keeperProgress(12,[8,16,26],false);assert.equal(p.stars,1);assert.equal(p.remaining,4);assert.equal(p.goal,16);assert.equal(p.unlocked,false);
 assert.equal(keeperProgress(16,[8,16,26],false).unlocked,true);
 assert.equal(keeperProgress(30,[8,16,26],true).remaining,0);

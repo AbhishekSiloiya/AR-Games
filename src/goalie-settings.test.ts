@@ -21,4 +21,5 @@ for(let speed=75;speed<=125;speed+=5)for(let stage=1;stage<=5;stage++)for(const 
 }
 const slow=newKeeper(1,0,1,.8,.85),fast=newKeeper(1,0,1,.8,1.15);stepKeeper(slow,.4,0,true,[],false);stepKeeper(fast,.4,0,true,[],false);assert.ok(slow.duration>fast.duration);
 const practice=newKeeper(5,0,1,.8,1.25);stepKeeper(practice,.4,40,true,[],true);assert.equal(practice.duration,2.2);
-console.log('PASS Goalie presets, migration/bounds, exact-setup history, shared stage access, practice and attainable stars for all220 speed/stage/layout/reach combinations');
+for(let stage=1;stage<=5;stage++)for(const speed of [.75,1,1.25])for(const time of [0,30,55]){const s=newKeeper(stage,0,1,.8,speed);stepKeeper(s,.4,time,true,[],false);const previous=Math.max(1.25,1.9-(stage-1)*.11-time*.002)/speed;assert.ok(Math.abs(previous/s.duration-1.5)<1e-10,'same flight must be exactly50% faster at every slider setting');}
+console.log('PASS Goalie presets/history/practice, exact1.5x competitive flight and attainable stars for all220 speed/stage/layout/reach combinations');
