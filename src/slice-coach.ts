@@ -1,0 +1,10 @@
+import {Color,Texture,Vec2,type MeshInstance,type StandardMaterial} from 'playcanvas';
+import {app,instantiate,node,own,type Scene} from './engine.ts';
+let wool:Promise<Texture>|undefined;
+export async function sliceCoach(scene:Scene,n:number){
+ let disposed=false;scene.cleanup(()=>{disposed=true;});const [{entity:model},fabric]=await Promise.all([instantiate('/assets/moon/jab/rizzquake.glb'),wool??=new Promise<Texture>((resolve,reject)=>app.assets.loadFromUrl('/assets/moon/jab/wool.webp','texture',(e,a)=>e||!a?reject(e):resolve(a.resource as Texture)))]);if(disposed){model.destroy();return null;}
+ const root=node(scene.root);root.name='slice-rizzquake';root.setLocalPosition(n===1?-6.4:0,-3.7,2);root.setLocalScale(n===1?.48:.34,n===1?.48:.34,n===1?.48:.34);root.addChild(model);root.enabled=false;
+ for(const r of model.findComponents('render') as unknown as {meshInstances:MeshInstance[]}[])for(const mi of r.meshInstances){const m=own((mi.material as StandardMaterial).clone());m.useMetalness=false;m.useSkybox=false;m.useSheen=false;m.specular=new Color(.025,.025,.025);m.gloss=.1;if(!/eye|iris|pupil|catchlight/.test(m.name)){m.diffuseMap=fabric;m.diffuseMapTiling=new Vec2(2,2);}m.update();mi.material=m;}
+ const find=(name:string)=>model.findByName(name)!,arms=['L','R'].map(s=>[find('UpperArm.'+s),find('LowerArm.'+s)]),head=find('Head'),spine=find('Spine'),smile=find('Smile');let life=0,serial=0,time=0;
+ return {root,model,cheer(){life=1.65;serial++;},update(dt:number,t:number,motion:boolean){life=Math.max(0,life-dt);time=t;root.enabled=t<0||life>0;const k=life>0?Math.sin(Math.min(1,life/.2)*Math.PI/2):0,wave=motion?Math.sin(t*9)*12:0;arms.forEach(([upper,lower],i)=>{upper.setLocalEulerAngles(0,0,(i?-1:1)*(55-k*(48+wave)));lower.setLocalEulerAngles(0,0,(i?1:-1)*(22+k*45));});head.setLocalEulerAngles(0,0,k*(motion?Math.sin(t*5)*6:0));spine.setLocalEulerAngles(0,0,k*(motion?Math.sin(t*6)*3:0));smile.setLocalScale(1,1+k*.2,1);},state(){return {character:'rizzquake',mesh:'skinned-3d',visible:root.enabled,life,serial,time,arm:arms[0][0].getLocalRotation().toString()};}};
+}

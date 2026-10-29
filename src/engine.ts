@@ -521,7 +521,7 @@ const TONES: Partial<Record<Place, [string, string]>> = { deep: ['#031a2e', '#38
 export const mirrorOn = () => tuning.look === 'mirror' && !sim && !!feed.video?.videoWidth;
 // Stage units per picture-height, and where a point of the picture (x in 0..aspect, y in 0..1, mirrored) lands on the stage.
 export const feedUnit = (aspect: number) => (aspect >= W / H ? H : W / aspect);
-function mirror(scene: Scene, place: Place) {
+function mirror(scene: Scene, place: Place, natural=false) {
   const video = feed.video!, tex = own(new Texture(device, { name: 'feed', width: video.videoWidth, height: video.videoHeight, format: PIXELFORMAT_RGBA8, mipmaps: false, minFilter: FILTER_LINEAR, magFilter: FILTER_LINEAR, addressU: ADDRESS_CLAMP_TO_EDGE, addressV: ADDRESS_CLAMP_TO_EDGE }));
   const [low, high] = TONES[place] ?? ['#120a2e', '#a78bfa'], aspect = video.videoWidth / video.videoHeight, unit = feedUnit(aspect);
   const m = own(new ShaderMaterial({
@@ -543,7 +543,7 @@ function mirror(scene: Scene, place: Place) {
         gl_FragColor = vec4(gammaCorrectOutput(c), 1.0);
       }`,
   }));
-  m.setParameter('uNatural', place === 'disco' || place === 'studio' ? 1 : 0);
+  m.setParameter('uNatural', natural || place === 'disco' || place === 'studio' ? 1 : 0);
   m.setParameter('uFeed', tex); m.setParameter('uLow', linear(low)); m.setParameter('uHigh', linear(high)); m.setParameter('uFit', [aspect * unit, unit, 0, 0]);
   m.setParameter('uTintA', linear('#818cf8')); m.setParameter('uTintB', linear('#34d399')); m.setParameter('uSpotA', [0, 0, 0, 0]); m.setParameter('uSpotB', [0, 0, 0, 0]);
   m.update();
@@ -563,8 +563,8 @@ function mirror(scene: Scene, place: Place) {
 const everyFrame: (() => void)[] = [];
 const timed: ShaderMaterial[] = []; // materials that want the clock, once a frame
 // `bodies: true` says the game shows its players' whole bodies, so under the Mirror look the room takes the place's place.
-export function backdrop(scene: Scene, place: Place, bodies = false) {
-  if (bodies && mirrorOn()) return Object.assign(mirror(scene, place), { drive: (_: number) => {}, mood: (_: number) => {} });
+export function backdrop(scene: Scene, place: Place, bodies = false, natural=false) {
+  if (bodies && mirrorOn()) return Object.assign(mirror(scene, place, natural), { drive: (_: number) => {}, mood: (_: number) => {} });
   const m = own(new ShaderMaterial({
     uniqueName: `romp-place-${place}`,
     attributes: { vertex_position: SEMANTIC_POSITION },

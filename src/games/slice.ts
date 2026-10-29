@@ -7,11 +7,16 @@
 // Two players are a team by default (one score, a multiplier as strong as the weaker streak, a bonus for cutting in
 // sync) or rivals. Either way each player is quietly helped when fruit keeps getting past them: never shown, never said.
 import { Quat, Vec3, type Entity } from 'playcanvas';
+import {sliceArena} from '../slice-arena.ts';
+import {sliceFruit} from '../slice-fruit.ts';
+import {sliceHeroFruit} from '../slice-hero-fruit.ts';
+import {sliceInputGate} from '../slice-input.ts';
+import {sliceSpread,sliceArc} from '../slice-launch.ts';
 import { moonSlice } from '../moon-slice.ts';
 import { hardness } from '../meta.ts';
-import { cameraReach, players, sim } from '../pose.ts';
+import { cameraReach, players, sim, trackingSeen } from '../pose.ts';
 import { cameraLaunchArea } from '../calibration.ts';
-import { backdrop, clippable, fitted, flat, instanced, mirrorOn, node, setClip, shapes, show, tint } from '../engine.ts';
+import { clippable, fitted, flat, instanced, mirrorOn, node, setClip, shapes, show, tint } from '../engine.ts';
 import { H, PLAYER_COLORS, bestLine, bursts as makeBursts, comboText, divider, hands as makeHands, hitSound, hitStop, music, round, say, scoreHud, segDist, sfx, swept, zoneHalf, zoneX, type Game, type StageHand } from '../kit.ts';
 
 const R = 0.75, GRAVITY = -9, FRENZY = 10, FINALE = 4.5, DEG = 180 / Math.PI;
@@ -60,12 +65,15 @@ const ACTS: [until: number, gap: number, mix: [string, number][]][] = [
 const pick = <T,>(mix: [T, number][]) => { let r = Math.random() * mix.reduce((a, [, w]) => a + w, 0); return mix.find(([, w]) => (r -= w) < 0)![0]; };
 
 export default async function slice({ n, stage, mode, team, best, onEnd, hud, scene }: Game) {
+  let disposed=false;scene.cleanup(()=>{disposed=true;});
   const hard = hardness(stage), rules = RULES[mode as keyof typeof RULES] ?? RULES[''], length = rules.length;
   const [fruit, bomb, star, banana] = await Promise.all([
-    Promise.all(FRUIT.map((f) => fitted(`/assets/food/${f.url}.glb`, R * f.size))), fitted('/assets/kit/bomb.glb', R * 2.1), fitted('/assets/kit/star.glb', R * 1.8), fitted('/assets/food/banana.glb', R * 2.4),
+    Promise.all(FRUIT.map((f,i) => i<3?sliceHeroFruit(f.url,R*f.size):fitted(`/assets/food/${f.url}.glb`,R*f.size))), fitted('/assets/kit/bomb.glb', R * 2.1), fitted('/assets/kit/star.glb', R * 1.8), fitted('/assets/food/banana.glb', R * 2.4),
   ]);
-  backdrop(scene, 'dojo', true);
-  const experience=moonSlice(scene,n,team);
+  if(disposed)return()=>{};
+  const arena=await sliceArena(scene);if(disposed||!arena)return()=>{};
+  const experience=await moonSlice(scene,n,team,stage);if(disposed||!experience)return()=>{};
+  fruit.forEach((e,i)=>sliceFruit(e,FRUIT[i].url));
   // Juice stays on the wall: every cut leaves a stain and a few drops that soak away over some seconds.
   const SPLATS = 72, stains = instanced(scene.root, shapes.blob(1), SPLATS, 0.999), wet = Array.from({ length: SPLATS }, () => ({ life: 0, x: 0, y: 0, size: 0 }));
   let nextStain = 0;
@@ -87,7 +95,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     // Each half is the whole model again, with its own material clipped by its own plane.
     const halves = kind !== 'fruit' ? [] : [0, 1].map(() => {
       const obj = add(fruit[type].clone() as Entity);
-      clippable(obj, FRUIT[type].flesh);
+      clippable(obj, FRUIT[type].flesh);sliceFruit(obj,FRUIT[type].url,true);
       return { obj, nx: 0, ny: 0, x: 0, y: 0, vx: 0, vy: 0 };
     });
     return { state: 'off', kind, flesh: FRUIT[type].flesh, power: 'frenzy', zone: 0, wait: 0, x: 0, y: 0, vx: 0, vy: 0, spin: 0, age: 0, rx: 0, ry: 0, whole, halo, halves, along: new Vec3(), base: new Quat() };
@@ -111,8 +119,12 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     chain: [0, 1, 2, 3].map(() => ({ n: 0, until: 0, x: 0, y: 0 })), // per hand: fruit cut in one continuous swing
     inside: [0, 1, 2, 3].map(() => false), burst: -1,
   };
-  const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true }), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
-  if (import.meta.env.DEV || sim) {Object.assign(window, { __slice: { pieces, state:g } });scene.cleanup(()=>{delete (window as Window&{__slice?:unknown}).__slice;});} // test hook: a headless probe watches every piece, every frame
+  const hands = makeHands(scene, n, { cx: (p) => zoneX(n,p), hw: zoneHalf(n), hh: H/2, camera: true },5,['#f5c04e','#57c9b4']), bursts = makeBursts(scene.root), passed = bestLine(hud, best);
+  let time=-3,lastWall=performance.now(),handState:StageHand[]=[];const gates=Array.from({length:n*2},()=>sliceInputGate());
+  const reset=()=>{gates.forEach(gate=>gate.reset(performance.now()));};window.addEventListener('keydown',reset,true);window.addEventListener('click',reset,true);
+  const snapshot=()=>({time,stage,mode,team,arena,hands:handState.map(h=>({x:h.x,y:h.y,on:h.on,speed:h.speed})),score:g.scores.slice(0,team?1:n).map(Math.round),cut:g.cut.slice(0,n),combo:g.combo.slice(0,n),lives:g.lives,finale:g.finale,over:g.over,feedback:experience.state(),pieces:pieces.filter(pc=>pc.state==='whole'||pc.state==='cut').map(pc=>({kind:pc.kind,state:pc.state,x:pc.x,y:pc.y,zone:pc.zone,age:pc.age}))});
+  const advance=(ms:number)=>{for(let f=0;f<Math.ceil(ms/(1000/60));f++)update(1/60);};Object.assign(window,{__slice:{pieces,state:g,snapshot,advance,actor:experience.actor}});
+  scene.cleanup(()=>{window.removeEventListener('keydown',reset,true);window.removeEventListener('click',reset,true);delete(window as Window&{__slice?:unknown}).__slice;});
   const total = () => (team ? g.scores[0] : Math.max(g.scores[0], g.scores[1]));
   const notes = () => Array.from({ length: n }, (_, p) => [g.bestSlash[p] >= 3 ? `Best slash: ${g.bestSlash[p]} fruit` : '', g.bestCombo[p] >= 5 ? `Longest combo ×${g.bestCombo[p]}` : '', g.crits[p] ? `${g.crits[p]} critical${g.crits[p] > 1 ? 's' : ''}` : ''].filter(Boolean));
   const finish = () => { g.over = true; music.stop(); onEnd(team ? [g.scores[0], g.scores[0]] : g.scores.slice(0, n), notes()); };
@@ -127,14 +139,16 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     if (g.lives <= 0) { say('game_over'); finish(); }
   };
 
-  let launchSeat=0;
-  const launch = (piece: Piece, z: number, shot: Shot) => {
+  let launchSeat=0;const phraseSeat=[0,0];
+  const launch = (piece: Piece, z: number, shot: Shot, gravityScale:number) => {
     const side = shot.at, floaty = rules.gravity, help = 1 - 0.18 * g.assist[z]; // helped players get slower, higher-hanging fruit
     const owner=team?launchSeat++%n:z, reach=cameraReach[owner];
-    const area=mirrorOn()&&reach ? cameraLaunchArea(reach.left,reach.right,players[owner].frame.aspect,R) : null;
+    const area=mirrorOn()&&reach ? cameraLaunchArea(reach.left,reach.right,players[owner].frame.aspect,R*.35) : {centre:team?0:zoneX(n,z),half:(team?H*.8:zoneHalf(n))-R*.6};
+    const vy=((piece.kind === 'star' ? 11.5 : 10)+Math.random()*1.6)*(shot.lift??1)*Math.sqrt(floaty)*(.96+.04*help);
+    const arc=sliceArc(side,area,vy,-GRAVITY*floaty*gravityScale,Math.random());
     Object.assign(piece, {
-      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x: area ? area.centre+side*area.half*.85 : (team ? 0 : zoneX(n, z)) + side * (team ? H * 0.8 : zoneHalf(n)) * 0.78, y: -H / 2 - R,
-      vx: -side * (0.4 + Math.random() * 0.8) * help, vy: ((piece.kind === 'star' ? 11.5 : 10) + Math.random() * 1.6) * (shot.lift ?? 1) * Math.sqrt(floaty) * (0.96 + 0.04 * help), rx: Math.random() * 360, ry: Math.random() * 360,
+      state: 'wait', wait: shot.delay, zone: z, spin: Math.random() * 4 - 2, x:arc.x, y: -H / 2 - R,
+      vx:arc.vx, vy, rx: Math.random() * 360, ry: Math.random() * 360,
     });
     if (piece.kind === 'power') piece.power = (['frenzy', 'double', 'freeze'] as Power[])[Math.floor(Math.random() * 3)];
   };
@@ -143,9 +157,9 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
     return kind === 'bomb' && !bombsOk ? undefined : free[Math.floor(Math.random() * free.length)];
   };
 
-  return (rawDt: number) => {
+  const update = (rawDt: number) => {
     const real = Math.min(rawDt, 0.05), t = tick(rawDt);
-    if (t === null || g.over) return;
+    if (t === null || g.over) return;time=t;
     const ending = t >= length, progress = isFinite(length) ? Math.min(1, Math.max(0, t) / length) : Math.min(0.82, 0.17 + t / 140);
     const act = ACTS.find(([until]) => progress <= until) ?? ACTS[3], frenzy = mode === '' && t > length - FRENZY && !ending;
 
@@ -166,15 +180,17 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       const name = rush ? (Math.random() < 0.5 ? 'fountain' : 'fan') : storm && Math.random() < 0.45 ? (Math.random() < 0.5 ? 'dare' : 'bomb') : pick(act[2]);
       // Now and then a power-up rides along instead (Arcade only, three a round, never in the last act).
       const power = rules.powers && g.powersLeft > 0 && progress > 0.2 && progress < 0.8 && Math.random() < 0.09 && !rush;
-      for (const shot of power ? [{ at: Math.random() * 1.2 - 0.6, delay: 0, kind: 'power' as Kind, lift: 1.1 }] : PHRASES[name]()) {
+      const phrase=power ? [{ at: Math.random() * 1.2 - 0.6, delay: 0, kind: 'power' as Kind, lift: 1.1 }] : PHRASES[name]();
+      for (const shot of sliceSpread(phrase,phraseSeat[z]++)) {
         const piece = take(shot.kind ?? 'fruit', rules.bombs && !rush && !frenzy && t > 6);
         if (!piece) continue;
         if (piece.kind === 'power') g.powersLeft--;
-        launch(piece, z, shot);
+        launch(piece, z, shot,moon?.45:1);
       }
     }
 
-    const at = hands.update(real);
+    const now=performance.now();if(now-lastWall>180)reset();lastWall=now;
+    const at=hands.update(real);handState=at;at.forEach((h,i)=>{const gate=gates[i].sample(now,sim?now:Math.min(players[h.p].hands[i&1].t,trackingSeen[h.p]),h.on);if(gate.reset){h.px=h.x;h.py=h.y;for(let k=0;k<h.pts.length;k+=2){h.pts[k]=h.x;h.pts[k+1]=h.y;}}if(!gate.cut){h.on=false;h.speed=0;}});
     // ---- the finale: hammer the melon ------------------------------------------------------------------------------
     if (ending && rules.finale) {
       const into = t - length;
@@ -226,7 +242,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       award(p, points);
       experience.impact(pc.x,pc.y,g.combo[p],'cut',Math.atan2(h.y-h.py,h.x-h.px)*-180/Math.PI);
       g.cut[p]++; g.bestCombo[p] = Math.max(g.bestCombo[p], g.combo[p]); g.assist[p] = Math.max(0, g.assist[p] - 0.04);
-      hitSound(pc.kind === 'star' ? 'powerUp' : crit ? 'impactPunch_heavy' : 'impactSoft_heavy', g.combo[p], crit ? 0.9 : 0.7);
+      hitSound(pc.kind === 'star' ? 'powerUp' : 'impactSoft_heavy', g.combo[p], crit ? 0.8 : 0.5);
       // (No hit-stop on ordinary cuts or criticals: a fast player lands several a second, and the game stuttered.
       // The clock only catches its breath for the rare things — a star, a power-up, a bomb, the melon going off.)
       if (crit) g.crits[p]++;
@@ -300,7 +316,7 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
         setClip(half.obj, v.x, v.y, v.z, -(v.x * half.x + v.y * half.y));
       });
     }
-    wet.forEach((w, i) => { if (w.life > 0) w.life -= real / 6; stains.place(i, w.x, w.y - (1 - w.life) * 0.25, -19, w.size); stains.fade(i, Math.max(0, Math.min(0.5, w.life * 0.9))); }); // they run a little as they dry
+    wet.forEach((w, i) => { if (w.life > 0) w.life -= real / (liveCamera?1.3:4); stains.place(i, w.x, w.y - (1 - w.life) * 0.25, -19, w.size); stains.fade(i, Math.max(0, Math.min(liveCamera?.18:.4, w.life * .6))); }); // they run a little as they dry
     stains.commit();
     bursts.update(real);
     const activePowers=Array.from({length:n},(_,p)=>{const own=team?0:p,key=(Object.keys(POWERS) as Power[]).find(k=>g.power[k][own]>0);return key?{name:POWERS[key].name,seconds:g.power[key][own]}:null;});
@@ -314,4 +330,5 @@ export default async function slice({ n, stage, mode, team, best, onEnd, hud, sc
       hud.p('h', p, ending ? 'Hit it! Hit it!' : power ? `${POWERS[power].name.replace('!', '')} ${Math.ceil(g.power[power][own])}s` : frenzy && g.combo[p] < 5 ? 'Frenzy!' : team && teamBoost() > 1 ? `Team ×${teamBoost().toFixed(1)}` : comboText(g.combo[p]));
     }
   };
+  return update;
 }
