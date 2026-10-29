@@ -18,7 +18,7 @@ export const variantOf = (mode: string, team: boolean) => [mode, team ? 'team' :
 export const starGoals = (game: string, stage: number, variant = '') => {
   const team = variant.endsWith('team'), mode = variant.replace(/\+?team$/, '');
   // Goalie presents one deliberate shot at a time; its shorter scoring ceiling needs gentler goal growth.
-  const growth=game==='goalie'||game==='freeze'&&mode==='studio'?.075:.3;
+  const growth=game==='shapeup'?.1:game==='goalie'||game==='freeze'&&mode==='studio'?.075:.3;
   return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * growth) * (game==='goalie'?Math.pow(keeperFromVariant(mode).speed/100,.35):1) * (team ? 1.8 : 1)));
 };
 export const starsFor = (game: string, stage: number, score: number, variant = '') => starGoals(game, stage, variant).filter((goal) => score >= goal).length;
