@@ -832,7 +832,7 @@ export function pause(on: boolean) { paused = on; quality.last = 0; app.autoRend
 
 // ---- the canvas lives wherever the current stage is -------------------------------------------------------------------
 let host: HTMLElement | null = null;
-const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) app.resizeCanvas(r.width, r.height); canvas.style.width = canvas.style.height = '100%'; } };
+const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) { app.resizeCanvas(r.width, r.height); if (paused && live) app.renderNextFrame = true; } canvas.style.width = canvas.style.height = '100%'; } };
 const watcher = new ResizeObserver(resize);
 export function mount(el: HTMLElement) { host = el; el.prepend(canvas); watcher.observe(el); resize(); }
 export function unmount(el?: HTMLElement) { if (el && host !== el) return; if (host) watcher.unobserve(host); host = null; canvas.remove(); }

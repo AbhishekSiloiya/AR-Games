@@ -27,8 +27,8 @@ export async function jabActor(scene:Scene,seat=0,n=1){
  for(const component of model.findComponents('render') as unknown as {castShadows:boolean;receiveShadows:boolean}[]){component.castShadows=true;component.receiveShadows=true;}
  for(const mi of eyes){
   const original=mi.material as StandardMaterial,m=own(original.clone());
-  const shiny=/eye|iris|pupil|catchlight/.test(original.name);m.useSkybox=false;m.useMetalness=false;m.specular=new Color(shiny?.25:.025,shiny?.25:.025,shiny?.25:.025);m.gloss=shiny?.65:.08;
-  if(!shiny){wool.addressU=wool.addressV=ADDRESS_REPEAT;m.diffuseMap=wool;m.diffuseMapTiling=new Vec2(2,2);m.normalMap=fabric;m.normalMapTiling=new Vec2(9,9);m.bumpiness=.12;m.useSheen=true;m.sheen=new Color(.08,.08,.06);}
+  const shiny=/eye|iris|pupil|catchlight/.test(original.name);m.useSkybox=false;m.useMetalness=false;m.useSheen=false;m.specular=new Color(shiny?.25:.025,shiny?.25:.025,shiny?.25:.025);m.gloss=shiny?.65:.08;
+  if(!shiny){wool.addressU=wool.addressV=ADDRESS_REPEAT;m.diffuseMap=wool;m.diffuseMapTiling=new Vec2(2,2);m.normalMap=fabric;m.normalMapTiling=new Vec2(9,9);m.bumpiness=.12;}
   m.update();mi.material=m;
  }
  const ball=shapes.sphere(1,32),disc=shapes.circle(1,48);

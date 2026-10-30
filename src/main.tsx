@@ -3,6 +3,8 @@ import {goalieSettings,keeperVariant,keeperFromVariant,keeperDifficulty} from '.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import './moon.css';
 import './session-screens.css';
+import {TrackingRecovery} from './tracking-recovery.tsx';
+import {trackingRecoveryStatus,type RecoveryStatus} from './tracking-recovery-status.ts';
 import {HandCursor,menuSelectionView} from './hand-cursor.tsx';
 import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
@@ -43,7 +45,7 @@ const LEGACY_GAMES: Game[] = [
     modes: [{ id: '', name: 'Arcade', blurb: '60 seconds, more balloons, wind, and a storm to pop at the end' }, { id: 'classic', name: 'Classic', blurb: 'Three lives. Every balloon that lands costs one' }] },
   { id: 'leaks', name: 'Leaks', icon: '💦', tone: ['#22d3ee', '#1d4ed8'], blurb: 'Plug the cracks with your whole body.', how: 'Cover a crack with a hand, a foot, a knee or your head. Hold it until the ring closes. Several open at once, so spread out. Do not let the water reach the top.', maxPlayers: 2, Play: Leaks, team: true, crew: true },
   { id: 'sprint', name: 'Sprint', icon: '⚡', tone: ['#fb923c', '#be123c'], blurb: 'A scenic race. Chase stars. Go turbo.', how: 'Race for 45 seconds. Jog on the spot or pump your arms to accelerate. Collect stars, pass checkpoints and build a turbo boost. Keep moving to earn distance; the runner’s warm-up animation earns no points. Race solo, as a team or side by side.', maxPlayers: 2, Play: Sprint, team: true },
-  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Raise your arms. Aim. Fire.', how: 'Raise either hand to fire along that arm. Lower it to reload, then raise again. Point left or right to aim. No jumping needed. Clear the invaders and breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
+  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Raise your arms. Aim. Fire.', how: 'Point a pulse gauntlet and raise that hand to fire. Lower to reload. Hit ships to charge Starfall, then jump or hold both hands high to unleash the barrage. Breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
   { id: 'forge', name: 'Forge', icon: '🔨', tone: ['#f59e0b', '#7f1d1d'], blurb: 'Hold the squat. Strike when it glows.', how: 'Sink into a squat and hold it to heat the blade. Deeper heats faster. When it glows white, drive up hard to strike. Rest while it is quenched. Every blade wants a longer hold.', maxPlayers: 2, Play: Forge, team: true },
   { id: 'lumber', name: 'Lumberjack', icon: '🪓', tone: ['#65a30d', '#713f12'], blurb: 'Chop along the stripe.', how: 'Wind up high on one side and chop down across your body to the other, along the stripe on the log. Chop hard for a clean split. The stripe changes sides. Thick logs take two.', maxPlayers: 2, Play: Lumber, team: true },
   { id: 'smash', name: 'Smash', icon: '🤖', tone: ['#fbbf24', '#c2570c'], blurb: 'Demolish the robot. Expose its core.', how: 'Punch the armour plates. The yellow ring marks a weak spot that takes extra damage. Break all six plates, then strike the glowing core. Slow your hand between punches to reload. Each demolished robot brings a tougher one.', maxPlayers: 2, Play: Smash },
@@ -188,6 +190,7 @@ function App() {
   const [fx, setFx] = useState(effects.on);
   const [paused, setPaused] = useState(false);
   const [trackingLost, setTrackingLost] = useState(false);
+  const [recovery,setRecovery] = useState<RecoveryStatus>({message:'Step into view of the camera',progress:0});
   const [playerView, setPlayerView] = useState<PlayerView>('live');
   const [coop, setCoop] = useState(true); // two players: one team by default — it is what brings a couple back; rivals by choice
   const n = mode === 'together' ? 2 : 1; // bodies tracked at once; "turns" is two people, one at a time
@@ -216,12 +219,14 @@ function App() {
     let lostSince: number|null = null, recoveredSince: number|null = null, lost = false;
     let previous: number[][][] = [], last=performance.now();
     const timer = setInterval(() => {
-      const now = performance.now(), ok = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false).ok).every(Boolean);
+      const now = performance.now(), checks = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false)), ok = checks.every(check=>check.ok);
       const gate = trackingGate(lostSince,ok,now); lostSince=gate.since;
       if (!lost && gate.lost) {lost=true;setTrackingLost(true);}
       if (lost) {
         const steady=ok&&Array.from({length:n},(_,i)=>standingPose(activeGame,players[i].body)&&stablePose(activeGame,players[i].body,previous[i]??[],now-last)).every(Boolean);
         const hold=readiness(recoveredSince,steady,now,1000);recoveredSince=hold.since;
+        const feedback=trackingRecoveryStatus(checks,steady,hold.progress);
+        setRecovery(previous=>previous.message===feedback.message&&previous.progress===feedback.progress?previous:feedback);
         if (hold.ready) {lost=false;lostSince=recoveredSince=null;setTrackingLost(false);}
       }
       previous=players.slice(0,n).map(p=>p.body.map(q=>[...q]));last=now;
@@ -397,8 +402,8 @@ function App() {
       })()}
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
       {screen.at === 'play' && !['slice','keepy','freeze','shapeup'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
-      {screen.at === 'play' && <div data-game={screen.game.id} className={`moon-game ${screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}`}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
-      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
+      {screen.at === 'play' && <div data-game={screen.game.id} inert={trackingLost} className={`moon-game ${screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}`}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
+      {screen.at === 'play' && trackingLost && !paused && <TrackingRecovery game={screen.game.id} n={n} status={recovery} preview={playerView!=='live'||['freeze','shapeup','slice','keepy'].includes(screen.game.id)} onHome={()=>go({at:'home'})}/>}
       {screen.at === 'play' && paused && (
         <div className="pause">
           <div className="panel">

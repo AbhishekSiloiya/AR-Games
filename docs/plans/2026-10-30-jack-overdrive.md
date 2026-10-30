@@ -2,7 +2,7 @@
 
 **Goal:** Make firing readable and satisfying, add an earned motion-triggered barrage, and address the reported flare without masking it by disabling effects.
 
-**Architecture:** Retain the accepted 3D Rizzquake/orbital court and round economy. Larger pilot wears modelled gauntlets; bounded travelling projectiles resolve real swept collisions. Sparse mixed-shape waves enter visibly from different directions. Each player charges an independent ability through normal hits, then deliberately triggers it with a small jump or a one-second both-hands-high hold. Power cannot charge itself. Keep existing time, shields, boss health and team/versus ownership.
+**Architecture:** Retain the accepted 3D Rizzquake/orbital court and round economy. Larger pilot wears modelled gauntlets; bounded travelling projectiles resolve real swept collisions. Sparse mixed-shape waves enter visibly from different directions. Each player charges an independent ability through normal hits, then deliberately triggers it with a small jump or a 0.8-second observed both-hands-high hold. Power cannot charge itself. Keep existing time, shields, boss health and team/versus ownership.
 
 **Tech stack:** TypeScript, PlayCanvas, React, Node assertions, Playwright.
 
