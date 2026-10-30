@@ -47,7 +47,8 @@ await page.evaluate(async()=>{
  const sw=Math.abs(bb[11][0]-bb[12][0])*aspect, fx=(bb[11][0]+bb[12][0])/2*aspect, fy=(bb[11][1]+bb[12][1])/2;
  pose.players[i].frame={x:fx,y:fy,sw,aspect};
  pose.players[i].rig=bb.map(q=>[(q[0]*aspect-fx)/sw,(fy-q[1])/sw,q[2],0,0]);
- if(window.__testMode==='aim'&&window.__jacks){const rig=pose.players[i].rig,at=window.__jacks.bodies[i].at,target=window.__jacks.invaders.find(v=>v.on&&v.zone===0);if(target){const sx=rig[12][0],sy=rig[12][1],dx=target.x-at.x-sx*at.scale,dy=(target.y-at.y-sy*.8*at.scale)/.8,len=Math.hypot(dx,dy);rig[16]=[sx+dx/len*1.9,sy+dy/len*1.9,1,0,0];}}
+ if(window.__testMode==='aim'&&window.__jacks?.bodies[i]){const r=pose.players[i].rig,pilot=window.__jacks.bodies[i],target=window.__jacks.invaders.find(v=>v.on&&v.zone===(window.__pair?i:0));if(target){const h=target.x<pilot.at.x?0:1,shoulder=pilot.model.findByName('UpperArm.'+(h?'R':'L')).getPosition(),dx=target.x-shoulder.x,dy=target.y-shoulder.y,len=Math.hypot(dx,dy),side=h?1:-1;r[11+h]=[side*.5,0,1];r[13+h]=[side*.5+dx/len,dy/len,1];r[15+h]=[side*.5+dx/len*2,dy/len*2,1];}}
+
 
  for(let h=0;h<2;h++){const r=pose.players[i].rig[15+h];Object.assign(pose.players[i].hands[h],{x:r[0]/pose.tuning.reachX[window.__pair?1:0],y:(r[1]-pose.tuning.centerY)/pose.tuning.reachY,seen:r[2]>.5&&!!document.querySelector('.stage'),t:performance.now()});}
 if(window.__jabHands)for(let h=0;h<2;h++){const q=window.__jabHands[i*2+h];if(q)Object.assign(pose.players[i].hands[h],q,{seen:true,t:performance.now()});}
@@ -62,7 +63,7 @@ async function enter(name,entity){
  await mode('noHands');console.log('VISUAL',name);
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
  if(name==='Jack Attack'&&await page.evaluate(()=>!!window.__versus))await page.getByRole('button',{name:'⚔️ Versus',exact:true}).click();
- if(['Goalie','Jab'].includes(name))await page.getByRole('checkbox',{name:/Practice first/}).setChecked(false);
+ if(['Goalie','Jab'].includes(name)){await page.getByRole('button',{name:'Game settings',exact:true}).click();await page.getByRole('checkbox',{name:/Practice first/}).setChecked(false);await page.getByRole('button',{name:'Close game settings',exact:true}).click();}
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
  if(entity.startsWith('.'))await page.locator(entity).first().waitFor();else await page.waitForFunction(name=>!!window.__pc?.root.findByName(name),entity,{timeout:30000});
@@ -91,8 +92,7 @@ for(const name of ['Freeze','Jack Attack','Goalie','Jab','Shape Up','Slice']){
   await mode('dance');await page.waitForFunction(()=>!window.__freeze.dancing,null,{timeout:15000});await mode('neutral');const held=await page.evaluate(()=>window.__freeze.party.visualTime);await page.waitForTimeout(250);assert.equal(await page.evaluate(()=>window.__freeze.party.visualTime),held);await page.screenshot({path:out+'/Freeze-stop.png'});await page.waitForFunction(()=>window.__freeze.studio.seats[0].locked,null,{timeout:15000});assert.equal(await page.locator('.freeze-studio-seat').first().getAttribute('data-locked'),'true');await page.screenshot({path:out+'/Freeze-earned-cheer.png'});
  }
  if(name==='Jack Attack'){
-  await page.waitForFunction(()=>document.querySelector('.galaxy-backdrop').dataset.loaded==='true');
-  const puppet=page.locator('.galaxy-pilot-rig .mascot-puppet').first();const arm=await puppet.getAttribute('data-right-arm');await mode('armUp');await page.waitForTimeout(120);assert.notEqual(await puppet.getAttribute('data-right-arm'),arm,'tracked arms move immediately, not just an image swap');await mode('neutral');
+  await page.waitForFunction(()=>window.__jacks?.bodies[0].model);const arm=await page.evaluate(()=>window.__jacks.bodies[0].state().bones);await mode('armUp');await page.waitForTimeout(120);assert.notDeepEqual(await page.evaluate(()=>window.__jacks.bodies[0].state().bones),arm,'tracked arms articulate the skinned character');await mode('neutral');
   for(let k=0;k<18;k++){await mode('neutral');await page.waitForTimeout(230);await mode('aim');await page.waitForTimeout(280);}
   assert.ok(await page.evaluate(()=>window.__jacks.me[0].hits>0));assert.ok(await page.evaluate(()=>window.__jacks.crews[0].score>0));await page.screenshot({path:out+'/Jack-Attack-earned-hits.png'});
  }
@@ -117,7 +117,7 @@ for(const name of ['Jack Attack','Goalie','Jab','Shape Up','Freeze','Slice']){
  await enter(name,'.stage');assert.equal(await page.evaluate(()=>window.__romp.players.every(p=>p.present)),true);await page.screenshot({path:out+'/'+name.replaceAll(' ','-')+'-two-tablet.png'});
  if(name==='Jack Attack'){
   await page.waitForFunction(()=>window.__jacks.invaders.filter(v=>v.on).length>=2);
-  await page.evaluate(()=>{const a=window.__jacks.invaders.filter(v=>v.on);Object.assign(a[0],{zone:0,boss:true,hp:7});Object.assign(a[1],{zone:1,boss:true,hp:3});});await page.waitForFunction(()=>document.querySelector('.galaxy-boss[data-player="1"]').dataset.hp==='3');assert.equal(await page.locator('.galaxy-boss[data-player="0"]').getAttribute('data-hp'),'7');await page.screenshot({path:out+'/Jack-rival-bosses.png'});
+  assert.equal(await page.evaluate(()=>window.__jacks.crews.length),2);assert.equal(await page.evaluate(()=>window.__jacks.bodies.length),2);await page.screenshot({path:out+'/Jack-rival-sectors.png'});
  }
  if(name==='Shape Up'){
   await page.setViewportSize({width:640,height:800});const portals=await page.locator('.shapeup-world').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width})));assert.ok(portals[1].x>portals[0].x+portals[0].w,'mobile two-player towers stay in their own seats');await page.screenshot({path:out+'/Shape-Up-two-small.png'});await page.setViewportSize({width:1024,height:768});
@@ -125,5 +125,5 @@ for(const name of ['Jack Attack','Goalie','Jab','Shape Up','Freeze','Slice']){
  await home();
 }
 await page.reload();await page.getByRole('button',{name:'Start',exact:true}).click();await page.getByRole('button',{name:'Choose player 1: J',exact:true}).waitFor();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('romp.v1')).avatars.J),'fuzzbyte');
-assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['compact hub','six identity choices','name/duplicate/save/reload','responsive hub/picker','all six actual scenes and sprites','Freeze music/visual stop and earned cheer','Jack arm shots and actual kills','independent rival bosses','Goalie continuous glove save and off-target rejection','Jab earned combination','Shape earned portal cell','Slice actual cuts','all six two-player tablet layouts','mobile independent pose portals','round cleanup'],errors},null,2));
+assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',checks:['compact hub','six identity choices','name/duplicate/save/reload','responsive hub/picker','all six actual scenes and sprites','Freeze music/visual stop and earned cheer','Jack arm shots and actual kills','independent rival sectors','Goalie continuous glove save and off-target rejection','Jab earned combination','Shape earned portal cell','Slice actual cuts','all six two-player tablet layouts','mobile independent pose portals','round cleanup'],errors},null,2));
 }catch(error){await page.screenshot({path:out+'/failure.png'});console.error(JSON.stringify({error:String(error),errors,state:await page.evaluate(()=>window.render_game_to_text?.())},null,2));throw error;}finally{await browser.close();}

@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {jackInput} from './jack-input.ts';
+const rig=Array.from({length:33},()=>[0,0,1]);rig[11]=[-.5,0,1];rig[12]=[.5,0,1];rig[15]=[-1,-.5,1];rig[16]=[1,-.5,1];
+const input=jackInput();
+assert.equal(input.sample(rig,0,true).length,0);
+rig[15][1]=.8;assert.equal(input.sample(rig,.1,true).length,1);
+assert.equal(input.sample(rig,.4,true).length,0,'held hand must not repeat');
+rig[15][1]=-.4;input.sample(rig,.5,true);rig[15][1]=.8;
+assert.equal(input.sample(rig,.6,false).length,0,'stale tracking must not fire');
+assert.equal(input.sample(rig,.7,true).length,0,'reacquired high hand must lower first');
+rig[15][1]=-.4;input.sample(rig,.8,true);input.reset();rig[15][1]=.8;
+assert.equal(input.sample(rig,.9,true).length,0,'pause resets armed state');
+rig[15][1]=-.4;input.sample(rig,1,true);rig[15][1]=.8;assert.equal(input.sample(rig,1.1,true).length,1);
+rig[16][1]=.8;assert.equal(input.sample(rig,1.2,true).length,1,'other arm independent');
+input.reset();rig[15][1]=-.4;input.sample(rig,1.3,true);rig[15][1]=.8;
+assert.equal(input.sample(rig,2,true).length,0,'gap in updates requires a fresh rearm');
+console.log('Jack input: deliberate shots, fresh tracking, dropout, pause and long-gap reset pass.');
