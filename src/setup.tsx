@@ -79,12 +79,12 @@ export function PlayerSetup({ game, title, n, view, onView, onReady, onBack }: {
       <div className="setup-camera"><CameraView game={game} n={n} guide /><span className="camera-label">{sim?'SIMULATOR · camera checks need a real camera':'LIVE CAMERA · stays on your device'}</span><div className="setup-prompt" role="status" aria-live="polite"><strong>{status.message}</strong><div className="setup-progress" role="progressbar" aria-label="Position readiness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(status.progress*100)}><i style={{width:`${status.progress*100}%`}} /></div></div></div>
       <aside className="setup-instructions">
         <h2>Just step into view</h2>
-        <p>{config.upper?'Keep your shoulders and hands in view. No special pose needed.':'Step back enough to see your hands and feet. Relax your arms and face the camera.'}</p>
+        <p>{config.upper?'Show your shoulders and hands. Stand naturally.':'Show your hands and feet. Relax your arms and face the camera.'}</p>
         <div className="joint-checks">{config.joints.filter(j=>j===11||(j>=15&&j%2===1)).map(j=><span key={j} className={status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'ready':''}>{status.checks[config.joints.indexOf(j)]&&(j===0||status.checks[config.joints.indexOf(j+1)])?'✓':'○'} {j===27?'Feet':`${jointName(j)}${j===0?'':'s'}`}</span>)}</div>
         {pilot && <fieldset className="setup-view"><legend>During the game</legend><button aria-pressed={view==='live'} onClick={()=>onView('live')}>{viewLabel}</button>{!['freeze','shapeup'].includes(game)&&<button aria-pressed={view==='classic'} onClick={()=>onView('classic')}>{game==='slice'?'Orchard court + hand trails':'Classic view'}</button>}</fieldset>}
-        {game==='jacks'&&<p className="player-style-note">Raise either hand to shoot; lower it to reload. Your space ranger follows along.</p>}
+        {game==='jacks'&&<p className="player-style-note">Raise either hand to shoot. Lower it to reload.</p>}
         <button className="primary" disabled={!status.usable} onClick={startGame}>Start game</button>
-        <p className="dim">Starts automatically in about a second. You can stand anywhere in view — no need to match a pose.</p>
+        <p className="dim">Starts automatically once you’re in view. No special pose needed.</p>
         {sim&&<button onClick={()=>ready.current()}>Continue in simulator</button>}
       </aside>
     </div>

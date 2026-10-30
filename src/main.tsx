@@ -2,6 +2,7 @@ import {goalieSettings,keeperVariant,keeperFromVariant,keeperDifficulty} from '.
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
 import './moon.css';
+import './session-screens.css';
 import {HandCursor,menuSelectionView} from './hand-cursor.tsx';
 import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
@@ -9,7 +10,7 @@ import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.
 import {JabOptions} from './jab-options.tsx';
 import {GoalieOptions} from './goalie-options.tsx';
 import { PartyOptions } from './party-options.tsx';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
 import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
 import { createRoot } from 'react-dom/client';
@@ -130,6 +131,13 @@ function TrackingView() {
   return <canvas ref={canvas} style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }} />;
 }
 
+// Keep optional controls one deliberate step away, while the main screen stays ready to play.
+function SessionDetails({label,title=label,children}:{label:string;title?:string;children:ReactNode}) {
+  const dialog=useRef<HTMLDialogElement>(null),[open,setOpen]=useState(false);
+  useEffect(()=>{const el=dialog.current;if(open&&!el?.open)el?.showModal();else if(!open&&el?.open)el.close();},[open]);
+  return <><button className="session-details-trigger" aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}>{label}</button><dialog className="session-details" ref={dialog} aria-label={title} onClose={()=>setOpen(false)} onKeyDown={e=>{if(e.key==='Escape')e.stopPropagation();}} onClick={e=>{if(e.target===e.currentTarget)setOpen(false);}}><header><h2>{title}</h2><button onClick={()=>setOpen(false)} aria-label={`Close ${label.toLowerCase()}`}>Done</button></header><div className="session-details-body">{children}</div></dialog></>;
+}
+
 function CountUp({ to }: { to: number }) {
   const [v, setV] = useState(0);
   useEffect(() => {
@@ -232,7 +240,7 @@ function App() {
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
   useEffect(() => {
-    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(['jab','goalie','freeze','slice','shapeup'].includes(activeGame)?{play:activeGame==='shapeup'?(window as Window&{__shapeup?:{snapshot:()=>unknown}}).__shapeup?.snapshot():activeGame==='jab'?(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot():activeGame==='slice'?(window as Window&{__slice?:{snapshot:()=>unknown}}).__slice?.snapshot():activeGame==='freeze'?(window as Window&{__freeze?:{snapshot:()=>unknown}}).__freeze?.snapshot():(window as Window&{__goalie?:{snapshot:()=>unknown}}).__goalie?.snapshot()}:{} )});
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(['jab','goalie','freeze','slice','shapeup','jacks'].includes(activeGame)?{play:activeGame==='jacks'?(window as Window&{__jacks?:{snapshot:()=>unknown}}).__jacks?.snapshot():activeGame==='shapeup'?(window as Window&{__shapeup?:{snapshot:()=>unknown}}).__shapeup?.snapshot():activeGame==='jab'?(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot():activeGame==='slice'?(window as Window&{__slice?:{snapshot:()=>unknown}}).__slice?.snapshot():activeGame==='freeze'?(window as Window&{__freeze?:{snapshot:()=>unknown}}).__freeze?.snapshot():(window as Window&{__goalie?:{snapshot:()=>unknown}}).__goalie?.snapshot()}:{} )});
     Object.assign(window,{render_game_to_text:render});
     return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
   }, [screen,n,paused,trackingLost,playerView]);
@@ -355,17 +363,17 @@ function App() {
           <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
             <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><img className="moon-brief-buddy" src={moonBuddy(game.id)} alt={['jab','goalie','freeze','slice','shapeup'].includes(game.id)?"Rizzquake":['goalie','jacks'].includes(game.id)?"Moodi and Quack":"Fuzzbyte"} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">MEET YOUR WORLD / MEET YOUR CREW</span></div>
-              <div className="col" style={{ gap: '1.3rem' }}>
+              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">YOUR NEXT ROUND</span></div>
+              <div className="col session-brief-content">
                 <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
-                  <div className="row">
+                  <div className="row session-modes">
                     {game.modes && <div className="seg">{game.modes.map((m) => <button key={m.id} aria-pressed={screen.mode === m.id} onClick={() => go({ ...screen, mode: m.id, stage: Math.min(screen.stage, open(game, m.id)) })}>{m.name}</button>)}</div>}
                     {n === 2 && game.team && !game.crew && <div className="seg"><button aria-pressed={coop} onClick={() => setCoop(true)}>🤝 Team</button><button aria-pressed={!coop} onClick={() => setCoop(false)}>⚔️ Versus</button></div>}
                     <span className="dim">{[game.modes?.find((m) => m.id === screen.mode)?.blurb, n === 2 && game.team ? (team ? 'One shared score: you win or lose together' : 'Highest score wins') : ''].filter(Boolean).join(' · ')}</span>
                   </div>
                 )}
-                <p className="moon-eyebrow">CHOOSE YOUR STAGE</p><div className="path">
+                <section className="session-stage"><p className="moon-eyebrow">CHOOSE YOUR STAGE</p><div className="path">
                   {Array.from({ length: STAGES }, (_, k) => k + 1).map((st) => (
                     <span key={st} className="row" style={{ gap: 0 }}>
                       {st > 1 && <span className={st <= opened ? 'link open' : 'link'} />}
@@ -380,7 +388,8 @@ function App() {
                   {starGoals(game.id, screen.stage, variant).map((goal, k) => <span className="goal" key={k}><Stars n={k + 1} /> {goal}</span>)}
                   <span className="dim">Two stars open the next stage · best here {bestScore(db.sessions, name(0), game.id, screen.stage, variant)}</span>
                 </div>
-                {game.id==='freeze'&&<PartyOptions stage={screen.stage}/>}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}{game.id==='goalie'&&<GoalieOptions stage={screen.stage} mode={screen.mode} onChange={mode=>go({...screen,mode})}/>}<div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button><span>Camera check, then you’re in.<br />{mode==='solo'?'Your next personal best is waiting.':'Make room for your next challenger.'}</span></div>
+                </section>
+                <div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button>{['freeze','jab','goalie'].includes(game.id)&&<SessionDetails label="Game settings">{game.id==='freeze'&&<PartyOptions stage={screen.stage}/>}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}{game.id==='goalie'&&<GoalieOptions stage={screen.stage} mode={screen.mode} onChange={mode=>go({...screen,mode})}/>}</SessionDetails>}</div>
               </div>
             </div>
           </div>
@@ -403,7 +412,7 @@ function App() {
         </div>
       )}
       {screen.at === 'next' && (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div className="screen session-handoff" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <h1>{name(0)} scored <span className="crown num">{screen.scores[0]}</span></h1>
           <h2>{name(1)}, you are up! {name(0)}, step out of view.</h2>
           <button className="primary giant" onClick={() => go({ ...screen, at: 'setup' })}>Ready</button>
@@ -423,6 +432,10 @@ function App() {
                   <h2>{top && <span className="crown">👑 </span>}{name(i)}</h2>
                   <p className="score num"><CountUp to={score} /></p>
                   <div className="bigstars">{[0, 1, 2].map((k) => <span key={k} className={k < r.stars ? 'on' : ''} style={vars({ '--i': k })}>★</span>)}</div>
+                  <p className="session-earned">{[r.newBest?'New best!':'',r.levelUp>0?`Level ${r.levelUp}`:'',r.challenges.length?`${r.challenges.length} quest${r.challenges.length===1?'':'s'}`:'',r.badges.length?`${r.badges.length} badge${r.badges.length===1?'':'s'}`:''].filter(Boolean).join(' · ')}</p>
+                  <p className="num session-xp">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
+                  {r.stars < 3 && <p className="dim num session-next-star">Next star at {starGoals(screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))[r.stars]}</p>}
+                  <SessionDetails label="Round details" title={`${name(i)} · Round details`}>
                   {screen.notes[i]?.length > 0 && (['jab','goalie','freeze'].includes(screen.game.id)?<ul className={`${screen.game.id==='jab'?'jab':screen.game.id==='freeze'?'freeze':'keeper'}-result-notes num`}>{screen.notes[i].map(note=><li key={note}>{note}</li>)}</ul>:<p className="dim num notes">{screen.notes[i].join(' · ')}</p>)}
                   <p className="num">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
                   <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
@@ -430,12 +443,12 @@ function App() {
                   {r.levelUp > 0 && <p className="toast pink" style={vars({ '--i': toast++ })}>⬆️ Level up! You are level {r.levelUp}</p>}
                   {r.challenges.map((c) => <p key={c} className="toast green" style={vars({ '--i': toast++ })}>🎯 Quest done: {c}</p>)}
                   {r.badges.map((b) => <p key={b} className="toast gold" style={vars({ '--i': toast++ })}>{BADGE_ICON[b]} Badge: {BADGES.find((x) => x.id === b)!.name}</p>)}
-                  {r.stars < 3 && <p className="dim num">Next star at {starGoals(screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))[r.stars]}</p>}
+                  </SessionDetails>
                 </div>
               );
             })}
           </div>
-          <div className="row" style={{ justifyContent: 'center' }}>
+          <div className="row session-result-actions" style={{ justifyContent: 'center' }}>
             <button className="primary" onClick={() => play(screen.game, screen.stage, screen.mode)}>Play again</button>
             {screen.stage < open(screen.game, screen.mode) && <button onClick={() => play(screen.game, screen.stage + 1, screen.mode)}>Next stage →</button>}
             <button onClick={() => go({ at: 'home' })}>Home</button>

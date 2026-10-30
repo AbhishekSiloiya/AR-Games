@@ -2,6 +2,7 @@
 // one PlayCanvas canvas. The engine and the game are fetched when the first round starts — the menus never pay for them.
 import { createContext, useContext, useEffect, useMemo, useRef, type FC } from 'react';
 import { music } from './audio.ts';
+import { roundLifetime } from './round-lifetime.ts';
 import type { GameModule, GameProps, Hud } from './kit.ts';
 export { audio, jingle, say, sfx } from './audio.ts';
 export { PLAYER_COLORS, effects, paceSummary } from './pace.ts';
@@ -20,24 +21,24 @@ export const play = (load: () => Promise<GameModule>): Playable =>
 function Stage({ n, stage, mode, team, best, onEnd, load }: GameProps & { load: () => Promise<GameModule> }) {
   const engine = useRef<typeof import('./engine.ts') | null>(null), paused = useRef(false);
   const els = useRef<Record<string, HTMLElement | null>>({}), shown = useRef<Record<string, string>>({});
+  const hudActive = useRef(true), bannerTimer = useRef(0);
   const hud = useMemo<Hud>(() => {
     const set = (key: string, text: string) => {
-      if (shown.current[key] === text || !els.current[key]) return;
+      if (!hudActive.current || shown.current[key] === text || !els.current[key]) return;
       els.current[key]!.textContent = shown.current[key] = text;
       // New words pop. `scale` (not `transform`) so the centring transforms on these elements are left alone.
       if (text && key !== 'clock' && !key.startsWith('s')) els.current[key]!.animate([{ scale: key === 'big' ? 1.7 : 1.35 }, { scale: 1 }], { duration: 320, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
     };
     // Web Animations API: a full-stage colour wash that fades itself out.
-    const flash = (color: string) => els.current.flash?.animate([{ background: color, opacity: 0.45 }, { background: color, opacity: 0 }], 350);
-    const shake = (amount = 1) => els.current.stage?.animate(
+    const flash = (color: string) => hudActive.current && els.current.flash?.animate([{ background: color, opacity: 0.45 }, { background: color, opacity: 0 }], 350);
+    const shake = (amount = 1) => hudActive.current && els.current.stage?.animate(
       Array.from({ length: 7 }, (_, k) => ({ transform: k === 6 ? 'none' : `translate(${(Math.random() - 0.5) * 24 * amount}px, ${(Math.random() - 0.5) * 24 * amount}px)` })), 260);
-    let clear = 0;
-    const banner = (text: string, ms = 1400) => { set('banner', text); clearTimeout(clear); clear = window.setTimeout(() => set('banner', ''), ms); };
+    const banner = (text: string, ms = 1400) => { if (!hudActive.current) return; set('banner', text); clearTimeout(bannerTimer.current); bannerTimer.current = window.setTimeout(() => set('banner', ''), ms); };
     // Words that rise from where something happened. A small pool of DOM nodes, moved and animated — never created mid-round.
     let next = 0;
     const pop = (x: number, y: number, text: string, color = '#ffffff', z = 0) => {
       const layer = els.current.pops, at = engine.current?.toScreen(x, y, z);
-      if (!layer || !at) return;
+      if (!hudActive.current || !layer || !at) return;
       const el = layer.children[(next = (next + 1) % layer.children.length)] as HTMLElement;
       el.textContent = text;
       el.style.cssText = `left:${at[0] * 100}%;top:${at[1] * 100}%;color:${color}`;
@@ -50,18 +51,28 @@ function Stage({ n, stage, mode, team, best, onEnd, load }: GameProps & { load: 
   useEffect(() => { paused.current = shell.paused; engine.current?.pause(shell.paused); }, [shell.paused]);
   useEffect(() => {
     let gone = false;
-    const cleanups: (() => void)[] = [];
+    const lifetime = roundLifetime();
+    let mountedEngine: typeof import('./engine.ts') | null = null, scene: import('./engine.ts').Scene | null = null;
+    const host = els.current.stage!;
+    hudActive.current = true;
     void (async () => {
       const [pc, game] = await Promise.all([import('./engine.ts'), load()]);
       if (gone) return;
-      engine.current = pc;
-      pc.mount(els.current.stage!);
-      const tick = await game.default({ n, stage, mode, team, best, hud, scene: pc.begin(game.view), onEnd: (scores, notes) => { if (!gone) finish.current(scores, notes); }, cleanup: (fn) => cleanups.push(fn) });
+      mountedEngine = engine.current = pc;
+      pc.mount(host);
+      scene = pc.begin(game.view);
+      const tick = await game.default({ n, stage, mode, team, best, hud, scene, onEnd: (scores, notes) => { if (!gone) finish.current(scores, notes); }, cleanup: lifetime.add });
       if (gone) return;
-      pc.run(tick);
+      pc.run(tick, scene);
       pc.pause(paused.current);
     })().catch((err) => console.error('game failed to start', err));
-    return () => { gone = true; music.stop(); cleanups.forEach((fn) => fn()); engine.current?.end(); engine.current?.unmount(); };
+    return () => {
+      gone = true; hudActive.current = false; clearTimeout(bannerTimer.current);
+      host.getAnimations({ subtree: true }).forEach(animation => animation.cancel());
+      music.stop(); lifetime.close();
+      if (scene) mountedEngine?.end(scene);
+      mountedEngine?.unmount(host); engine.current = null;
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- a round is mounted once; the shell remounts (key) for the next one
   const el = (key: string, className: string) => <div className={`hud ${className}`} ref={(e) => void (els.current[key] = e)} />;
   return (

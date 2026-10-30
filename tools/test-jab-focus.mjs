@@ -63,7 +63,7 @@ async function mode(v){await page.evaluate(v=>window.__testMode=v,v);}
 async function enter(name,entity,stage=1,practice=false,reach='full'){
  await mode('noHands');console.log('VISUAL',name);
  await page.getByRole('button',{name:new RegExp(name)}).first().click();
- if(name==='Jab'){await page.locator('.node').nth(stage-1).click();await page.getByRole('button',{name:reach==='full'?'Full stretch':'Comfortable',exact:true}).click();await page.getByRole('checkbox',{name:/Practice first/}).setChecked(practice);await page.screenshot({path:out+`/jab-briefing-${reach}.png`});}
+ if(name==='Jab'){await page.locator('.node').nth(stage-1).click();await page.getByRole('button',{name:'Game settings',exact:true}).click();await page.getByRole('button',{name:reach==='full'?'Full stretch':'Comfortable',exact:true}).click();await page.getByRole('checkbox',{name:/Practice first/}).setChecked(practice);await page.getByRole('button',{name:'Close game settings',exact:true}).click();await page.screenshot({path:out+`/jab-briefing-${reach}.png`});}
  if(name==='Jack Attack'&&await page.evaluate(()=>!!window.__versus))await page.getByRole('button',{name:'⚔️ Versus',exact:true}).click();
  await page.getByRole('button',{name:'Play',exact:true}).click();
  await mode(name==='Jack Attack'?'noFeet':'neutral');await page.getByRole('button',{name:'Start game',exact:true}).click();
@@ -90,7 +90,7 @@ assert.equal(await page.evaluate(()=>window.__jab.practiceSeats[0].index),3);
 await page.screenshot({path:out+'/jab-practice-duck.png'});
 await page.evaluate(()=>{window.__testMode='squat';window.__injectPose();window.__jab.advance(1700);});
 assert.equal(await page.evaluate(()=>window.__jab.practicing),false);assert.equal(await page.evaluate(()=>window.__jab.states[0].hits),0,'practice contacts reset before the real round');assert.ok(await page.evaluate(()=>window.__jab.time<0),'practice ends with a fresh countdown');assert.equal(await page.locator('.jab-skip-practice:visible').count(),0);await mode('neutral');await home();
-await page.getByRole('button',{name:/Jab/}).first().click();assert.equal(await page.getByRole('checkbox',{name:/Practice first/}).isChecked(),false,'completed practice is remembered');await page.getByRole('button',{name:'← Back',exact:true}).click();
+await page.getByRole('button',{name:/Jab/}).first().click();await page.getByRole('button',{name:'Game settings',exact:true}).click();assert.equal(await page.getByRole('checkbox',{name:/Practice first/}).isChecked(),false,'completed practice is remembered');await page.getByRole('button',{name:'Close game settings',exact:true}).click();await page.getByRole('button',{name:'← Back',exact:true}).click();
 // Closer reach keeps the full-size mitt geometry; skipping also starts a clean countdown.
 await enter('Jab','.jab-session',1,true,'comfort');await page.getByRole('button',{name:'Skip practice',exact:true}).click();await page.waitForFunction(()=>window.__jab.practicing===false);assert.ok(await page.evaluate(()=>window.__jab.time<0));await page.waitForTimeout(3400);await page.waitForFunction(()=>window.__jab.states[0].phase==='strike');
 const comfortable=await page.evaluate(()=>({x:Math.abs(window.__jab.actors[0].state().mitts[0].x),reach:window.__jab.snapshot().reach}));assert.equal(comfortable.reach,'comfort');assert.ok(comfortable.x<2.75&&comfortable.x>2.5,'comfortable reach brings the active pad in');await jabPunch(page);await page.screenshot({path:out+'/jab-comfortable.png'});await home();
