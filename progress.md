@@ -272,3 +272,10 @@ Fresh verification: full check/build pass with curated reachability fix; focused
 - Production build and all rule/type checks pass. Expanded Jack browser suite passes real shots/earned powers, hidden-wrist reset, pause, actual three sectors/commander, team/versus independence and layouts. Actual Slice bomb no-full-screen-flash regression passes. Independent review P2 hidden wrists resolved and re-reviewed.
 - A session interruption during context restoration and a development-worker camera test timeout interrupted earlier work. Production worker camera initialization and final Jack checks pass; no user files lost.
 - Shared transitions, compact recovery and paired screen-fit matrix all pass (120 states across six games/five sizes). Standard visual client screenshots inspected. Ready for separate preview publication; production unchanged.
+
+31 October — Jack-only compact pilot and forward aiming correction:
+- User clarified smaller pilot and practical camera-forward aiming. Measured prior rendered body at 51.2% height; reduced solo/pair scale to .56/.46, observed neutral solo body 26.5%.
+- One observed wrist-to-court mapping drives markers, foreground gauntlet orientations and muzzle-origin shots. Stable fallback for short projected arm segments; no depth reconstruction claimed.
+- Chest-height forward aim works; 140ms steady hold commits once after loading low, so gradual movement can finish aiming. Marker expansion shows actual hold progress. Stale/hidden/pause/long-gap still require reloading. Low target range covers approaching ships.
+- RED/GREEN input and rendered-size regressions; gradual motion checked at 15–120fps. Actual forward/side/high visibility, body-front controller depth, marker/muzzle agreement and gradual-raise real ship contact pass. Full type/rule checks/build pass. Independent review early-shot finding fixed and re-reviewed.
+- Jack regression passes earned jump/no-jump powers, actual eight-hit commander defeat, team/versus isolation, pause, reduced motion, layouts and cleanup in focused encounters. Only Jack code and instructions touched; production unchanged. See docs/qa/2026-10-31-jack-aim-correction.md.

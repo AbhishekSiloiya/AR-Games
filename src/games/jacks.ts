@@ -17,7 +17,7 @@ type Home={position:Vec3;scale:Vec3;rotation:Vec3};
 type Drone={on:boolean;zone:number;x:number;y:number;hp:number;row:number;boss:boolean;kind:DroneKind;hurt:number;dead:number;age:number;delay:number;entryX:number;entryY:number;toX:number;toY:number;e:Entity;skin:Entity[];home:Home[]};
 export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
  let disposed=false;scene.cleanup(()=>{disposed=true;});
- const [arena,...loaded]=await Promise.all([jackArena(scene),...Array.from({length:n},(_,p)=>jackPilot(scene,p,n))]);
+ const [arena,...loaded]=await Promise.all([jackArena(scene),...Array.from({length:n},(_,p)=>jackPilot(scene,p,n,team))]);
  if(disposed||!arena||loaded.some(p=>!p))return()=>{};
  const bodies=loaded as NonNullable<Awaited<ReturnType<typeof jackPilot>>>[],overlay=jackHud(n,team,stage),hard=hardness(stage),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const hull=lit('#d8e8eb'),glass=lit('#164454',{emissive:'#164454',glow:.2}),energy=flat('#a1edf2'),warm=flat('#ffd09e'),pearl=shapes.sphere(.4,24),pod=shapes.sphere(.17,16);
@@ -34,6 +34,7 @@ export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
  });
  const pulseLooks=[flat('#9af4f5'),flat('#ffca91'),flat('#ffe391')],trailLooks=[flat('#8bdadd',{opacity:.45}),flat('#e3b47e',{opacity:.45}),flat('#edc065',{opacity:.5})];
  const pulses=Array.from({length:96},(_,i)=>{const root=node(scene.root),e=node(root,shapes.sphere(.09,16),pulseLooks[0]),trail=node(root,shapes.quad(1,1),trailLooks[0]);root.name=`jack-pulse-${i}`;root.enabled=false;return {on:false,root,e,trail,x:0,y:0,dx:0,dy:1,life:0,p:0,zone:0,power:false};});
+ const markers=Array.from({length:n*2},(_,i)=>{const root=node(scene.root);root.name=`jack-aim-${i}`;const look=flat(i>>1?'#ffca91':'#a1edf2');node(root,shapes.ring(.11,.14,32),look);node(root,shapes.box(.08,.018,.01),look,[-.19,0,0]);node(root,shapes.box(.08,.018,.01),look,[.19,0,0]);root.enabled=false;return root;});
  const rays=Array.from({length:n*2},()=>{const e=node(scene.root,shapes.quad(2,2),flat('#9aefff',{opacity:.2}));e.enabled=false;return e;});
  const bursts=makeBursts(scene.root),passed=bestLine(hud,best);
  const crews=(team?[[0,1].slice(0,n)]:Array.from({length:n},(_,p)=>[p])).map((who,k)=>({who,x:team?0:zoneX(n,k),half:team?7:zoneHalf(n)-.6,wave:0,shields:3,rest:1.4,score:0,cleared:0,inWave:false,kills:0,size:0}));
@@ -90,8 +91,8 @@ export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
   for(const v of invaders){if(!show(v.e,v.on||v.dead>0))continue;v.hurt=Math.max(0,v.hurt-dt);const s=(v.boss?1.8:1)*(1+v.hurt*.4);v.e.setLocalPosition(v.x,v.y,.9);v.e.setLocalScale(s,s,s);v.e.setLocalEulerAngles(0,motion?Math.sin(t*1.8+v.row)*14:0,motion?Math.sin(t*2+v.x)*4:0);if(v.dead>0)v.dead=Math.max(0,v.dead-dt);
    v.skin.forEach((part,j)=>{const home=v.home[j];if(v.on){part.setLocalPosition(home.position);part.setLocalScale(home.scale);part.setLocalEulerAngles(home.rotation);}else{const a=1-v.dead/.72,side=j%2?-1:1;part.setLocalPosition(home.position.x+(motion?side*a*(.5+j*.06):0),home.position.y+(motion?a*.7-a*a*2:0),home.position.z);part.setLocalEulerAngles(home.rotation.x,home.rotation.y,motion?home.rotation.z+side*a*160:home.rotation.z);const k=Math.max(0,1-a*a);part.setLocalScale(home.scale.x*k,home.scale.y*k,home.scale.z*k);}});
   }
-  rays.forEach((ray,i)=>{const p=i>>1,h=i%2,r=players[p].rig,w=r[15+h],s=r[11+h],raised=fresh[p]&&w&&s&&w[1]-s[1]>.3;if(!show(ray,!!raised))return;const m=bodies[p].muzzle(h),len=1.3;ray.setLocalPosition(m.x+m.dx*len/2,m.y+m.dy*len/2,1.3);ray.setLocalEulerAngles(0,0,Math.atan2(m.dy,m.dx)*180/Math.PI);ray.setLocalScale(len/2,.006,1);fade(ray,.2);});
-  overlay.update(t,crews.map((c,k)=>({...c,bossHp:invaders.find(v=>v.on&&v.boss&&v.zone===k)?.hp??0})),fresh,players.slice(0,n).map(pl=>[0,1].map(h=>(pl.rig[15+h]?.[1]??-1)-(pl.rig[11+h]?.[1]??0)>.3)),invaders.filter(v=>v.on).length,me.map(m=>m.power));bursts.update(dt);passed(Math.max(...crews.map(c=>c.score)));music.intensity(me.some(m=>m.power.active>0)?.7:.3+Math.min(.4,invaders.filter(v=>v.on&&v.y<2).length/8));
+  rays.forEach((ray,i)=>{const p=i>>1,h=i%2,target=bodies[p].aim(h),on=fresh[p]&&!!target?.ready;show(markers[i],on);if(on){markers[i].setLocalPosition(target!.x,target!.y,2.9);const k=1+me[p].input.progress(h)*.5;markers[i].setLocalScale(k,k,1);}if(!show(ray,on))return;const m=bodies[p].muzzle(h),len=Math.min(1.8,Math.hypot(target!.x-m.x,target!.y-m.y));ray.setLocalPosition(m.x+m.dx*len/2,m.y+m.dy*len/2,2.8);ray.setLocalEulerAngles(0,0,Math.atan2(m.dy,m.dx)*180/Math.PI);ray.setLocalScale(len/2,.006,1);fade(ray,.2);});
+  overlay.update(t,crews.map((c,k)=>({...c,bossHp:invaders.find(v=>v.on&&v.boss&&v.zone===k)?.hp??0})),fresh,bodies.map(b=>[0,1].map(h=>!!b.aim(h)?.ready)),invaders.filter(v=>v.on).length,me.map(m=>m.power));bursts.update(dt);passed(Math.max(...crews.map(c=>c.score)));music.intensity(me.some(m=>m.power.active>0)?.7:.3+Math.min(.4,invaders.filter(v=>v.on&&v.y<2).length/8));
  };
  return update;
 }
