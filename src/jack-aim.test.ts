@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {jackAim,jackArmVector} from './jack-aim.ts';
+const rig=Array.from({length:33},()=>[0,0,1]);rig[11]=[-.5,0,1];rig[12]=[.5,0,1];rig[15]=[-.5,0,1];rig[16]=[.5,0,1];
+const a=jackAim(rig,1,0,7.4)!;assert.ok(a&&a.ready&&Number.isFinite(a.x+a.y),'camera-forward hand is a usable aim, not a zero vector');
+rig[16][0]=1.4;const right=jackAim(rig,1,0,7.4)!;assert.ok(right.x>a.x,'move right aims right');rig[16][0]=-.4;const left=jackAim(rig,1,0,7.4)!;assert.ok(left.x<a.x,'cross body aims left');
+rig[16]=[.5,1.4,1];assert.ok(jackAim(rig,1,0,7.4)!.y>a.y,'raising the hand raises the marker');
+rig[16]=[10,1,1];assert.ok(jackAim(rig,1,4,3.4)!.x<7.4,'paired aim remains inside its own sector');
+rig[16][2]=0;assert.equal(jackAim(rig,1,0,7.4),null,'unobserved wrist has no aim');rig[16]=[NaN,0,1];assert.equal(jackAim(rig,1,0,7.4),null);
+assert.deepEqual(jackArmVector([.5,0,1],[.5,0,1],1),[.2,-.7],'foreshortened segment gets a stable visible bend');assert.deepEqual(jackArmVector([.5,0,1],[1.2,.6,1],1),[.7,.6]);
+console.log('PASS Jack observed forward/left/right/high aim, sector bounds and foreshortened arm stability');

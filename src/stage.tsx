@@ -2,6 +2,7 @@
 // one PlayCanvas canvas. The engine and the game are fetched when the first round starts — the menus never pay for them.
 import { createContext, useContext, useEffect, useMemo, useRef, type FC } from 'react';
 import { music } from './audio.ts';
+import {effects} from './pace.ts';
 import { roundLifetime } from './round-lifetime.ts';
 import type { GameModule, GameProps, Hud } from './kit.ts';
 export { audio, jingle, say, sfx } from './audio.ts';
@@ -29,8 +30,8 @@ function Stage({ n, stage, mode, team, best, onEnd, load }: GameProps & { load: 
       // New words pop. `scale` (not `transform`) so the centring transforms on these elements are left alone.
       if (text && key !== 'clock' && !key.startsWith('s')) els.current[key]!.animate([{ scale: key === 'big' ? 1.7 : 1.35 }, { scale: 1 }], { duration: 320, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
     };
-    // Web Animations API: a full-stage colour wash that fades itself out.
-    const flash = (color: string) => hudActive.current && els.current.flash?.animate([{ background: color, opacity: 0.45 }, { background: color, opacity: 0 }], 350);
+    // Feedback stays at the edge; a hit must never wash out the player or arena.
+    const flash = (color: string) => hudActive.current && effects.on && !matchMedia('(prefers-reduced-motion: reduce)').matches && els.current.flash?.animate([{borderBottom:`6px solid ${color}`,opacity:.35},{borderBottom:`6px solid ${color}`,opacity:0}],180);
     const shake = (amount = 1) => hudActive.current && els.current.stage?.animate(
       Array.from({ length: 7 }, (_, k) => ({ transform: k === 6 ? 'none' : `translate(${(Math.random() - 0.5) * 24 * amount}px, ${(Math.random() - 0.5) * 24 * amount}px)` })), 260);
     const banner = (text: string, ms = 1400) => { if (!hudActive.current) return; set('banner', text); clearTimeout(bannerTimer.current); bannerTimer.current = window.setTimeout(() => set('banner', ''), ms); };

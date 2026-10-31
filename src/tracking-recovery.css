@@ -1,0 +1,17 @@
+/* Reposition without losing the game: one quiet framing strip, no full-screen wash. */
+.tracking-recovery-strip {position:fixed;z-index:8;left:50%;bottom:12px;transform:translateX(-50%);width:min(720px,calc(100% - 24px));display:grid;grid-template-columns:112px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid #cbd5c7;border-radius:12px;background:#fff9eef5;color:#243f39;box-shadow:0 4px 24px #102f2b26;font-family:var(--moon-face);}
+.tracking-recovery-preview {position:relative;width:112px;height:64px;overflow:clip;border-radius:6px;background:#122027;}
+.tracking-recovery-preview .camera-view {width:112px;height:64px;aspect-ratio:7/4;}
+.tracking-recovery-preview>span {position:absolute;left:4px;bottom:3px;background:#102a26c9;color:#fff9ee;font-size:6px;line-height:1;padding:3px 4px;letter-spacing:.09em;border-radius:2px;}
+.tracking-recovery-copy {min-width:0;display:grid;gap:4px;}
+.tracking-recovery-copy h2 {font:800 9px/1.2 var(--moon-face);letter-spacing:.09em;text-transform:uppercase;color:#547065;}
+.tracking-recovery-copy strong {font:700 14px/1.25 var(--moon-face);overflow-wrap:break-word;}
+.tracking-recovery-copy p {font:400 11px/1.2 var(--moon-face);color:#547065;margin:0;}
+.tracking-recovery-strip>button {min-height:44px;padding:8px 12px;background:#e6ecdf;color:#294b3e;border:1px solid #c2cfbe;font-size:12px;font-weight:700;border-radius:7px;}
+.tracking-recovery-strip>button:hover,.tracking-recovery-strip>button:focus-visible {background:#d4e3cc;border-color:#527d60;}
+.tracking-recovery-progress {height:3px;border-radius:3px;background:#c7d4c380;overflow:clip;}
+.tracking-recovery-progress i {display:block;height:100%;background:#528467;transition:width 100ms linear;}
+/* Third-person games already have an updating live inset. Leave it unobscured. */
+.tracking-recovery-strip[data-preview='false'] {left:12px;right:calc(clamp(140px,19vw,260px) + 32px);transform:none;width:auto;grid-template-columns:minmax(0,1fr) auto;}
+@media(max-width:700px) {.tracking-recovery-strip {gap:10px;padding:10px 12px;}.tracking-recovery-copy {gap:3px;}.tracking-recovery-copy h2 {font-size:8px;}.tracking-recovery-copy strong {font-size:13px;}.tracking-recovery-copy p {font-size:10px;}.tracking-recovery-strip>button {padding:8px 10px;font-size:11px;}}
+@media(prefers-reduced-motion:reduce) {.tracking-recovery-progress i {transition:none;}}
