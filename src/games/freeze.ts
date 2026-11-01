@@ -8,13 +8,15 @@ import {freezeStudioScene} from '../freeze-studio-scene.ts';
 import {freezeDancer} from '../freeze-dancer.ts';
 import {freezeMovement} from '../freeze-movement.ts';
 import {freezeStudioCoach} from '../freeze-studio-coach.ts';
+import {freezeLiveFeedback} from '../freeze-live-feedback.ts';
 export default async function freeze({n,stage,onEnd,hud,scene,cleanup}:Game){
  const [world,actor]=await Promise.all([freezeStudioScene(scene),freezeDancer(scene)]);if(!world||!actor)return()=>{};
+ const live=freezeLiveFeedback(scene,n,world.state.width,world.state.height);
  const studio=newFreezeStudio(stage,n),coach=freezeStudioCoach(scene,n,stage),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,start=audio().currentTime+3,soundtrack=startDanceTrack(start);
  let forced=0,last=-3,lastWall=performance.now(),ended=false;
  const meters=Array.from({length:n},()=>freezeMovement());
  const reset=()=>{meters.forEach(m=>m.reset());lastWall=performance.now()+forced*1000;};window.addEventListener('keydown',reset,true);window.addEventListener('click',reset,true);cleanup(()=>{soundtrack.stop();window.removeEventListener('keydown',reset,true);window.removeEventListener('click',reset,true);delete(window as Window&{__freeze?:unknown}).__freeze;delete(window as Window&{advanceTime?:unknown}).advanceTime;});
- const snapshot=()=>({time:studio.time,stage,lesson:freezeLesson(stage).title,phase:studio.done?'complete':studio.time<0?'ready':studio.dancing?'dance':'freeze',pose:studio.pose,phaseEnd:studio.phaseEnd,visualTime:studio.visualTime,camera:{...world.state},character:actor.state(),seats:studio.seats.map(s=>({...s,score:Math.floor(s.score)}))});
+ const snapshot=()=>({time:studio.time,stage,lesson:freezeLesson(stage).title,phase:studio.done?'complete':studio.time<0?'ready':studio.dancing?'dance':'freeze',pose:studio.pose,phaseEnd:studio.phaseEnd,visualTime:studio.visualTime,camera:{...world.state,liveFeedback:live.state},character:actor.state(),seats:studio.seats.map(s=>({...s,score:Math.floor(s.score)}))});
  const advance=(ms:number)=>{for(let f=0;f<Math.ceil(ms/(1000/60));f++){forced+=1/60;update();}};
  Object.assign(window,{__freeze:{studio,actor,snapshot,advance,get time(){return studio.time;},get dancing(){return studio.dancing;},get phaseEnd(){return studio.phaseEnd;},get scores(){return studio.seats.map(s=>s.score);},party:{get visualTime(){return studio.visualTime;},get celebrations(){return studio.seats.reduce((a,s)=>a+s.holds,0);}}},advanceTime:advance});
  const update=()=>{
@@ -25,6 +27,7 @@ export default async function freeze({n,stage,onEnd,hud,scene,cleanup}:Game){
   soundtrack.gate(studio.dancing&&t>=0);if(dancing!==studio.dancing)sfx(studio.dancing?'zapThreeToneUp':'zapThreeToneDown',{vol:.4,jitter:0});studio.seats.forEach((s,p)=>{if(s.holds>holds[p])sfx('select',{vol:.55,rate:1+Math.min(5,s.chain)*.08,jitter:0});});
   hud('clock',String(Math.ceil(t<0?-t:Math.max(0,60-t))));const motion=effects.on&&!pace.lean&&!reduced,demonstrate=!studio.dancing||studio.phaseEnd-t<1.4;
   actor.update(players[0].rig,studio.dancing&&t>=0,demonstrate?studio.pose:'free',studio.visualTime,Math.max(...studio.seats.map(s=>s.cheer)),motion,players[0].lift);world.update(studio.visualTime,motion,studio.dancing&&t>=0,samples,dt);coach.update(studio,samples.map(s=>s.present),motion);
+  live.update(performance.now(),dt,studio.dancing&&t>=0,samples.map((sample,p)=>({...sample,body:players[p].body,seen:trackingSeen[p],match:studio.seats[p].match,wobble:studio.seats[p].wobble,eligible:studio.seats[p].eligible})),motion);
  };
  return update;
 }

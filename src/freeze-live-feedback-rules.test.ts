@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {newLiveFeedback,stepLiveFeedback,liveJointPoint} from './freeze-live-feedback-rules.ts';
+const body=()=>Array.from({length:33},(_,i)=>[i===15?.25:i===16?.75:.5,i>=27?.9:.4,1]);
+const input=(seen:number,over:Record<string,unknown>={})=>({body:body(),present:true,seen,rate:0,match:true,wobble:false,eligible:true,...over});
+const s=newLiveFeedback(1);for(let now=100;now<=500;now+=50)stepLiveFeedback(s,now,.05,false,[input(now)],true);assert.ok(s.seats[0].rings.every(r=>r.status==='steady'),'fresh stable joints and real valid pose turn green');
+stepLiveFeedback(s,550,.05,false,[input(550,{match:false})],true);assert.ok(s.seats[0].rings.every(r=>r.status==='moving'),'wrong named pose cannot look frozen');
+stepLiveFeedback(s,800,.05,false,[input(550)],true);assert.ok(s.seats[0].rings.every(r=>r.status==='hidden'),'stale receipt hides rings');
+const p=liveJointPoint([.25,.75,1],8,6);assert.deepEqual(p,{x:-.19999999999999996,y:-1.8},'mirrored body maps directly to actual camera rectangle');
+const pair=newLiveFeedback(2);let earned=0;for(let now=100;now<=1000;now+=50)earned+=stepLiveFeedback(pair,now,.05,true,[input(now,{rate:8}),input(now)],true).length;assert.ok(earned>0);assert.ok(pair.seats[0].earned>0);assert.equal(pair.seats[1].earned,0,'stationary partner earns no hand confetti');
+stepLiveFeedback(pair,1050,.05,false,[input(1050),input(1050)],true);assert.equal(pair.seats[0].work,0,'freeze clears dance charge');
+const quiet=newLiveFeedback(1);for(let now=100;now<=800;now+=50)assert.equal(stepLiveFeedback(quiet,now,.05,true,[input(now,{rate:8})],false).length,0,'reduced motion emits no decoration');for(let now=850;now<=1300;now+=50)stepLiveFeedback(quiet,now,.05,false,[input(now)],false);assert.ok(quiet.seats[0].rings.every(r=>r.status==='steady'),'essential green status remains in reduced motion');
+const lost=body();lost[15][2]=0;stepLiveFeedback(quiet,1350,.05,false,[input(1350,{body:lost})],false);assert.equal(quiet.seats[0].rings[0].status,'hidden');
+console.log('PASS Freeze live rings: mirrored mapping, real fresh stable matching pose, wrong/stale/missing gating, independent dance confetti and essential reduced-motion status');
