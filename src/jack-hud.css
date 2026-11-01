@@ -18,3 +18,7 @@
 /* Keep paired shield cards between the compact pilots, rather than covering their bodies. */
 .jack-hud[data-players="2"] footer{left:31%;right:31%;display:grid;grid-template-columns:1fr 1fr;gap:10px}.jack-hud[data-players="2"] .jack-seat{min-width:0;padding:8px 9px}.jack-hud[data-players="2"] .jack-shields{font-size:11px;letter-spacing:.06em;margin-left:3px}.jack-hud[data-players="2"] .jack-hit{font-size:14px}.jack-hud[data-players="2"] .jack-hands{font-size:11px}
 @media(max-width:700px){.jack-hud[data-players="2"] footer{left:28%;right:28%;gap:6px;bottom:8px}.jack-hud[data-players="2"] .jack-seat{padding:5px 6px}.jack-hud[data-players="2"] .jack-hands{font-size:8px}.jack-hud[data-players="2"] .jack-shields{font-size:8px;margin-left:2px}.jack-hud[data-players="2"] .jack-hit{font-size:10px}}
+
+.jack-attack-clock{position:absolute;top:calc(3% + 66px);left:26%;right:23%;text-align:center;font:750 16px/1.15 var(--moon-face);letter-spacing:.035em;color:#fff1bd;font-variant-numeric:tabular-nums;}
+.jack-rapid{display:flex;justify-content:space-between;gap:8px;align-items:center;color:#7645a1;font-size:9px;padding:3px 0;}.jack-rapid b{font-size:9px;}.jack-rapid[data-active='true']{color:#643294;background:#ead7ff;border-radius:5px;padding:5px;}
+@media(max-width:700px){.jack-attack-clock{top:calc(3% + 36px);left:26%;right:23%;font-size:12px;}.jack-rapid,.jack-rapid b{font-size:8px;}.jack-hud[data-players='2'] .jack-rapid{display:grid;gap:2px;font-size:7px;}.jack-hud[data-players='2'] .jack-rapid b{font-size:7px;}}

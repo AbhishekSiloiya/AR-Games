@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import {newRapid,grantRapid,stepRapid} from './jack-rapid.ts';
+import {jackFormation,jackAttackIn,JACK_DIVE_LINE} from './jack-combat.ts';
+const power=newRapid();assert.equal(power.remaining,0);grantRapid(power);assert.equal(power.remaining,5);for(let i=0;i<120;i++)stepRapid(power,1/60);assert.ok(Math.abs(power.remaining-3)<.001);grantRapid(power);assert.equal(power.remaining,5,'pickup refreshes a five-second cap, never stacks duration');for(let i=0;i<301;i++)stepRapid(power,1/60);assert.equal(power.remaining,0);
+for(const n of [1,2])for(const team of [false,true])for(let wave=0;wave<5;wave++){const f=jackFormation(wave,n,team,0,team?7:3.4);assert.equal(f.filter(v=>v.bonus).length,1,'one recognisable power ship per formation');assert.ok(!f.some(v=>v.boss&&v.bonus));}
+const speed=.19,ship={on:true,diving:false,age:2,delay:0,y:2.65,toY:2.65,boss:false};const eta=jackAttackIn([ship],0,1)!;assert.ok(Math.abs(eta-(2.65-JACK_DIVE_LINE)/speed)<.001);assert.ok(Math.abs(jackAttackIn([{...ship,y:ship.y-speed}],0,1)!-(eta-1))<.001,'countdown follows actual descent');assert.equal(jackAttackIn([{...ship,diving:true}],0,1),0);assert.equal(jackAttackIn([],0,1),null);assert.ok(jackAttackIn([{...ship,age:0}],0,1)!>eta,'arrival time is included');
+console.log('PASS capped earned rapid duration, distinct one-per-wave pickup and truthful attack countdown');
