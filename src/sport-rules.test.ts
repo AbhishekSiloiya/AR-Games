@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { saveAward, combinationProgress, keeperCue } from './sport-rules.ts';
+assert.equal(saveAward({present:true,contact:true,gold:false,combo:4}),2);
+assert.equal(saveAward({present:false,contact:true,gold:true,combo:9}),0,'absent keeper cannot score a passive rebound');
+assert.equal(saveAward({present:true,contact:false,gold:false,combo:1}),0,'goal frame rebounds are not saves');
+assert.equal(saveAward({present:true,contact:true,gold:true,combo:0}),3);
+assert.deepEqual(combinationProgress(3),{completed:0,fill:.75,remaining:1});
+assert.deepEqual(combinationProgress(4),{completed:1,fill:1,remaining:0});
+assert.deepEqual(combinationProgress(5),{completed:1,fill:.25,remaining:3});
+assert.equal(keeperCue('windup',true),'GOLD SHOT · GET READY');
+assert.equal(keeperCue('in',false),'REACH THE RING');
+console.log('Sports rules: real contact, active-player awards, readable anticipation and four-hit combination milestones pass.');

@@ -1,0 +1,35 @@
+/* Freeze arena: a camera-visible club, persistent cues and individual earned celebrations. */
+.moon-freeze {position:absolute;inset:0;z-index:2;pointer-events:none;font-family:var(--moon-face);color:var(--moon-paper);--moon-accent:var(--moon-coral);}
+.moon-freeze-stage {--moon-accent:var(--moon-coral);}
+.moon-freeze__edition {position:absolute;right:3%;top:3%;font-size:clamp(10px,1.1vw,16px);font-weight:700;letter-spacing:.14em;color:var(--moon-coral);}
+.moon-freeze__cue {position:absolute;bottom:20%;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;max-width:75%;padding:10px 20px;background:var(--moon-shadow);border-radius:8px;}
+.moon-freeze__cue small {font-size:clamp(9px,.8vw,13px);font-weight:700;letter-spacing:.08em;}
+.moon-freeze__cue strong {font-family:var(--moon-display);font-size:clamp(32px,5.4vw,78px);font-weight:900;letter-spacing:-.065em;line-height:.95;color:var(--moon-coral);}
+.moon-freeze__cue span {font-size:clamp(11px,1.2vw,18px);}
+.moon-freeze[data-phase="freeze"] .moon-freeze__cue strong {color:var(--moon-ice);}
+.moon-freeze__seat {position:absolute;bottom:4%;left:3%;width:26%;padding:8px 12px;background:var(--moon-surface);border-radius:6px;}
+.moon-freeze__seat[data-player="1"] {left:auto;right:3%;}
+.moon-freeze__seat span {display:block;font-size:clamp(9px,.8vw,12px);color:var(--moon-muted);font-weight:600;letter-spacing:.05em;}
+.moon-freeze__seat strong {display:block;font-size:clamp(12px,1.5vw,22px);font-weight:800;margin:3px 0 8px;}
+.moon-freeze__seat[data-reward="true"] strong {color:var(--moon-coral);}
+.moon-freeze__seat[data-wobble="true"] strong {color:var(--moon-muted);}
+.moon-freeze__track {height:3px;background:var(--moon-line);}
+.moon-freeze__track i {height:100%;display:block;background:var(--moon-ice);transform:scaleX(0);transform-origin:0 50%;}
+.moon-freeze-stage .hud.score {top:12%;bottom:auto;}
+.live-dance .moon-freeze-stage .hud.score {top:12%;bottom:auto;}
+.live-dance .moon-freeze-stage .hud.clock {bottom:4%;top:auto;}
+.moon-freeze-stage .hud.hint,.moon-freeze-stage .hud.big {display:none;}
+.moon-freeze-stage .hud.banner {top:15%;}
+@media(max-width:700px){.moon-freeze__cue{bottom:24%;padding:7px 12px;width:72%;}.moon-freeze__cue strong{font-size:32px;}.moon-freeze__seat{bottom:4%;width:31%;padding:6px 8px;}.moon-freeze__seat strong{font-size:11px;}.moon-freeze__seat span{font-size:9px;}.moon-freeze__edition{font-size:9px;}.moon-freeze .moon-arena-brand{font-size:10px;}}
+.moon-freeze__visor {position:absolute;height:auto;transform-origin:50% 43%;pointer-events:none;}
+.moon-freeze__visor[hidden] {display:none;}
+.moon-freeze__cue {z-index:1;}
+/* One compact phase instruction leaves face, hands and torso visible. */
+.moon-freeze__edition,.moon-freeze .moon-arena-brand {display:none;}
+.moon-freeze__cue {top:2%;bottom:auto;max-width:48%;padding:6px 16px;gap:2px;background:#20162ee8;}
+.moon-freeze__cue strong {font-size:clamp(28px,4vw,54px);letter-spacing:-.025em;}
+.moon-freeze__cue small {display:none;}
+.moon-freeze__cue span {font-size:clamp(10px,1vw,15px);}
+.moon-freeze__seat {bottom:2%;width:23%;padding:5px 9px;}
+.moon-freeze__seat span {display:none;}.moon-freeze__seat strong {margin:0 0 4px;font-size:clamp(10px,1.2vw,16px);}
+.moon-freeze-stage .hud.score,.live-dance .moon-freeze-stage .hud.score {top:2%;}

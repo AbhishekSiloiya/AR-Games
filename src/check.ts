@@ -91,8 +91,11 @@ hand[19] = { ...hand[19], visibility: 0 };
 assert.ok(Math.abs(palm(hand, 15).x - 0.5) < 1e-9);
 
 // Streak: consecutive goal-days, still alive if today hasn't been played yet.
-const at = (daysAgo: number, points: number) =>
-  ({ t: Date.now() - daysAgo * 864e5, game: 'slice', who: 'A', score: points, points });
+const at = (daysAgo: number, points: number) => {
+  // Calendar days, not 24h intervals: the autumn DST day contains 25 hours.
+  const t = new Date(); t.setDate(t.getDate() - daysAgo); t.setHours(12, 0, 0, 0);
+  return { t: +t, game: 'slice', who: 'A', score: points, points };
+};
 assert.equal(summary([at(1, DAY_GOAL), at(2, DAY_GOAL), at(4, DAY_GOAL)], 'A').streak, 2);
 assert.equal(summary([at(0, DAY_GOAL - 1), at(2, DAY_GOAL)], 'A').streak, 0);
 assert.equal(summary([at(0, 30), at(0, 30)], 'A').today, 60);

@@ -19,7 +19,11 @@ try{
   await page.evaluate(()=>window.__song.gate(false));await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>window.__songGain.gain.value<.01),'Freeze gates recording to silence');
   await page.evaluate(()=>window.__song.gate(true));await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>window.__songGain.gain.value>.4),'dance phase resumes recording');
   await page.evaluate(()=>window.__audio.suspend());const t=await page.evaluate(()=>window.__audio.currentTime);await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>window.__audio.currentTime),t,'pause freezes shared audio clock');
-  await page.evaluate(async()=>{await window.__audio.resume();window.__song.stop();});assert.equal(await page.evaluate(()=>window.__songStopped),true,'leaving round stops recorded source');
+  await page.evaluate(async()=>{await window.__audio.resume();const {music}=await import('/src/audio.ts');music.stop();window.__song.stop();});assert.equal(await page.evaluate(()=>window.__songStopped),true,'Stage teardown stops owned recording after the global session changes');
+  await page.evaluate(id=>{window.__songGain=null;window.__songStopped=false;window.__song=window.__dance.startDanceTrack(0);window.__song.gate(true);},id);
+  await page.waitForFunction(()=>window.__songGain?.gain.value>.3);
+  await page.evaluate(async()=>{const {music}=await import('/src/audio.ts');music.start('cosmic');window.__replacement=music.session;window.__song.stop();});
+  assert.equal(await page.evaluate(()=>window.__songStopped),true,'superseded recording is stopped');assert.equal(await page.evaluate(async()=> (await import('/src/audio.ts')).music.session===window.__replacement),true,'old cleanup leaves the replacement session running');
  }
  assert.deepEqual(errors,[]);console.log('PASS: both CC0 recordings decode, dance/freeze gating, audio pause/resume and round cleanup.');
 }finally{await browser.close();}

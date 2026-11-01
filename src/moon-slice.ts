@@ -1,0 +1,21 @@
+import {toScreen,type Scene} from './engine.ts';
+import {effects,pace} from './pace.ts';
+import {sliceCoach} from './slice-coach.ts';
+import './moon-slice.css';
+const put=(e:Element,value:string)=>{if(e.textContent!==value)e.textContent=value;};
+export async function moonSlice(scene:Scene,n:number,team:boolean,stageNumber:number){
+ let disposed=false;scene.cleanup(()=>{disposed=true;});const host=document.querySelector('.stage');if(!host)return null;const root=document.createElement('div');root.className='moon-slice';root.dataset.players=String(n);host.classList.add('moon-slice-stage');host.append(root);scene.cleanup(()=>{root.remove();host.classList.remove('moon-slice-stage');});
+ root.innerHTML='<div class="slice-brand"><small>MOON CITRUS CLUB</small><b>SLICE</b><span>STAGE '+stageNumber+'</span></div><div class="slice-cue"><strong>GET READY</strong><span>Swipe through fruit. Skip the bombs.</span></div><div class="slice-toast" role="status" aria-live="polite"></div><div class="slice-coach-label">RIZZQUAKE<br><small>NICE MOVES.</small></div>';
+ const title=root.querySelector('.slice-cue strong')!,hint=root.querySelector('.slice-cue span')!,toast=root.querySelector<HTMLElement>('.slice-toast')!,label=root.querySelector<HTMLElement>('.slice-coach-label')!,actor=await sliceCoach(scene,n);if(disposed||!actor)return null;
+ const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,seats=Array.from({length:team?1:n},(_,p)=>{const e=document.createElement('div');e.className='slice-flow';e.dataset.player=String(p);e.innerHTML='<small></small><strong>0 STREAK</strong><div><i></i></div><span>Every five cuts grows your bonus.</span>';root.append(e);return {e,name:e.querySelector('small')!,value:e.querySelector('strong')!,fill:e.querySelector<HTMLElement>('i')!,note:e.querySelector('span')!};});
+ const flashes=Array.from({length:12},()=>{const e=document.createElement('div');e.className='slice-swipe';e.hidden=true;e.setAttribute('aria-hidden','true');e.innerHTML='<svg viewBox="0 0 160 70"><path d="M8 48Q80 5 152 20"/><path d="M15 55Q87 12 146 27"/></svg>';root.append(e);return {e,life:0,x:0,y:0,angle:0};});let next=0,pop=0,clock=0;
+ return {actor,state:()=>({toast:toast.textContent,toastLeft:pop,coach:actor.state()}),impact(x:number,y:number,combo:number,kind:'cut'|'bomb'|'power'|'slash',direction=0){
+  const earned=kind==='slash'||kind==='power'||kind==='cut'&&combo>0&&combo%5===0;
+  if(earned){actor.cheer();pop=1.65;put(toast,kind==='slash'?`${combo} IN ONE SWIPE!`:kind==='power'?'POWER UP!':`${combo} CUT STREAK!`);}
+  if(kind==='bomb'){pop=1;put(toast,'BOMB · RESET YOUR STREAK');}
+  if(!effects.on||reduced||pace.lean)return;const at=toScreen(x,y,0);if(!at)return;const f=flashes[next++%flashes.length];Object.assign(f,{x:at[0]*100,y:at[1]*100,life:.22,angle:direction});
+ },update(dt:number,t:number,mode:string,combos:number[],powers:({name:string;seconds:number}|null)[],finale:boolean){clock=t;pop=Math.max(0,pop-dt);toast.hidden=pop<=0;root.dataset.phase=finale?'finale':t<0?'ready':'play';const motion=effects.on&&!pace.lean&&!reduced;actor.update(dt,t,motion);label.hidden=!actor.state().visible;put(label.querySelector('small')!,t<0?'YOUR SWIPES. YOUR GAME.':'NICE MOVES.');put(title,finale?'SMASH THE MELON':t<0?'GET READY':mode==='zen'?'FIND YOUR FLOW':mode==='classic'?'MAKE EVERY CUT COUNT':t>50?'FINAL FRENZY':'JUICE THE MOMENT');put(hint,finale?'Fast swipes. Move out, then back in.':t<6?'Swipe through fruit. Skip the bombs.':'Three fruit in one swipe earns a bonus.');
+  seats.forEach((s,p)=>{const combo=team?Math.min(...combos.slice(0,n)):combos[p],power=powers[team?0:p];put(s.name,team?'TEAM FLOW':n===1?'YOUR FLOW':`PLAYER ${p+1}`);put(s.value,power?`${power.name} ${Math.ceil(power.seconds)}s`:`${combo} STREAK`);s.fill.style.width=`${(combo%5)/5*100}%`;put(s.note,power?'Keep slicing while it lasts.':`${5-combo%5} cuts to the next bonus`);});
+  flashes.forEach(f=>{f.life=Math.max(0,f.life-dt);f.e.hidden=f.life<=0;if(f.life>0){f.e.style.left=f.x+'%';f.e.style.top=f.y+'%';f.e.style.opacity=String(f.life/.22);f.e.style.transform=`translate(-50%,-50%) rotate(${f.angle}deg) scale(${1+(1-f.life/.22)*.25})`;}});
+ },get time(){return clock;}};
+}

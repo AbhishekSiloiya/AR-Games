@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {trackingRecoveryStatus} from './tracking-recovery-status.ts';
+const feet={ok:false,message:'Step back or tilt the camera so your feet are visible'};
+const good={ok:true,message:'Your position looks good'};
+assert.equal(trackingRecoveryStatus([feet],false,.7).message,feet.message,'the exact missing-parts assessment reaches the strip');
+assert.match(trackingRecoveryStatus([good,feet],false,.7).message,/^Player 2: Step back/,'paired guidance identifies the player who needs room');
+assert.equal(trackingRecoveryStatus([feet],false,.7).progress,0,'a bad or unsteady pose never displays earned readiness');
+assert.equal(trackingRecoveryStatus([good],true,.4).progress,.4);
+assert.equal(trackingRecoveryStatus([good],true,1.2).progress,1);
+assert.equal(trackingRecoveryStatus([good],true,-.3).progress,0);
+assert.equal(trackingRecoveryStatus([good],true,NaN).progress,0);
+assert.match(trackingRecoveryStatus([good],false,0).message,/Stand naturally/,'valid but moving players are asked to settle');
+assert.match(trackingRecoveryStatus([good],true,0).message,/Hold steady/,'valid steady players see the one-second resume instruction');
+console.log('PASS compact recovery status: missing-parts wording, player seat, steady guidance, real progress bounds');

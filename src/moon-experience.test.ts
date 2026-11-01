@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { sliceMomentum, holdChain, freshHoldChain, validPartyLook } from './moon-experience.ts';
+assert.deepEqual(sliceMomentum(0),{label:'Make your first cut',fill:0,next:5});
+assert.deepEqual(sliceMomentum(4),{label:'Fresh cuts',fill:.8,next:1});
+assert.equal(sliceMomentum(5).label,'Juicy streak');
+assert.equal(sliceMomentum(20).label,'Unstoppable');
+assert.deepEqual(sliceMomentum(NaN),sliceMomentum(0));
+let chain=freshHoldChain();chain=holdChain(chain,7,true,true);assert.equal(chain.chain,1);
+assert.deepEqual(holdChain(chain,7,true,true),chain,'one celebration per completed hold');
+chain=holdChain(chain,14,true,true);assert.equal(chain.chain,2);
+chain=holdChain(chain,21,true,false);assert.equal(chain.chain,0,'absence cannot build a chain');assert.equal(chain.best,2);
+chain=holdChain(chain,28,true,true);assert.equal(chain.chain,1);
+chain=holdChain(chain,35,false,true);assert.equal(chain.chain,0,'wobble breaks the chain');
+assert.equal(validPartyLook('old-cutout'),'chrome');assert.equal(validPartyLook('minimal'),'minimal');
+console.log('MOON experience: bounded momentum, independent once-only hold chains, absence and style migration pass.');

@@ -1,15 +1,27 @@
+import {goalieSettings,keeperVariant,keeperFromVariant,keeperDifficulty} from './goalie-settings.ts';
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import './moon.css';
+import './session-screens.css';
+import {TrackingRecovery} from './tracking-recovery.tsx';
+import {trackingRecoveryStatus,type RecoveryStatus} from './tracking-recovery-status.ts';
+import {HandCursor,menuSelectionView} from './hand-cursor.tsx';
+import { PlayerPicker } from './player-picker.tsx';
+import { crewOf } from './moon-profile.ts';
+import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy, moonCardArt } from './moon-catalog.ts';
+import {JabOptions} from './jab-options.tsx';
+import {GoalieOptions} from './goalie-options.tsx';
+import { PartyOptions } from './party-options.tsx';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { assessPose, readiness, stablePose, standingPose, supportedView, trackingGate } from './calibration.ts';
 import { CameraView, PlayerSetup, samplePlayer, type PlayerView } from './setup.tsx';
 import { createRoot } from 'react-dom/client';
-import { cutout, grip, measureDelay, perf, players, predict, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
+import { cutout, grip, measureDelay, perf, players, record, setPlayers, sim, startPose, track, tuning } from './pose.ts';
 import { report } from './report.ts';
 import { DAY_GOAL, load, save, summary, type Session } from './stats.ts';
-import { BADGES, CHALLENGE_XP, STAGES, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
-import { loadAudio } from './audio.ts';
-import { PLAYER_COLORS, Shell, audio, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
+import { BADGES, CHALLENGE_XP, STAGES, badgeCatalog, badgesOf, bestScore, bestStars, dailyChallenges, levelOf, sessionXp, starGoals, starsFor, totalStars, unlockedStage, variantOf, xpOf } from './meta.ts';
+import { loadAudio, setAudioPaused } from './audio.ts';
+import { PLAYER_COLORS, Shell, effects, jingle, paceSummary, play, say, sfx, type Playable } from './stage.tsx';
 // Each game is its own chunk: its code (and, for two of them, the physics engine) is fetched the first time it is played.
 const Slice = play(() => import('./games/slice.ts')), Run = play(() => import('./games/run.ts')), Jab = play(() => import('./games/jab.ts')), Beat = play(() => import('./games/beat.ts'));
 const ShapeUp = play(() => import('./games/shapeup.ts')), Goalie = play(() => import('./games/goalie.ts')), Smash = play(() => import('./games/smash.ts'));
@@ -23,7 +35,7 @@ type GameMode = { id: string; name: string; blurb: string }; // id '' is the sta
 type Game = { id: string; name: string; icon: string; tone: [string, string]; blurb: string; how: string; maxPlayers: 1 | 2; Play: Playable; modes?: GameMode[]; team?: boolean; crew?: boolean }; // crew: two players are ALWAYS one team (there is no versus)
 // The library. A new game = one component + one row here (+ its star goals in meta.ts). maxPlayers 2 only for
 // compact-footprint games (PLAN §3); a wide game is still playable by two through "Take turns".
-const GAMES: Game[] = [
+const LEGACY_GAMES: Game[] = [
   { id: 'pulse', name: 'Pulse', icon: '🎧', tone: ['#22d3ee', '#c026d3'], blurb: 'Hit the music. A neon tunnel, three songs.', how: 'Notes fly down the tunnel onto two rings: cyan is your left hand, pink your right. You never aim. An arrow means swing that hand that way as it lands. A plain orb means swing it any way. A gold diamond means clap. A note with a tail means throw that arm up and hold it. In the break, duck the bar and lean away from the wall.', maxPlayers: 2, Play: Pulse, team: true,
     modes: [{ id: '', name: 'Neon Drive', blurb: '112 bpm · the one to learn on' }, { id: 'afterglow', name: 'Afterglow', blurb: '124 bpm · quick doubles' }, { id: 'hyperline', name: 'Hyperline', blurb: '138 bpm · fast and relentless' }] },
   { id: 'run', name: 'Run', icon: '🏃', tone: ['#ff8a3d', '#ff3d6e'], blurb: 'Endless runner. Lean, jump, duck.', how: 'Lean left or right to change lane. Jump the barrels and duck the beams. Never run into a crate stack. Grab coins and power-ups in the lanes.', maxPlayers: 2, Play: Run },
@@ -33,18 +45,19 @@ const GAMES: Game[] = [
     modes: [{ id: '', name: 'Arcade', blurb: '60 seconds, more balloons, wind, and a storm to pop at the end' }, { id: 'classic', name: 'Classic', blurb: 'Three lives. Every balloon that lands costs one' }] },
   { id: 'leaks', name: 'Leaks', icon: '💦', tone: ['#22d3ee', '#1d4ed8'], blurb: 'Plug the cracks with your whole body.', how: 'Cover a crack with a hand, a foot, a knee or your head. Hold it until the ring closes. Several open at once, so spread out. Do not let the water reach the top.', maxPlayers: 2, Play: Leaks, team: true, crew: true },
   { id: 'sprint', name: 'Sprint', icon: '⚡', tone: ['#fb923c', '#be123c'], blurb: 'A scenic race. Chase stars. Go turbo.', how: 'Race for 45 seconds. Jog on the spot or pump your arms to accelerate. Collect stars, pass checkpoints and build a turbo boost. Keep moving to earn distance; the runner’s warm-up animation earns no points. Race solo, as a team or side by side.', maxPlayers: 2, Play: Sprint, team: true },
-  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Raise your arms. Aim. Fire.', how: 'Raise either hand to fire along that arm. Lower it to reload, then raise again. Point left or right to aim. No jumping needed. Clear the invaders and breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
+  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Aim your hands. Fire. Protect your shields.', how: 'Move a hand to aim at its marker. Bring it forward and hold briefly to fire. Lower to reload. Hit ships to charge Starfall, then jump or hold both hands high to unleash the barrage. Stop diving ships before they hit your shield. Breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
   { id: 'forge', name: 'Forge', icon: '🔨', tone: ['#f59e0b', '#7f1d1d'], blurb: 'Hold the squat. Strike when it glows.', how: 'Sink into a squat and hold it to heat the blade. Deeper heats faster. When it glows white, drive up hard to strike. Rest while it is quenched. Every blade wants a longer hold.', maxPlayers: 2, Play: Forge, team: true },
   { id: 'lumber', name: 'Lumberjack', icon: '🪓', tone: ['#65a30d', '#713f12'], blurb: 'Chop along the stripe.', how: 'Wind up high on one side and chop down across your body to the other, along the stripe on the log. Chop hard for a clean split. The stripe changes sides. Thick logs take two.', maxPlayers: 2, Play: Lumber, team: true },
   { id: 'smash', name: 'Smash', icon: '🤖', tone: ['#fbbf24', '#c2570c'], blurb: 'Demolish the robot. Expose its core.', how: 'Punch the armour plates. The yellow ring marks a weak spot that takes extra damage. Break all six plates, then strike the glowing core. Slow your hand between punches to reload. Each demolished robot brings a tougher one.', maxPlayers: 2, Play: Smash },
-  { id: 'goalie', name: 'Goalie', icon: '🧤', tone: ['#38bdf8', '#2f55e0'], blurb: 'Get a hand to every shot.', how: 'The ring shows where the shot will land. Get a glove there in time. Swat it and it flies. Gold balls are fast and worth 3.', maxPlayers: 2, Play: Goalie },
+  { id: 'goalie', name: 'Goalie', icon: '🧤', tone: ['#38bdf8', '#2f55e0'], blurb: 'Get a hand to every shot.', how: 'The ring shows where the shot will land. Get a glove there in time. Swat it and it flies. Gold balls are worth 3. Each stage brings a new shot pattern.', maxPlayers: 2, Play: Goalie },
   { id: 'jab', name: 'Jab', icon: '🥊', tone: ['#ff5a76', '#a3154a'], blurb: 'Punch the pads, duck the bar.', how: 'Punch each pad with the hand on its side. Gold pads want the opposite hand. Punch hard for extra. Squat when the bar comes.', maxPlayers: 2, Play: Jab },
   { id: 'beat', name: 'Beat', icon: '🎵', tone: ['#c084fc', '#6d28d9'], blurb: 'Hit the moves on the beat.', how: 'Hold the move as its shape reaches the line. Left hand up, right hand up, both up, squat, or jump. On the beat is Perfect.', maxPlayers: 2, Play: Beat },
   { id: 'rocket', name: 'Rocket', icon: '🚀', tone: ['#818cf8', '#3b2fb0'], blurb: 'Every squat is a burn.', how: 'Squat to fire the engine. Deeper squats burn harder. Stop and gravity wins. Highest altitude is your score.', maxPlayers: 2, Play: Rocket },
-  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Dance under the disco ball while the music and lights move. When they stop, freeze. Any wobble costs points. Hold still to earn a bonus and a party celebration when the music returns.', maxPlayers: 2, Play: Freeze },
+  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Dance to spin the disco ball and earn confetti, sparkles and your partner’s light. When they stop, freeze. A wobble resets your hold. Hold still to earn a bonus and a celebration when the music returns.', maxPlayers: 2, Play: Freeze },
   { id: 'wipe', name: 'Wipe', icon: '🧽', tone: ['#fde047', '#d97706'], blurb: 'Scrub the screen clean.', how: 'Sweep both hands across the grime. It creeps back, so keep moving. Clear your whole side for a bonus and a tougher layer.', maxPlayers: 2, Play: Wipe },
-  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Watch yourself live and copy the pose reference. Hold a good match briefly to lock it. Earn up to three stars per pose and chain matches for combo rewards. Relax during the reset countdown, then try the next pose. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
+  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Copy the new pose set in each stage beside your live view. Green markers show matched limbs. Hold a good match briefly to bank up to three stars, then relax for the next pose. Chain all eight poses. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
 ];
+const GAMES = MOON_GAME_IDS.map(id => LEGACY_GAMES.find(g => g.id === id)!);
 const NAMES = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
 const BADGE_ICON: Record<string, string> = { first: '👟', explorer: '🧭', century: '💯', double: '🔥', streak3: '📅', streak7: '🗓️', streak30: '⚡', stars10: '⭐', stars40: '🌟', stars100: '🌌', flawless: '💎', summit: '🏔️', five: '🖐️', level5: '💪', level10: '🏅', early: '🌅', squats: '🦵', runner: '🏁' };
 
@@ -57,7 +70,7 @@ type Screen = { at: 'start' | 'home' | 'stats' | 'badges' | 'tracking' } | { at:
 const vars = (v: Record<string, string | number>) => v as CSSProperties; // CSS custom properties for inline style
 const toneOf = (g: Game) => vars({ '--a': g.tone[0], '--b': g.tone[1] });
 const Stars = ({ n, of = 3 }: { n: number; of?: number }) => <span className="stars">{'★'.repeat(n)}<i>{'★'.repeat(of - n)}</i></span>;
-const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'ROMP'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
+const Logo = ({ huge = false }) => <span className={huge ? 'logo huge' : 'logo'}>{[...'MOON'].map((ch, i) => <span key={i} style={vars({ '--i': i })}>{ch}</span>)}</span>;
 
 // Drifting neon blobs and rising shapes behind every menu. Fixed random layout, pure CSS motion.
 const BITS = Array.from({ length: 14 }, (_, i) => vars({
@@ -100,7 +113,7 @@ function TrackingView() {
       // The picture is shown with object-fit: cover, so frame coordinates map through the same crop.
       const k = Math.max(c.width / (video.videoWidth || 1), c.height / (video.videoHeight || 1));
       const at = ([x, y]: number[]) => [(x - 0.5) * video.videoWidth * k + c.width / 2, (y - 0.5) * video.videoHeight * k + c.height / 2];
-      const h = players[0].hands; grip.hand = h[0].seen && (!h[1].seen || h[0].y > h[1].y) ? 0 : 1; // watch the higher hand, like the cursor does
+      grip.hand = 1; // Menu selection and the diagnostic hand model both use the right hand.
       players.forEach((pl, i) => {
         if (!pl.present || !pl.body.length) return void (trails[i * 2].length = trails[i * 2 + 1].length = 0);
         const [ls, rs, lh, rh, lp, rp] = [pl.body[11], pl.body[12], pl.body[23], pl.body[24], ...pl.palms].map(at);
@@ -118,6 +131,13 @@ function TrackingView() {
     return () => { cancelAnimationFrame(raf); grip.want = false; };
   }, []);
   return <canvas ref={canvas} style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }} />;
+}
+
+// Keep optional controls one deliberate step away, while the main screen stays ready to play.
+function SessionDetails({label,title=label,children}:{label:string;title?:string;children:ReactNode}) {
+  const dialog=useRef<HTMLDialogElement>(null),[open,setOpen]=useState(false);
+  useEffect(()=>{const el=dialog.current;if(open&&!el?.open)el?.showModal();else if(!open&&el?.open)el.close();},[open]);
+  return <><button className="session-details-trigger" aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}>{label}</button><dialog className="session-details" ref={dialog} aria-label={title} onClose={()=>setOpen(false)} onKeyDown={e=>{if(e.key==='Escape')e.stopPropagation();}} onClick={e=>{if(e.target===e.currentTarget)setOpen(false);}}><header><h2>{title}</h2><button onClick={()=>setOpen(false)} aria-label={`Close ${label.toLowerCase()}`}>Done</button></header><div className="session-details-body">{children}</div></dialog></>;
 }
 
 function CountUp({ to }: { to: number }) {
@@ -142,120 +162,9 @@ function Confetti() {
   return <div className="confetti">{bits.map((style, i) => <i key={i} style={style} />)}</div>;
 }
 
-// The pointer is P1's higher hand. You press by CLOSING YOUR FIST over a button (pose.ts `grip`: a hand model looks at
-// the palm, in menus only). If the hand model cannot see a hand — too far, too dark — for a few seconds, holding still
-// over a button presses it instead, so nobody is ever stuck. It stays calm three ways: it glides, it only switches
-// hands when the other is clearly higher, and once on a button it sticks until it leaves by a margin — closing a fist
-// shifts the palm a little, and that must not slide you off the button you were aiming at.
-const DWELL = 1500, STICKY = 40, BLIND_AFTER = 4000;
-const POINTER_LEAD = 0.06; // seconds of prediction the menu pointer takes. Games take ~0.2; a pointer that runs ahead and falls back feels pulled about.
-const pressMode = () => { try { return localStorage.getItem('romp.press') === 'hold' ? 'hold' : 'fist'; } catch { return 'fist'; } };
-function HandCursor() {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const fistMode = pressMode() === 'fist';
-    let raf = 0, target: HTMLButtonElement | null = null, since = 0, last = 0, which = 1, x = NaN, y = NaN, shownAt = 0;
-    // Pressing with a fist, done properly:
-    //  · Closing the hand MOVES it — the palm point is built from the wrist and knuckles, and knuckles travel as fingers
-    //    curl — so the pointer used to lurch just before the press, sometimes onto the neighbouring button. The pointer
-    //    therefore remembers where it has been, and the moment the fingers start to curl it is held where it was a
-    //    fifth of a second earlier — before the hand began to close. The press lands there too.
-    //  · One fist is one press. The pointer must see an OPEN hand for a moment before a fist can press again (`armed`),
-    //    so a fist that is still closed when the next screen appears, or that the hand model loses and finds again,
-    //    cannot press whatever happens to be underneath.
-    const trail: { t: number; x: number; y: number; target: HTMLButtonElement | null }[] = [];
-    let armed = false, openSince = 0, holdUntil = 0, pin = { x: 0, y: 0, target: null as HTMLButtonElement | null }, curlWas = 9, readAt = 0;
-    grip.want = fistMode;
-    const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (now - last) / 1000), hands = players[0].hands;
-      last = now;
-      const other = 1 - which;
-      if (hands[other].seen && (!hands[which].seen || hands[other].y > hands[which].y + 0.3)) which = other;
-      grip.hand = which;
-      const hand = hands[which], on = players[0].present && hand.seen;
-      el.current!.style.display = on ? '' : 'none';
-      if (!on) return void ((x = NaN), (shownAt = 0));
-      shownAt ||= now;
-      const at = predict(hand, undefined, POINTER_LEAD), tx = ((at.x + 1) / 2) * innerWidth, ty = ((1 - at.y) / 2) * innerHeight;
-      // Gentle when it is nearly there (a hand held over a button must not shiver), quick when there is ground to cover.
-      const k = Number.isNaN(x) ? 1 : 1 - Math.exp(-dt * (7 + 26 * Math.min(1, Math.hypot(tx - x, ty - y) / (innerHeight * 0.14))));
-      x = (Number.isNaN(x) ? tx : x) + (tx - (Number.isNaN(x) ? tx : x)) * k;
-      y = (Number.isNaN(y) ? ty : y) + (ty - (Number.isNaN(y) ? ty : y)) * k;
-      // A new reading from the hand model: are the fingers starting to curl? (a sharp drop, or already past "open")
-      if (fistMode && grip.seenAt !== readAt) {
-        readAt = grip.seenAt;
-        if ((curlWas - grip.curl > 0.22 || grip.curl < tuning.openAt) && now > holdUntil) { pin = trail.find((q) => now - q.t <= 200) ?? { x, y, target }; holdUntil = now + 420; }
-        curlWas = grip.curl;
-      }
-      const holding = now < holdUntil || (fistMode && grip.closed && performance.now() - grip.seenAt < BLIND_AFTER);
-      if (holding) { x = pin.x; y = pin.y; } // stay put while the hand closes, and for as long as it is a fist
-      else { trail.push({ t: now, x, y, target }); while (trail.length && now - trail[0].t > 450) trail.shift(); }
-      el.current!.style.transform = `translate(${x}px, ${y}px)`;
-
-      const r = target?.isConnected ? target.getBoundingClientRect() : null;
-      const held = r && x > r.left - STICKY && x < r.right + STICKY && y > r.top - STICKY && y < r.bottom + STICKY;
-      const over = held ? target : (document.elementFromPoint(x, y)?.closest('button:not(:disabled)') as HTMLButtonElement | null);
-      if (over !== target) {
-        target?.classList.remove('hot');
-        over?.classList.add('hot');
-        if (over) sfx('tick', { vol: 0.35 });
-        target = over;
-        since = now;
-      }
-      // Fist: press on the moment the hand closes. A fist that was already closed when it arrived does not count.
-      const sees = fistMode && performance.now() - grip.seenAt < BLIND_AFTER, closed = sees && grip.closed;
-      el.current!.classList.toggle('closed', closed);
-      el.current!.classList.toggle('fist', sees);
-      if (sees && !grip.closed) { openSince ||= now; if (now - openSince > 180) armed = true; } else openSince = 0;
-      if (closed && armed) {
-        armed = false;
-        const aim = pin.target?.isConnected && now < holdUntil + 400 ? pin.target : target; // where the pointer was before the hand began to close
-        if (aim && !aim.disabled) aim.click();
-      }
-      // Dwell: only in "hold" mode, or while the hand model is blind (and then only after giving it time to find the hand).
-      const dwell = !fistMode || (!sees && now - shownAt > BLIND_AFTER);
-      const p = dwell && target ? Math.min(1, Math.max(0, (now - since) / DWELL)) : 0;
-      el.current!.style.setProperty('--p', String(p));
-      if (p === 1) { target!.click(); since = now + DWELL; } // pause before it can re-fire
-    };
-    raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); target?.classList.remove('hot'); grip.want = false; };
-  }, []);
-  return <div className="cursor" ref={el} />;
-}
-
-// Where the camera sees you, without showing the camera: a little frame with a stick figure per player, drawn from
-// the tracked joints, plus a word of guidance when the framing is off. Big in the menus, tiny in a corner in play.
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+// A quiet live preview on briefings: the player, rather than a proxy mannequin.
 function Presence({ small }: { small: boolean }) {
-  const canvas = useRef<HTMLCanvasElement>(null), note = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    let raf = requestAnimationFrame(function draw() {
-      raf = requestAnimationFrame(draw);
-      const c = canvas.current!, g = c.getContext('2d')!, W = (c.width = c.clientWidth * 2), H = (c.height = c.clientHeight * 2);
-      let say = sim ? '' : 'Step into view';
-      players.forEach((pl, i) => {
-        if (!pl.present || !pl.body.length) return;
-        const b = pl.body, seen = (k: number) => b[k][2] > 0.5;
-        // A glowing mannequin rather than a wire skeleton: a filled torso, round limbs that taper, a head, all lit in the player's colour.
-        const tone = PLAYER_COLORS[i], unit = Math.hypot((b[11][0] - b[12][0]) * W, (b[11][1] - b[12][1]) * H) || H * 0.1, at = (k: number) => [b[k][0] * W, b[k][1] * H] as const;
-        g.lineCap = g.lineJoin = 'round'; g.shadowColor = tone; g.shadowBlur = unit * 0.5; g.strokeStyle = g.fillStyle = tone;
-        if ([11, 12, 23, 24].every(seen)) { g.beginPath(); g.moveTo(...at(11)); g.lineTo(...at(12)); g.lineTo(...at(24)); g.lineTo(...at(23)); g.closePath(); g.lineWidth = unit * 0.34; g.stroke(); g.fill(); }
-        for (const [a, z] of BONES) if (seen(a) && seen(z) && !(a === 11 && z === 12) && !(a === 23 && z === 24)) { g.lineWidth = unit * (a >= 23 ? 0.36 : 0.28) * (z >= 25 || z === 15 || z === 16 ? 0.8 : 1); g.beginPath(); g.moveTo(...at(a)); g.lineTo(...at(z)); g.stroke(); }
-        g.beginPath(); g.arc(b[0][0] * W, b[0][1] * H - unit * 0.05, unit * 0.42, 0, 7); g.fill();
-        g.shadowBlur = 0; g.fillStyle = '#ffffff';
-        for (const k of [15, 16, 27, 28]) if (seen(k)) { g.beginPath(); g.arc(...at(k), unit * 0.17, 0, 7); g.fill(); } // hands and feet: what the games read
-        if (i) return;
-        const width = Math.hypot(b[11][0] - b[12][0], b[11][1] - b[12][1]), mid = (b[11][0] + b[12][0]) / 2;
-        say = !seen(27) && !seen(28) ? 'Step back — I cannot see your feet' : b[0][1] < 0.04 ? 'Step back — your head is cut off' : width < 0.05 ? 'Come a little closer'
-          : mid < 0.2 ? 'Move right' : mid > 0.8 ? 'Move left' : '';
-      });
-      if (note.current && note.current.textContent !== say) note.current.textContent = say;
-    });
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return <div className={small ? 'presence small' : 'presence'}><canvas ref={canvas} /><span ref={note} /></div>;
+  return <div className={small ? 'presence small moon-presence' : 'presence moon-presence'}><CameraView game="slice" n={2} compact /><span>YOU / LIVE</span></div>;
 }
 
 function Fps() {
@@ -275,11 +184,13 @@ function App() {
   const [screen, setScreen] = useState<Screen>({ at: 'start' });
   const [error, setError] = useState('');
   const [db, setDb] = useState(load);
+  const [editingPlayer, setEditingPlayer] = useState<number|null>(null);
   const [who, setWho] = useState([0, 1]); // profile index per player slot
   const [mode, setMode] = useState<Mode>('solo');
   const [fx, setFx] = useState(effects.on);
   const [paused, setPaused] = useState(false);
   const [trackingLost, setTrackingLost] = useState(false);
+  const [recovery,setRecovery] = useState<RecoveryStatus>({message:'Step into view of the camera',progress:0});
   const [playerView, setPlayerView] = useState<PlayerView>('live');
   const [coop, setCoop] = useState(true); // two players: one team by default — it is what brings a couple back; rivals by choice
   const n = mode === 'together' ? 2 : 1; // bodies tracked at once; "turns" is two people, one at a time
@@ -293,8 +204,8 @@ function App() {
   }, []);
 
   // Pause: stop the frame loop (Shell context) and the audio clock, so rhythm games freeze too.
-  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void audio().suspend(); } }), [paused, trackingLost]);
-  const resume = () => { setPaused(false); void audio().resume(); };
+  const shell = useMemo(() => ({ paused: paused || trackingLost, pause: () => { setPaused(true); void setAudioPaused(true); } }), [paused, trackingLost]);
+  const resume = () => { setPaused(false); void setAudioPaused(false); };
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && shell.pause();
     addEventListener('keydown', key);
@@ -308,12 +219,14 @@ function App() {
     let lostSince: number|null = null, recoveredSince: number|null = null, lost = false;
     let previous: number[][][] = [], last=performance.now();
     const timer = setInterval(() => {
-      const now = performance.now(), ok = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false).ok).every(Boolean);
+      const now = performance.now(), checks = Array.from({length:n},(_,i)=>assessPose(activeGame,samplePlayer(i),now,false)), ok = checks.every(check=>check.ok);
       const gate = trackingGate(lostSince,ok,now); lostSince=gate.since;
       if (!lost && gate.lost) {lost=true;setTrackingLost(true);}
       if (lost) {
         const steady=ok&&Array.from({length:n},(_,i)=>standingPose(activeGame,players[i].body)&&stablePose(activeGame,players[i].body,previous[i]??[],now-last)).every(Boolean);
         const hold=readiness(recoveredSince,steady,now,1000);recoveredSince=hold.since;
+        const feedback=trackingRecoveryStatus(checks,steady,hold.progress);
+        setRecovery(previous=>previous.message===feedback.message&&previous.progress===feedback.progress?previous:feedback);
         if (hold.ready) {lost=false;lostSince=recoveredSince=null;setTrackingLost(false);}
       }
       previous=players.slice(0,n).map(p=>p.body.map(q=>[...q]));last=now;
@@ -322,7 +235,7 @@ function App() {
   }, [activeGame,n,screen.at === 'play' ? screen.turn : -1]);
   useEffect(() => {
     if (screen.at !== 'play') return;
-    if (paused || trackingLost) void audio().suspend(); else void audio().resume();
+    if (paused || trackingLost) void setAudioPaused(true); else void setAudioPaused(false);
   }, [paused,trackingLost,screen.at]);
   // Pilot choices last for one round; the user's Tracking preference is restored in menus.
   useEffect(() => {
@@ -332,7 +245,7 @@ function App() {
     return ()=>{tuning.look=previous;};
   }, [activeGame,playerView,n]);
   useEffect(() => {
-    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,coordinates:'camera: mirrored x right, y down; stage: x right, y up'});
+    const render = () => JSON.stringify({screen:screen.at,game:'game' in screen?screen.game.id:null,players:n,paused,trackingLost,view:playerView,selection:menuSelectionView,coordinates:'camera: mirrored x right, y down; stage: x right, y up',...(['jab','goalie','freeze','slice','shapeup','jacks'].includes(activeGame)?{play:activeGame==='jacks'?(window as Window&{__jacks?:{snapshot:()=>unknown}}).__jacks?.snapshot():activeGame==='shapeup'?(window as Window&{__shapeup?:{snapshot:()=>unknown}}).__shapeup?.snapshot():activeGame==='jab'?(window as Window&{__jab?:{snapshot:()=>unknown}}).__jab?.snapshot():activeGame==='slice'?(window as Window&{__slice?:{snapshot:()=>unknown}}).__slice?.snapshot():activeGame==='freeze'?(window as Window&{__freeze?:{snapshot:()=>unknown}}).__freeze?.snapshot():(window as Window&{__goalie?:{snapshot:()=>unknown}}).__goalie?.snapshot()}:{} )});
     Object.assign(window,{render_game_to_text:render});
     return ()=>{delete (window as Window & {render_game_to_text?:()=>string}).render_game_to_text;};
   }, [screen,n,paused,trackingLost,playerView]);
@@ -340,7 +253,7 @@ function App() {
   const update = (next: typeof db) => { save(next); setDb(next); };
   const go = (s: Screen) => {
     setPaused(false);
-    if (s.at === 'setup') setPlayerView(v=>s.game.id==='shapeup'?'live':supportedView(s.game.id,n,v));
+    if (s.at === 'setup') setPlayerView(v=>['shapeup','freeze'].includes(s.game.id)?'live':supportedView(s.game.id,n,v));
     if (s.at === 'play') energy0.current = players.map((p) => p.energy);
     if (s.at === 'brief') s.game.Play.warm(); // fetch the renderer and this game's code while the player reads how to play
     setScreen(s);
@@ -352,7 +265,7 @@ function App() {
   const start = async () => {
     // Fullscreen first: it needs the tap's user-activation, which is gone once the camera prompt and model load finish.
     try { void document.documentElement.requestFullscreen().catch(() => {}); } catch { /* not supported — play windowed */ }
-    void audio().resume(); // same reason: games are later started by a hand-dwell, which is not a user gesture
+    void setAudioPaused(false); // same reason: games are later started by a hand-dwell, which is not a user gesture
     void loadAudio(); // samples decode in the background; until then sounds fall back to synth blips
     try { await startPose(video.current!); } catch (e) {
       return setError(`Camera or tracker failed: ${(e as Error).message}. Allow the camera — and if this is the http://192.168… address, add it under chrome://flags → “Insecure origins treated as secure” first.`);
@@ -412,99 +325,60 @@ function App() {
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
   const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
-  const cycle = (slot: number) => setWho((w) => w.map((v, i) => (i === slot ? (v + 1) % db.profiles.length : v)));
-  const rename = (slot: number) => {
-    const old = name(slot), next = prompt('Name', old)?.trim();
-    if (!next || next === old || db.profiles.includes(next)) return;
-    update({ profiles: db.profiles.map((p) => (p === old ? next : p)), sessions: db.sessions.map((s) => (s.who === old ? { ...s, who: next } : s)) });
-  };
+
 
   const slots = mode === 'solo' ? [0] : [0, 1];
   const clash = slots.length === 2 && who[0] === who[1];
   // A stage is open if any of the people about to play has opened it.
-  const open = (game: Game, gameMode = '') => Math.max(...slots.map((i) => unlockedStage(db.sessions, name(i), game.id, variantOf(gameMode, teamOf(game)))));
+  const open = (game: Game, gameMode = '') => Math.max(...slots.map((i) => unlockedStage(db.sessions, name(i), game.id, variantOf(gameMode||(game.id==='freeze'?'studio':''), teamOf(game)))));
   const party = screen.at === 'results' && screen.rewards.some((r) => r.stars === 3 || r.levelUp || r.newBest);
   return (
     <Shell.Provider value={shell}>
       <video className={screen.at === 'tracking' ? 'mirror bright' : 'mirror'} ref={video} muted playsInline />
       {screen.at !== 'tracking' && screen.at !== 'setup' && <Backdrop ingame={screen.at === 'play'} />}
       {screen.at === 'start' && (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '2rem' }}>
-          <Logo huge />
-          <h2>Your body is the controller. Move to play.</h2>
-          <div className="row" style={{ justifyContent: 'center' }}>
-            {['📺 Stand the tablet under the TV', '🚶 Step back till your whole body shows', '✊ Point at a button, close your fist to press'].map((t) => <span className="goal" key={t}>{t}</span>)}
+        <div className="screen moon-start">
+          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">MOVE ON / FEEL SOMETHING</span><span className="moon-edition">MOVE TOGETHER. PLAY YOUR WAY.</span></header>
+          <div className="moon-welcome">
+            <div className="moon-welcome-copy"><p className="moon-eyebrow">SIX WORLDS. ONE YOU.</p><h1>YOUR BODY.<br /><span>THE CONTROLLER.</span></h1><p className="moon-intro">Slice the chaos. Own the goal. Dance like the room is yours.</p><button className="primary giant" onClick={start}>Start <span aria-hidden="true">↗</span></button><p className="moon-camera-note">Camera on. Step back. Make your move.<br />Play on your Mac or tablet · no controller needed</p>{error && <p className="error">{error}</p>}</div>
+            <div className="moon-welcome-art" aria-label="Original artwork for the MOON movement arcade"><img className="moon-cover-main" src={moonArt('freeze')} alt="Freeze club environment" fetchPriority="high" /><img className="moon-cover-slice" src={moonArt('slice')} alt="Slice fruit world" /><img className="moon-cover-goalie" src={moonArt('goalie')} alt="Goalie stadium world" /><img className="moon-cover-buddy" src={moonBuddy('freeze')} alt="Rizzquake, your dance partner" /><span className="moon-art-stamp">MOVE<br />LIKE YOU<br />MEAN IT.</span></div>
           </div>
-          <button className="primary giant" onClick={start}>Start</button>
-          {error && <p className="error">{error}</p>}
+          <footer className="moon-start-footer"><span>SLICE / GOALIE / FREEZE / SHAPE UP / JACK ATTACK / JAB</span><span>REAL MOVES. GOOD ENERGY.</span></footer>
         </div>
       )}
       {screen.at === 'home' && (
-        <div className="screen library">
-          <div className="row">
-            <Logo />
-            <p className="dim num grow" style={{ paddingLeft: '1rem' }}><Fps /></p>
-            <button className="ghost" onClick={toggleFx}>✨ Glow {fx ? 'on' : 'off'}</button>
-            <button className="ghost" onClick={() => go({ at: 'tracking' })}>🎯 Tracking</button>
-            <button className="ghost" onClick={() => go({ at: 'badges' })}>🏅 Badges</button>
-            <button className="ghost" onClick={() => go({ at: 'stats' })}>📊 Stats</button>
+        <div className="screen library moon-playroom">
+          <header className="moon-masthead"><Logo /><span className="moon-eyebrow">YOUR PLAYROOM</span><nav aria-label="Playroom tools"><button className="ghost" onClick={toggleFx}>Effects {fx ? 'on' : 'off'}</button><button className="ghost" onClick={() => go({ at: 'tracking' })}>Tracking</button><button className="ghost" onClick={() => go({ at: 'badges' })}>Badges</button><button className="ghost" onClick={() => go({ at: 'stats' })}>Stats</button></nav></header>
+          <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
+          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>RIGHT HAND · HOLD 1.5s TO CHOOSE</span></div>
+          <div className="moon-posters">
+            {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:g.id==='goalie'?keeperVariant(goalieSettings()):g.id==='freeze'?'studio':''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
+              <div className="moon-poster-art"><img src={moonCardArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
+              <div className="moon-poster-copy"><div><h3>{g.name}</h3><p>{MOON_CATALOG[g.id].hook}</p></div><span className="moon-poster-move">{MOON_CATALOG[g.id].move}<small>Stage {open(g)} / {STAGES}</small></span></div>
+            </button>)}
           </div>
-          <div className="top">
-            <div className="panel">
-              <div className="seg">
-                {(Object.keys(MODES) as Mode[]).map((m) => <button key={m} aria-pressed={mode === m} onClick={() => chooseMode(m)}>{MODES[m]}</button>)}
-              </div>
-              {slots.map((i) => (
-                <div className="row" key={i} style={{ flexWrap: 'nowrap' }}>
-                  <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
-                  <span className="grow" />
-                  <button className="ghost" onClick={() => cycle(i)}>Switch</button>
-                  <button className="ghost" onClick={() => rename(i)}>Rename</button>
-                </div>
-              ))}
-              {clash && <p className="error">Pick two different players.</p>}
-            </div>
-            <div className="panel">
-              <h2>🎯 Daily quests · {name(0)}</h2>
-              {dailyChallenges(db.sessions, name(0), NAMES).map((c) => (
-                <div key={c.id} className={c.done ? 'quest done' : 'quest'}>
-                  <span className="tick">{c.done ? '✓' : ''}</span>
-                  <span className="what num">{c.text} <span className="dim">{c.have} / {c.goal}</span></span>
-                  <span className="xp">+{CHALLENGE_XP} XP</span>
-                  <span className="meter"><i style={{ width: `${(100 * c.have) / c.goal}%` }} /></span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="cards">
-            {GAMES.filter((g) => g.maxPlayers >= n).map((g, i) => (
-              <button className="card" key={g.id} style={{ ...toneOf(g), ...vars({ '--i': i }) }} disabled={clash} onClick={() => go({ at: 'brief', game: g, stage: open(g), mode: '' })}>
-                <span className="icon">{g.icon}</span>
-                <b>{g.name}</b>
-                <small>{g.blurb}</small>
-                <span className="meta num"><span className="pill">Stage {open(g)}</span><Stars n={bestStars(db.sessions, name(0), g.id, open(g))} /></span>
-              </button>
-            ))}
-          </div>
+          <section className="moon-dailies"><div><p className="moon-eyebrow">A LITTLE EXTRA MOTIVATION</p><h2>TODAY’S SIDE QUESTS</h2><p>For {name(0)} · +{CHALLENGE_XP} XP each</p></div><div className="moon-quest-list">{dailyChallenges(db.sessions,name(0),NAMES).map(c=><div key={c.id} className={c.done?'quest done':'quest'}><span className="tick">{c.done?'✓':''}</span><span className="what">{c.text}<small>{c.have} / {c.goal}</small></span><span className="meter"><i style={{width:`${100*c.have/c.goal}%`}} /></span></div>)}</div></section>
+          <footer className="moon-room-footer"><Logo /><span>MOve ON. A little further every time.</span><span>{totalStars(db.sessions,name(0))} stars collected</span></footer>
         </div>
       )}
+      {editingPlayer!==null&&<PlayerPicker db={db} current={name(editingPlayer)} slot={editingPlayer} onSave={update} onSwitch={index=>setWho(w=>w.map((v,i)=>i===editingPlayer?index:v))} onClose={()=>setEditingPlayer(null)} />}
       {screen.at === 'brief' && (() => {
         const { game } = screen, team = teamOf(game), variant = variantOf(screen.mode, team), opened = open(game, screen.mode);
         return (
-          <div className="screen" style={toneOf(game)}>
-            <div className="row"><h1 className="grow">{game.name}</h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
+          <div className={`screen moon-brief ${game.id==='freeze'?'moon-party-brief':''}`} data-game={game.id} style={toneOf(game)}>
+            <header className="moon-masthead"><Logo /><span className="moon-eyebrow">THE SELECT SIX / {game.name}</span><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></header>
             <div className="brief">
-              <div className="hero"><span>{game.icon}</span></div>
-              <div className="col" style={{ gap: '1.3rem' }}>
-                <div className="steps">{game.how.split('. ').map((step, i) => <p key={i} style={vars({ '--i': i })}>{step.replace(/\.$/, '')}</p>)}</div>
+              <div className="moon-brief-art"><img src={moonArt(game.id,screen.stage)} alt={`${game.name} game environment`} /><div><p className="moon-eyebrow">{MOON_CATALOG[game.id].world}</p><h1>{game.name}</h1><p>{MOON_CATALOG[game.id].hook}</p></div><span className="moon-key-art-label">YOUR NEXT ROUND</span></div>
+              <div className="col session-brief-content">
+                <div className="moon-how"><p className="moon-eyebrow">THE MOVES / HOW TO PLAY</p>{MOON_CATALOG[game.id].steps.map((step,i)=><p key={step}><span>0{i+1}</span>{step}</p>)}</div>
                 {(game.modes || (n === 2 && game.team && !game.crew)) && (
-                  <div className="row">
+                  <div className="row session-modes">
                     {game.modes && <div className="seg">{game.modes.map((m) => <button key={m.id} aria-pressed={screen.mode === m.id} onClick={() => go({ ...screen, mode: m.id, stage: Math.min(screen.stage, open(game, m.id)) })}>{m.name}</button>)}</div>}
                     {n === 2 && game.team && !game.crew && <div className="seg"><button aria-pressed={coop} onClick={() => setCoop(true)}>🤝 Team</button><button aria-pressed={!coop} onClick={() => setCoop(false)}>⚔️ Versus</button></div>}
                     <span className="dim">{[game.modes?.find((m) => m.id === screen.mode)?.blurb, n === 2 && game.team ? (team ? 'One shared score: you win or lose together' : 'Highest score wins') : ''].filter(Boolean).join(' · ')}</span>
                   </div>
                 )}
-                <div className="path">
+                <section className="session-stage"><p className="moon-eyebrow">CHOOSE YOUR STAGE</p><div className="path">
                   {Array.from({ length: STAGES }, (_, k) => k + 1).map((st) => (
                     <span key={st} className="row" style={{ gap: 0 }}>
                       {st > 1 && <span className={st <= opened ? 'link open' : 'link'} />}
@@ -519,7 +393,8 @@ function App() {
                   {starGoals(game.id, screen.stage, variant).map((goal, k) => <span className="goal" key={k}><Stars n={k + 1} /> {goal}</span>)}
                   <span className="dim">Two stars open the next stage · best here {bestScore(db.sessions, name(0), game.id, screen.stage, variant)}</span>
                 </div>
-                <div className="row"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button></div>
+                </section>
+                <div className="moon-launch"><button className="primary giant" onClick={() => play(game, Math.min(screen.stage, opened), screen.mode)}>Play</button>{['freeze','jab','goalie'].includes(game.id)&&<SessionDetails label="Game settings">{game.id==='freeze'&&<PartyOptions stage={screen.stage}/>}{game.id==='jab'&&<JabOptions stage={screen.stage}/>}{game.id==='goalie'&&<GoalieOptions stage={screen.stage} mode={screen.mode} onChange={mode=>go({...screen,mode})}/>}</SessionDetails>}</div>
               </div>
             </div>
           </div>
@@ -527,8 +402,8 @@ function App() {
       })()}
       {screen.at === 'setup' && <PlayerSetup key={`${screen.game.id}-${screen.turn}`} game={screen.game.id} title={`${screen.game.name}${mode==='turns'?` · ${name(screen.turn)}`:''}`} n={n} view={playerView} onView={setPlayerView} onBack={()=>go({at:'brief',game:screen.game,stage:screen.stage,mode:screen.mode})} onReady={()=>go({...screen,at:'play'})} />}
       {screen.at === 'play' && !['slice','keepy','freeze','shapeup'].includes(screen.game.id) && playerView === 'live' && <div className="player-inset"><CameraView game={screen.game.id} n={n} guide compact /><span>You · live tracking</span></div>}
-      {screen.at === 'play' && <div className={screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
-      {screen.at === 'play' && trackingLost && !paused && <div className="pause tracking-recovery"><div className="panel"><h1>Let’s find you again</h1><CameraView game={screen.game.id} n={n} guide compact /><p>Stand naturally with your hands and required body parts in view. Hold briefly to resume.</p><p className="dim">Your round is paused. It resumes when tracking is steady.</p><button onClick={()=>go({at:'home'})}>Back to home</button></div></div>}
+      {screen.at === 'play' && <div data-game={screen.game.id} inert={trackingLost} className={`moon-game ${screen.game.id==='freeze'&&playerView==='live'?'live-dance':screen.game.id==='smash'?'demolition-stage':''}`}><screen.game.Play key={screen.turn} n={n} stage={screen.stage} mode={screen.mode} team={teamOf(screen.game)} best={bestScore(db.sessions, name(mode === 'turns' ? screen.turn : 0), screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))} onEnd={(scores, notes) => finish(screen, scores, notes)} /></div>}
+      {screen.at === 'play' && trackingLost && !paused && <TrackingRecovery game={screen.game.id} n={n} status={recovery} preview={playerView!=='live'||['freeze','shapeup','slice','keepy'].includes(screen.game.id)} onHome={()=>go({at:'home'})}/>}
       {screen.at === 'play' && paused && (
         <div className="pause">
           <div className="panel">
@@ -542,16 +417,17 @@ function App() {
         </div>
       )}
       {screen.at === 'next' && (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div className="screen session-handoff" style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <h1>{name(0)} scored <span className="crown num">{screen.scores[0]}</span></h1>
           <h2>{name(1)}, you are up! {name(0)}, step out of view.</h2>
           <button className="primary giant" onClick={() => go({ ...screen, at: 'setup' })}>Ready</button>
         </div>
       )}
       {screen.at === 'results' && (
-        <div className="screen" style={{ alignItems: 'center' }}>
+        <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id} data-players={screen.scores.length}>
+          <img className="moon-result-art" src={moonArt(screen.game.id,screen.stage)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
           {party && <Confetti />}
-          <h1>{screen.game.icon} {screen.game.name}{screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
+          <h1>{screen.game.name}{screen.game.id==='freeze'?' · Studio':screen.game.id==='goalie'?` · ${keeperDifficulty(keeperFromVariant(screen.mode))}`:screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
           <div className="results">
             {screen.scores.map((score, i) => {
               const r = screen.rewards[i], top = screen.scores.length === 2 && score > screen.scores[1 - i] && !teamOf(screen.game);
@@ -561,22 +437,26 @@ function App() {
                   <h2>{top && <span className="crown">👑 </span>}{name(i)}</h2>
                   <p className="score num"><CountUp to={score} /></p>
                   <div className="bigstars">{[0, 1, 2].map((k) => <span key={k} className={k < r.stars ? 'on' : ''} style={vars({ '--i': k })}>★</span>)}</div>
-                  {screen.notes[i]?.length > 0 && <p className="dim num notes">{screen.notes[i].join(' · ')}</p>}
+                  <p className="session-earned">{[r.newBest?'New best!':'',r.levelUp>0?`Level ${r.levelUp}`:'',r.challenges.length?`${r.challenges.length} quest${r.challenges.length===1?'':'s'}`:'',r.badges.length?`${r.badges.length} badge${r.badges.length===1?'':'s'}`:''].filter(Boolean).join(' · ')}</p>
+                  <p className="num session-xp">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
+                  {r.stars < 3 && <p className="dim num session-next-star">Next star at {starGoals(screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))[r.stars]}</p>}
+                  <SessionDetails label="Round details" title={`${name(i)} · Round details`}>
+                  {screen.notes[i]?.length > 0 && (['jab','goalie','freeze'].includes(screen.game.id)?<ul className={`${screen.game.id==='jab'?'jab':screen.game.id==='freeze'?'freeze':'keeper'}-result-notes num`}>{screen.notes[i].map(note=><li key={note}>{note}</li>)}</ul>:<p className="dim num notes">{screen.notes[i].join(' · ')}</p>)}
                   <p className="num">+{r.xp} XP <span className="dim">· +{screen.points[i]} activity points</span></p>
                   <Player sessions={db.sessions} who={name(i)} tone={PLAYER_COLORS[i]} />
                   {r.newBest && <p className="toast gold" style={vars({ '--i': toast++ })}>🏆 New best!</p>}
                   {r.levelUp > 0 && <p className="toast pink" style={vars({ '--i': toast++ })}>⬆️ Level up! You are level {r.levelUp}</p>}
                   {r.challenges.map((c) => <p key={c} className="toast green" style={vars({ '--i': toast++ })}>🎯 Quest done: {c}</p>)}
                   {r.badges.map((b) => <p key={b} className="toast gold" style={vars({ '--i': toast++ })}>{BADGE_ICON[b]} Badge: {BADGES.find((x) => x.id === b)!.name}</p>)}
-                  {r.stars < 3 && <p className="dim num">Next star at {starGoals(screen.game.id, screen.stage, variantOf(screen.mode, teamOf(screen.game)))[r.stars]}</p>}
+                  </SessionDetails>
                 </div>
               );
             })}
           </div>
-          <div className="row" style={{ justifyContent: 'center' }}>
-            <button className="primary" onClick={() => play(screen.game, screen.stage, screen.mode)}>Play again</button>
-            {screen.stage < open(screen.game, screen.mode) && <button onClick={() => play(screen.game, screen.stage + 1, screen.mode)}>Next stage →</button>}
-            <button onClick={() => go({ at: 'home' })}>Home</button>
+          <div className="row session-result-actions" style={{ justifyContent: 'center' }}>
+            <button className="primary session-action session-replay" onClick={() => play(screen.game, screen.stage, screen.mode)}><span aria-hidden="true">↻</span>Play again</button>
+            {screen.stage < open(screen.game, screen.mode) && <button className="session-action session-next" onClick={() => play(screen.game, screen.stage + 1, screen.mode)}><span aria-hidden="true">★</span>Next stage →</button>}
+            <button className="session-action session-home" onClick={() => go({ at: 'home' })}><span aria-hidden="true">⌂</span>Home</button>
           </div>
         </div>
       )}
@@ -604,14 +484,7 @@ function App() {
                 <button aria-pressed={tuning.model === 'lite'} onClick={() => setTracker('romp.model', 'lite')}>Fast</button>
               </div>
             </div>
-            <div className="row">
-              <span className="label">Press with</span>
-              <div className="seg">
-                <button aria-pressed={pressMode() === 'fist'} onClick={() => setTracker('romp.press', 'fist')}>Fist</button>
-                <button aria-pressed={pressMode() === 'hold'} onClick={() => setTracker('romp.press', 'hold')}>Hold still</button>
-              </div>
-              <span className="dim">Close your fist over a button.</span>
-            </div>
+            <div className="row"><span className="label">Menu selection</span><span>Right hand · hold for 1.5 seconds</span><span className="dim">Let the ring fill to choose. Move away to cancel or choose again.</span></div>
             <div className="row">
               <span className="label">Sharp motion</span>
               <div className="seg">
@@ -651,9 +524,9 @@ function App() {
       )}
       {screen.at === 'badges' && (
         <div className="screen">
-          <div className="row"><h1 className="grow">🏅 Badges · {name(0)} <span className="dim num">{badgesOf(db.sessions, name(0)).length} / {BADGES.length}</span></h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
+          <div className="row"><h1 className="grow">🏅 Badges · {name(0)} <span className="dim num">{badgesOf(db.sessions, name(0)).length} / {badgeCatalog(db.sessions,name(0)).length}</span></h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
           <div className="badges">
-            {BADGES.map((b, i) => {
+            {badgeCatalog(db.sessions,name(0)).map((b, i) => {
               const has = badgesOf(db.sessions, name(0)).includes(b.id);
               return <div key={b.id} className={has ? 'badge has' : 'badge'} style={vars({ '--i': i })}><em>{BADGE_ICON[b.id]}</em><b>{b.name}</b><small>{b.how}</small></div>;
             })}
@@ -689,8 +562,8 @@ function App() {
           </div>
         </div>
       )}
-      {screen.at !== 'start' && screen.at !== 'tracking' && screen.at !== 'setup' && screen.at !== 'play' && <Presence small={false} />}
-      {((screen.at !== 'play' && screen.at !== 'start' && screen.at !== 'setup') || paused) && <HandCursor />}
+      {screen.at === 'brief' && <Presence small={false} />}
+      {((screen.at !== 'play' && screen.at !== 'start') || paused) && <HandCursor />}
     </Shell.Provider>
   );
 }

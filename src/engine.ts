@@ -14,6 +14,7 @@ import {
 import { cutout, feed, players, sim, tuning } from './pose.ts';
 import { CUT } from './cut.ts';
 import { effects, pace } from './pace.ts';
+import { roundLifetime } from './round-lifetime.ts';
 
 export const W = 16, H = 9;
 export type View = { position: [number, number, number]; fov: number; near: number; far: number; lookAt?: [number, number, number] };
@@ -53,8 +54,8 @@ const linear = (hex: string) => {
 };
 
 // ---- things a round owns, freed when it ends -------------------------------------------------------------------------
-let owned: { destroy: () => void }[] = [];
-export const own = <T extends { destroy: () => void }>(thing: T) => (owned.push(thing), thing);
+let owned = roundLifetime();
+export const own = <T extends { destroy: () => void }>(thing: T) => (owned.add(() => thing.destroy()), thing);
 
 // ---- materials ------------------------------------------------------------------------------------------------------
 type Look = { opacity?: number; twoSided?: boolean; emissive?: string; glow?: number; fog?: boolean };
@@ -190,12 +191,14 @@ const quiet = (e: Entity) => {
 // A loaded model, scaled so its largest side is `size` and re-centred on its own origin (y on the floor if `floor`).
 // What comes back is a template that is never drawn: `.clone()` it for every copy you want on stage.
 export async function fitted(url: string, size: number, floor = false) {
+  const owner = owned; // capture before awaiting: a later round must never own this template
   const inner = quiet(((await glb(url)).resource as ContainerResource).instantiateRenderEntity()), box = boundsOf(inner);
   const k = size / Math.max(box.halfExtents.x, box.halfExtents.y, box.halfExtents.z) / 2, root = new Entity(), mid = new Entity();
   mid.setLocalPosition(-box.center.x * k, floor ? -(box.center.y - box.halfExtents.y) * k : -box.center.y * k, -box.center.z * k);
   mid.setLocalScale(k, k, k);
   mid.addChild(inner); root.addChild(mid);
-  return own(root);
+  owner.add(() => root.destroy());
+  return root;
 }
 export const instantiate = async (url: string) => { const asset = await glb(url); return { entity: quiet((asset.resource as ContainerResource).instantiateRenderEntity()), asset }; };
 
@@ -521,7 +524,7 @@ const TONES: Partial<Record<Place, [string, string]>> = { deep: ['#031a2e', '#38
 export const mirrorOn = () => tuning.look === 'mirror' && !sim && !!feed.video?.videoWidth;
 // Stage units per picture-height, and where a point of the picture (x in 0..aspect, y in 0..1, mirrored) lands on the stage.
 export const feedUnit = (aspect: number) => (aspect >= W / H ? H : W / aspect);
-function mirror(scene: Scene, place: Place) {
+function mirror(scene: Scene, place: Place, natural=false) {
   const video = feed.video!, tex = own(new Texture(device, { name: 'feed', width: video.videoWidth, height: video.videoHeight, format: PIXELFORMAT_RGBA8, mipmaps: false, minFilter: FILTER_LINEAR, magFilter: FILTER_LINEAR, addressU: ADDRESS_CLAMP_TO_EDGE, addressV: ADDRESS_CLAMP_TO_EDGE }));
   const [low, high] = TONES[place] ?? ['#120a2e', '#a78bfa'], aspect = video.videoWidth / video.videoHeight, unit = feedUnit(aspect);
   const m = own(new ShaderMaterial({
@@ -530,7 +533,7 @@ function mirror(scene: Scene, place: Place) {
     vertexGLSL: `attribute vec3 vertex_position; uniform mat4 matrix_model; uniform mat4 matrix_viewProjection; varying vec2 vAt;
       void main(void) { vAt = vertex_position.xy; gl_Position = matrix_viewProjection * matrix_model * vec4(vertex_position, 1.0); }`,
     fragmentGLSL: `#include "gammaPS"
-      varying vec2 vAt; uniform sampler2D uFeed; uniform vec3 uLow; uniform vec3 uHigh; uniform vec4 uFit; uniform vec4 uSpotA; uniform vec4 uSpotB; uniform vec3 uTintA; uniform vec3 uTintB;
+      varying vec2 vAt; uniform sampler2D uFeed; uniform vec3 uLow; uniform vec3 uHigh; uniform vec4 uFit; uniform vec4 uSpotA; uniform vec4 uSpotB; uniform vec3 uTintA; uniform vec3 uTintB; uniform float uNatural;
       void main(void) {
         vec2 uv = vec2(0.5 - vAt.x / uFit.x, 0.5 - vAt.y / uFit.y); // mirrored; the picture's first row is its top
         vec3 seen = pow(texture2D(uFeed, uv).rgb, vec3(2.2)); float luma = dot(seen, vec3(0.3, 0.6, 0.1));
@@ -539,9 +542,11 @@ function mirror(scene: Scene, place: Place) {
         c += seen * (a + b) * 0.85 + (uTintA * a + uTintB * b) * 0.10; // where a player stands, the room comes up to full light
         vec2 q = abs(vAt) / vec2(${(W / 2).toFixed(1)}, ${(H / 2).toFixed(1)}); float edge = max(q.x, q.y), frame = smoothstep(0.945, 0.955, edge);
         c = mix(c, uLow * 1.6 + uHigh * 0.25 * smoothstep(0.955, 0.97, edge) * smoothstep(0.985, 0.97, edge), frame);
+        c = mix(c, seen, uNatural); // Dance and pose matching retain the original camera exposure.
         gl_FragColor = vec4(gammaCorrectOutput(c), 1.0);
       }`,
   }));
+  m.setParameter('uNatural', natural || place === 'disco' || place === 'studio' ? 1 : 0);
   m.setParameter('uFeed', tex); m.setParameter('uLow', linear(low)); m.setParameter('uHigh', linear(high)); m.setParameter('uFit', [aspect * unit, unit, 0, 0]);
   m.setParameter('uTintA', linear('#818cf8')); m.setParameter('uTintB', linear('#34d399')); m.setParameter('uSpotA', [0, 0, 0, 0]); m.setParameter('uSpotB', [0, 0, 0, 0]);
   m.update();
@@ -555,14 +560,14 @@ function mirror(scene: Scene, place: Place) {
     });
   };
   everyFrame.push(refresh);
-  scene.cleanup(() => void everyFrame.splice(everyFrame.indexOf(refresh), 1));
+  scene.cleanup(() => { const i = everyFrame.indexOf(refresh); if (i >= 0) everyFrame.splice(i, 1); });
   return node(scene.root, shapes.quad(W, H), m, [0, 0, -20]);
 }
 const everyFrame: (() => void)[] = [];
 const timed: ShaderMaterial[] = []; // materials that want the clock, once a frame
 // `bodies: true` says the game shows its players' whole bodies, so under the Mirror look the room takes the place's place.
-export function backdrop(scene: Scene, place: Place, bodies = false) {
-  if (bodies && mirrorOn()) return Object.assign(mirror(scene, place), { drive: (_: number) => {}, mood: (_: number) => {} });
+export function backdrop(scene: Scene, place: Place, bodies = false, natural=false) {
+  if (bodies && mirrorOn()) return Object.assign(mirror(scene, place, natural), { drive: (_: number) => {}, mood: (_: number) => {} });
   const m = own(new ShaderMaterial({
     uniqueName: `romp-place-${place}`,
     attributes: { vertex_position: SEMANTIC_POSITION },
@@ -669,7 +674,9 @@ export async function clearing(scene: Scene, dusk: boolean) {
   scene.sky(haze); scene.fog(haze, 26, 75); scene.ambient(dusk ? '#ffd9b8' : '#fff6e5', dusk ? 0.7 : 0.9);
   sky(scene, false, 0.5, ROOM, dusk);
   ground(scene, { tracks: [], lane: 1, city: false, fog: haze, fogFrom: 26, fogTo: 75, size: [260, 170], z: -70, y: FLOOR });
+  let disposed = false; scene.cleanup(() => { disposed = true; });
   const N = '/assets/nature/', C = '/assets/camp/', kinds = await Promise.all([fitted(N + 'tree_oak.glb', 11, true), fitted(N + 'tree_pineTallA.glb', 13, true), fitted(N + 'tree_detailed.glb', 10, true), fitted(C + 'tree-tall.glb', 12, true), fitted(N + 'tree_fat.glb', 9, true), fitted(N + 'plant_bushLarge.glb', 2.6, true), fitted(N + 'rock_largeA.glb', 2.4, true), fitted(N + 'grass_large.glb', 1.2, true)]);
+  if (disposed) return;
   // Trees in a horseshoe behind the play plane — dense at the back, open toward the camera — and small things scattered between.
   for (let i = 0; i < 46; i++) {
     const big = i < 30, a = (i / (big ? 30 : 16)) * Math.PI, r = big ? 17 + ((i * 7) % 11) * 1.6 : 8 + ((i * 5) % 7) * 1.5, e = kinds[big ? i % 5 : 5 + (i % 3)].clone() as Entity;
@@ -705,7 +712,7 @@ export function ribbon(parent: GraphNode, points: number, material: Material) {
 // ---- a round --------------------------------------------------------------------------------------------------------
 export type Scene = { root: Entity; camera: Entity; cleanup: (fn: () => void) => void; ambient: (hex: string, k?: number) => void; sky: (hex: string | null) => void; fog: (hex: string, start: number, end: number) => void };
 type Tick = (dt: number) => void;
-let live: { root: Entity; frame?: CameraFrame; tick?: Tick; t: number; warm: number; hidden: GraphNode[]; cleanups: (() => void)[] } | null = null;
+let live: { root: Entity; frame?: CameraFrame; tick?: Tick; t: number; warm: number; hidden: GraphNode[]; lifetime: ReturnType<typeof roundLifetime> } | null = null;
 let paused = false;
 
 const compiled = () => (device as unknown as { _shaderStats: { linked: number } })._shaderStats.linked;
@@ -763,20 +770,22 @@ export function begin(view?: View): Scene {
   app.scene.ambientLight = new Color(0.45, 0.45, 0.45);
   app.scene.fog.type = FOG_NONE;
   app.root.addChild(root);
-  const cleanups: (() => void)[] = [];
-  live = { root, t: 0, warm: 0, hidden: [], cleanups };
+  const lifetime = roundLifetime();
+  owned = roundLifetime();
+  const at = live = { root, t: 0, warm: 0, hidden: [], lifetime };
+  paused = false; slow.until = 0; slow.k = 1;
   quality.last = 0;
   return {
-    root, camera, cleanup: (fn) => void cleanups.push(fn),
-    ambient: (hex, k = 1) => { const c = color(hex); app.scene.ambientLight = new Color(c.r * k, c.g * k, c.b * k); },
-    sky: (hex) => { const c = hex ? color(hex) : null; camera.camera!.clearColor = c ? new Color(c.r, c.g, c.b, 1) : new Color(0, 0, 0, 0); },
-    fog: (hex, start, end) => { const f = app.scene.fog; f.type = FOG_LINEAR; f.color = color(hex).clone(); f.start = start; f.end = end; },
+    root, camera, cleanup: lifetime.add,
+    ambient: (hex, k = 1) => { if (live !== at) return; const c = color(hex); app.scene.ambientLight = new Color(c.r * k, c.g * k, c.b * k); },
+    sky: (hex) => { if (live !== at) return; const c = hex ? color(hex) : null; camera.camera!.clearColor = c ? new Color(c.r, c.g, c.b, 1) : new Color(0, 0, 0, 0); },
+    fog: (hex, start, end) => { if (live !== at) return; const f = app.scene.fog; f.type = FOG_LINEAR; f.color = color(hex).clone(); f.start = start; f.end = end; },
   };
 }
 
 // The scene is built: warm it up, then run `tick` every frame until end().
-export function run(tick: Tick) {
-  if (!live) return;
+export function run(tick: Tick, scene?: Scene) {
+  if (!live || scene && live.root !== scene.root) return;
   const at = live;
   at.root.forEach((n) => { if (!(n as unknown as { _enabled: boolean })._enabled) { at.hidden.push(n); n.enabled = true; } });
   if (effects.on && !pace.lean) {
@@ -793,15 +802,18 @@ export function run(tick: Tick) {
   app.autoRender = true;
 }
 
-export function end() {
-  if (!live) return;
-  for (const fn of live.cleanups) fn();
-  timed.length = 0;
-  live.frame?.destroy();
-  live.root.destroy();
-  for (const thing of owned) thing.destroy();
-  owned = [];
+export function end(scene?: Scene) {
+  if (!live || scene && live.root !== scene.root) return;
+  const at = live, resources = owned;
+  // Close first: a cleanup or resolved asset must not register against this round again.
   live = null;
+  at.lifetime.close();
+  everyFrame.length = 0;
+  timed.length = 0;
+  at.frame?.destroy();
+  at.root.destroy();
+  resources.close();
+  slow.until = 0; slow.k = 1;
   app.scene.fog.type = FOG_NONE;
   app.autoRender = false;
   canvas.style.visibility = '';
@@ -820,7 +832,7 @@ export function pause(on: boolean) { paused = on; quality.last = 0; app.autoRend
 
 // ---- the canvas lives wherever the current stage is -------------------------------------------------------------------
 let host: HTMLElement | null = null;
-const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) app.resizeCanvas(r.width, r.height); canvas.style.width = canvas.style.height = '100%'; } };
+const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) { app.resizeCanvas(r.width, r.height); if (paused && live) app.renderNextFrame = true; } canvas.style.width = canvas.style.height = '100%'; } };
 const watcher = new ResizeObserver(resize);
 export function mount(el: HTMLElement) { host = el; el.prepend(canvas); watcher.observe(el); resize(); }
-export function unmount() { if (host) watcher.unobserve(host); host = null; canvas.remove(); }
+export function unmount(el?: HTMLElement) { if (el && host !== el) return; if (host) watcher.unobserve(host); host = null; canvas.remove(); }

@@ -1,5 +1,7 @@
 // Progression: stars, stages, XP and levels, achievements, daily challenges.
 // Everything is *derived* from the list of sessions — there is no second copy of progress to fall out of sync.
+import {keeperFromVariant,keeperStageStars} from './goalie-settings.ts';
+import { MOON_GAME_IDS } from './moon-catalog.ts';
 import { DAY_GOAL, summary, type Session } from './stats.ts';
 
 // Score needed for 1, 2 and 3 stars at stage 1. Guesses until real scores come in — this table is the tuning knob.
@@ -11,11 +13,13 @@ export const STARS: Record<string, [number, number, number]> = {
 export const STAGES = 5;
 export const hardness = (stage: number) => 1 + (stage - 1) * 0.22; // games multiply speeds and spawn rates by this
 // A game's other modes have their own goals; a team of two is asked for a bit less than twice what one player is.
-export const MODE_STARS: Record<string, [number, number, number]> = { 'slice:classic': [30, 70, 120], 'slice:zen': [40, 70, 100], 'keepy:classic': [30, 70, 120], 'pulse:afterglow': [6500, 13000, 22000], 'pulse:hyperline': [7000, 14000, 24000] };
+export const MODE_STARS: Record<string, [number, number, number]> = { 'freeze:studio':[100,200,320], 'slice:classic': [30, 70, 120], 'slice:zen': [40, 70, 100], 'keepy:classic': [30, 70, 120], 'pulse:afterglow': [6500, 13000, 22000], 'pulse:hyperline': [7000, 14000, 24000] };
 export const variantOf = (mode: string, team: boolean) => [mode, team ? 'team' : ''].filter(Boolean).join('+');
 export const starGoals = (game: string, stage: number, variant = '') => {
   const team = variant.endsWith('team'), mode = variant.replace(/\+?team$/, '');
-  return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * 0.3) * (team ? 1.8 : 1)));
+  // Goalie presents one deliberate shot at a time; its shorter scoring ceiling needs gentler goal growth.
+  const growth=game==='shapeup'?.1:game==='goalie'||game==='freeze'&&mode==='studio'?.075:.3;
+  return ((mode && MODE_STARS[`${game}:${mode}`]) || STARS[game] || [10, 20, 30]).map((v) => Math.round(v * (1 + (stage - 1) * growth) * (game==='goalie'?Math.pow(keeperFromVariant(mode).speed/100,.35):1) * (team ? 1.8 : 1)));
 };
 export const starsFor = (game: string, stage: number, score: number, variant = '') => starGoals(game, stage, variant).filter((goal) => score >= goal).length;
 
@@ -24,14 +28,14 @@ const rounds = (sessions: Session[], who: string, game: string, stage: number, v
   mine(sessions, who).filter((s) => s.game === game && (s.stage ?? 1) === stage && (s.variant ?? '') === variant);
 export const bestStars = (sessions: Session[], who: string, game: string, stage: number, variant = '') => Math.max(0, ...rounds(sessions, who, game, stage, variant).map((s) => s.stars ?? 0));
 export const bestScore = (sessions: Session[], who: string, game: string, stage: number, variant = '') => Math.max(0, ...rounds(sessions, who, game, stage, variant).map((s) => s.score));
-// Stage n opens once stage n-1 has two stars — counted per variant, so an easy mode cannot open a hard one's stages.
+// Stage n opens after two stars. Goalie shares access across setups; bests remain per exact variant.
 export function unlockedStage(sessions: Session[], who: string, game: string, variant = '') {
   let stage = 1;
-  while (stage < STAGES && bestStars(sessions, who, game, stage, variant) >= 2) stage++;
+  while (stage < STAGES && (game==='goalie'?keeperStageStars(sessions,who,stage):game==='freeze'&&(variant===''||variant==='studio')?Math.max(bestStars(sessions,who,game,stage,''),bestStars(sessions,who,game,stage,'studio')):bestStars(sessions, who, game, stage, variant)) >= 2) stage++;
   return stage;
 }
 export const totalStars = (sessions: Session[], who: string) =>
-  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
+  Object.keys(STARS).reduce((sum, game) => sum + Array.from({ length: STAGES }, (_, i) => game==='goalie'?keeperStageStars(sessions,who,i+1):game==='freeze'?Math.max(bestStars(sessions,who,game,i+1,''),bestStars(sessions,who,game,i+1,'studio')):bestStars(sessions, who, game, i + 1)).reduce((a, b) => a + b, 0), 0);
 
 // XP: moving pays, stars pay, harder stages pay, beating yourself pays.
 export const sessionXp = (s: { points: number; stars: number; stage: number; newBest: boolean }) =>
@@ -48,7 +52,7 @@ const dayOf = (t: number) => new Date(t).toLocaleDateString('en-CA');
 type Ctx = { all: Session[]; who: string; games: Session[]; now: number };
 export const BADGES: { id: string; name: string; how: string; test: (c: Ctx) => boolean }[] = [
   { id: 'first', name: 'First steps', how: 'Finish your first game', test: (c) => c.games.length >= 1 },
-  { id: 'explorer', name: 'Explorer', how: 'Play every game once', test: (c) => Object.keys(STARS).every((g) => c.games.some((s) => s.game === g)) },
+  { id: 'explorer', name: 'Explorer', how: 'Play all six MOON games', test: (c) => MOON_GAME_IDS.every((g) => c.games.some((s) => s.game === g)) },
   { id: 'century', name: 'Century', how: 'Earn 100 activity points in a day', test: (c) => summary(c.all, c.who, c.now).today >= 100 },
   { id: 'double', name: 'Double century', how: 'Earn 200 activity points in a day', test: (c) => summary(c.all, c.who, c.now).today >= 200 },
   { id: 'streak3', name: 'Habit forming', how: `Hit ${DAY_GOAL} points 3 days running`, test: (c) => summary(c.all, c.who, c.now).streak >= 3 },
@@ -56,7 +60,7 @@ export const BADGES: { id: string; name: string; how: string; test: (c: Ctx) => 
   { id: 'streak30', name: 'Unstoppable', how: `Hit ${DAY_GOAL} points 30 days running`, test: (c) => summary(c.all, c.who, c.now).streak >= 30 },
   { id: 'stars10', name: 'Star collector', how: 'Collect 10 stars', test: (c) => totalStars(c.all, c.who) >= 10 },
   { id: 'stars40', name: 'Constellation', how: 'Collect 40 stars', test: (c) => totalStars(c.all, c.who) >= 40 },
-  { id: 'stars100', name: 'Galaxy', how: 'Collect 100 stars', test: (c) => totalStars(c.all, c.who) >= 100 },
+  { id: 'stars100', name: 'Galaxy', how: 'Collect 75 stars', test: (c) => totalStars(c.all, c.who) >= 75 },
   { id: 'flawless', name: 'Flawless', how: 'Three stars on stage 3 or higher', test: (c) => c.games.some((s) => (s.stars ?? 0) === 3 && (s.stage ?? 1) >= 3) },
   { id: 'summit', name: 'Summit', how: 'Reach stage 5 in any game', test: (c) => Object.keys(STARS).some((g) => unlockedStage(c.all, c.who, g) >= STAGES) },
   { id: 'five', name: 'Five a day', how: 'Play 5 games in one day', test: (c) => c.games.filter((s) => dayOf(s.t) === dayOf(c.now)).length >= 5 },
@@ -71,6 +75,12 @@ export function badgesOf(all: Session[], who: string, now = Date.now()) {
   return BADGES.filter((b) => b.test(c)).map((b) => b.id);
 }
 
+// The legacy badge IDs stay stable; earned legacy badges remain visible.
+export function badgeCatalog(all: Session[], who: string) {
+  const earned = badgesOf(all, who);
+  return BADGES.filter(b => !['squats', 'runner'].includes(b.id) || earned.includes(b.id));
+}
+
 // ---- Daily challenges ------------------------------------------------------------------------------------
 // Three a day, the same three for everyone in the house, picked by the date. Each pays bonus XP once.
 export const CHALLENGE_XP = 40;
@@ -79,7 +89,7 @@ export function dailyChallenges(all: Session[], who: string, names: Record<strin
   const day = dayOf(now), today = mine(all, who).filter((s) => dayOf(s.t) === day && !s.game.startsWith('bonus:'));
   let seed = [...day].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
   const roll = (n: number) => (seed = (seed * 1664525 + 1013904223) >>> 0) % n;
-  const ids = Object.keys(STARS), gameA = ids[roll(ids.length)], gameB = ids[roll(ids.length)], pts = [60, 90, 120][roll(3)];
+  const ids = MOON_GAME_IDS, gameA = ids[roll(ids.length)], gameB = ids[roll(ids.length)], pts = [60, 90, 120][roll(3)];
   const list: [string, string, number, number][] = [
     [`pts${pts}`, `Earn ${pts} activity points`, pts, today.reduce((a, s) => a + s.points, 0)],
     [`stars:${gameA}`, `Get 2 stars in ${names[gameA] ?? gameA}`, 2, Math.max(0, ...today.filter((s) => s.game === gameA).map((s) => s.stars ?? 0))],

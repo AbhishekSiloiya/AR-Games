@@ -1,0 +1,11 @@
+import {app,begin,mount,run} from './engine.ts';
+import {jabActor} from './jab-actor.ts';
+import {jabArena} from './jab-arena.ts';
+document.body.style.cssText='margin:0;background:#dfe8dd';
+const frame=document.createElement('div');frame.style.cssText='width:100vw;height:100vh';document.body.append(frame);mount(frame);
+const scene=begin({position:[0,0,11],fov:44.5,near:.1,far:80});await jabArena(scene);const actor=await jabActor(scene);
+if(!actor)throw new Error('Missing actor');
+let time=0;let mode='ready';
+Object.assign(window,{__jabProof:{actor,setMode:(value:string)=>{mode=value;},state:()=>actor.state()}});
+run(dt=>{time+=dt;const side=Math.floor(time/2)%2;const targets=[0,1].map(hand=>({x:(hand?1:-1)*(mode==='present'&&hand===side?3.234:2.2),y:mode==='present'&&hand===side?1.36:.4,z:-.15,hand:hand as 0|1,active:mode==='present'&&hand===side}));actor.update(time,dt,targets,mode==='celebrate'?1:0,mode==='duck'?1:0);});
+Object.assign(window,{render_game_to_text:()=>JSON.stringify(actor.state()),__app:app});

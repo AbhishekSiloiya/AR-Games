@@ -1,0 +1,5 @@
+.mascot-puppet {display:block;width:100%;height:100%;overflow:visible;pointer-events:none;filter:drop-shadow(0 5px 8px #0003);}
+.mascot-puppet [data-part] {transform-box:view-box;}
+.galaxy-pilot-rig {position:absolute;inset:0;z-index:2;pointer-events:none;}
+.galaxy-pilot-rig[hidden] {display:none;}
+.galaxy-pilot-rig .mascot-puppet {overflow:hidden;}

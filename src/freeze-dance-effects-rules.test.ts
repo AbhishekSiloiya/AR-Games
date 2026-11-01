@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';
+import {newDanceEffects,stepDanceEffects,outsideFreezeCamera} from './freeze-dance-effects-rules.ts';
+const step=(s:ReturnType<typeof newDanceEffects>,seconds:number,rate:number,present=true,dancing=true,motion=true)=>{let bursts=0;for(let i=0;i<Math.round(seconds/.05);i++)bursts+=stepDanceEffects(s,.05,dancing,[{present,rate}],motion).length;return bursts;};
+const s=newDanceEffects();assert.equal(step(s,1,0),0,'still player earns no sparkle/confetti');assert.equal(s.angle,0,'ball does not rotate for inactivity');assert.equal(step(s,1,9,false),0,'absent player earns nothing');
+assert.ok(step(s,.7,8)>0,'real sustained dancing earns confetti before first freeze');assert.ok(s.angle>0&&s.strength>0,'earned dance rotates ball and lights partner');const angle=s.angle,total=s.earned;assert.equal(step(s,.5,9,true,false),0);assert.equal(s.angle,angle,'freeze stops earned ball clock');assert.equal(s.strength,0,'freeze clears dance light');assert.equal(s.earned,total);
+assert.equal(step(s,.5,9,true,true,false),0,'low effects emits no particles');assert.equal(s.strength,0,'low effects has no moving light');assert.equal(s.angle,angle,'reduced motion stops ball spin');
+const pair=newDanceEffects();const earned:number[]=[];for(let i=0;i<14;i++)earned.push(...stepDanceEffects(pair,.05,true,[{present:true,rate:8},{present:true,rate:0}],true));assert.deepEqual([...new Set(earned)],[0],'idle second player cannot emit or claim an earned burst');
+assert.equal(outsideFreezeCamera(-5.2,0,8.67,6.5),true);assert.equal(outsideFreezeCamera(1.8,-.3,8.67,6.5),false);assert.equal(outsideFreezeCamera(-2.6,0,8.67,6.5),false,'camera safety margin excludes near-edge particles');
+console.log('Freeze dance effects: present motion earns pre-freeze burst, no idle/absent rewards, phase/motion gating and camera exclusion pass.');

@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const {chromium}=await import(process.env.AR_PLAYWRIGHT_MODULE||'playwright');
+const base=process.env.AR_GAME_TEST_URL||'http://127.0.0.1:5240/',out=process.env.AR_TEST_OUTPUT||'test-results/sports-release';fs.mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});
+const errors=[];
+try{
+ const page=await browser.newPage({viewport:{width:1280,height:720}});page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base+'tools/jack-proof.html?sim');await page.waitForFunction(()=>window.__jacks?.bodies.length===1&&document.querySelector('canvas').style.visibility!=='hidden');
+ await page.evaluate(async()=>{window.__releaseEngine=await import('/src/engine.ts');window.__releaseEngine.pause(true);window.advanceTime(5500);window.__pc.renderNextFrame=true;});
+ const setup=await page.evaluate(()=>{const g=window.__jacks,c=g.crews[0],v=g.invaders.find(v=>v.on);v.y=1.24;v.age=3;window.__proofInvader=v;g.advance(17);window.__pc.renderNextFrame=true;return {v:g.snapshot().drones.find(v=>v.state==='diving'),pilot:g.bodies[0].shieldTarget(),shields:c.shields};});
+ assert.equal(setup.shields,3);assert.ok(setup.v.y>setup.pilot.y+1,'invader is still well above pilot at dive start');
+ const missing=await page.evaluate(()=>{const g=window.__jacks,v=window.__proofInvader,before={x:v.x,y:v.y};window.__romp.players[0].present=false;g.advance(200);const after={x:v.x,y:v.y};window.__romp.players[0].present=true;return {before,after,shields:g.crews[0].shields};});assert.deepEqual(missing.after,missing.before,'an untracked crew cannot be damaged by an advancing dive');assert.equal(missing.shields,3);
+ await page.evaluate(()=>{window.__jacks.advance(350);window.__pc.renderNextFrame=true;});let snap=await page.evaluate(()=>window.__jacks.snapshot());assert.equal(snap.crews[0].shields,3,'visible descent does not award early damage');assert.ok(snap.drones.some(v=>v.state==='diving'));await page.screenshot({path:out+'/jack-visible-dive.png'});
+ await page.evaluate(()=>{window.__jacks.advance(500);window.__pc.renderNextFrame=true;});snap=await page.evaluate(()=>window.__jacks.snapshot());assert.equal(snap.crews[0].shields,2);assert.equal(snap.crews[0].hits,1);assert.ok(snap.players[0].shieldHit>0);assert.equal(await page.locator('.jack-hit').isVisible(),true);assert.match(await page.locator('.jack-hit').textContent(),/2 \/ 3/);await page.screenshot({path:out+'/jack-pilot-hit.png'});
+ const contact=()=>page.evaluate(()=>{const g=window.__jacks,v=g.invaders.find(v=>v.on),target=g.bodies[0].shieldTarget();Object.assign(v,{diving:true,diveAge:.9,diveX:target.x,diveY:target.y,x:target.x,y:target.y,targetP:0});g.advance(17);window.__pc.renderNextFrame=true;return g.snapshot();});
+ snap=await contact();assert.equal(snap.crews[0].shields,2,'guard prevents a second shield loss from simultaneous ships');assert.equal(snap.crews[0].hits,1);
+ await page.evaluate(()=>window.__jacks.advance(1300));snap=await contact();assert.equal(snap.crews[0].shields,1);await page.evaluate(()=>{window.__jacks.advance(1300);window.__jacks.crews[0].score=10;});snap=await contact();assert.equal(snap.crews[0].score,5,'one regroup applies the existing five-point cost once');assert.equal(snap.crews[0].shields,0,'third earned contact visibly empties shields before restoring');assert.match(await page.locator('.jack-hit').textContent(),/SHIELDS DOWN/);await page.screenshot({path:out+'/jack-shields-down.png'});
+ await page.evaluate(()=>{window.__jacks.advance(2600);window.__pc.renderNextFrame=true;});assert.equal(await page.evaluate(()=>window.__jacks.crews[0].shields),3,'short regroup restores the three-shield lifecycle');
+ await page.setViewportSize({width:640,height:360});await page.screenshot({path:out+'/jack-640.png'});await page.close();
+ const pair=await browser.newPage({viewport:{width:1280,height:720},reducedMotion:'reduce'});pair.on('pageerror',e=>errors.push(e.message));await pair.goto(base+'tools/jack-proof.html?sim&n=2');await pair.waitForFunction(()=>window.__jacks?.bodies.length===2&&document.querySelector('canvas').style.visibility!=='hidden');
+ const paired=await pair.evaluate(async()=>{const engine=await import('/src/engine.ts');engine.pause(true);window.advanceTime(5500);const g=window.__jacks,target=g.bodies[1].shieldTarget(),v=g.invaders.find(v=>v.on&&v.zone===1);Object.assign(v,{diving:true,diveAge:.9,diveX:target.x,diveY:target.y,x:target.x,y:target.y,targetP:1});g.advance(17);window.__pc.renderNextFrame=true;return g.snapshot();});assert.equal(paired.crews[0].shields,3);assert.equal(paired.crews[1].shields,2,'rival dive only damages its own sector');assert.equal(paired.motion,false);assert.ok(paired.players.every(p=>p.scale===.46));await pair.screenshot({path:out+'/jack-paired-hit-reduced.png'});await pair.close();
+ for(const stage of [2,3,4]){
+  const p=await browser.newPage({viewport:{width:1280,height:720}});p.on('pageerror',e=>errors.push(e.message));await p.goto(base+`tools/goalie-proof.html?sim&stage=${stage}`);await p.waitForFunction(()=>window.__goalie&&document.querySelector('canvas').style.visibility!=='hidden');
+  const q=await p.evaluate(async stage=>{const engine=await import('/src/engine.ts');engine.pause(true);window.advanceTime(3200);const g=window.__goalie,s=g.states[0];s.phase='waiting';s.age=1;s.index=stage===2?2:0;window.advanceTime(17);window.__pc.renderNextFrame=true;return g.snapshot().seats[0];},stage);
+  assert.ok(q.target.y>=(stage===2?1.4:1.5));if(stage===4)assert.ok(Math.abs(q.bend)>=.9);
+  await p.mouse.move((q.target.x/5.1+1)*640,(1-(q.target.y-.1)/2.8)*360);await p.evaluate(()=>{window.advanceTime(17);window.__pc.renderNextFrame=true;});await p.screenshot({path:out+`/goalie-stage-${stage}-upper-target.png`});
+  await p.evaluate(()=>{window.advanceTime(1500);window.__pc.renderNextFrame=true;});await p.screenshot({path:out+`/goalie-stage-${stage}-flight.png`});
+  await p.evaluate(()=>{window.advanceTime(1000);window.__pc.renderNextFrame=true;});assert.equal(await p.evaluate(()=>window.__goalie.states[0].saves),1,'real pointer-positioned glove saves the high corner');await p.close();
+ }
+ assert.deepEqual(errors,[]);console.log('PASS real pilot dive/contact, shield guard and regroup, paired sector damage/reduced motion, compact pilots and pointer-driven upper-corner/curved saves.');
+}finally{await browser.close();}

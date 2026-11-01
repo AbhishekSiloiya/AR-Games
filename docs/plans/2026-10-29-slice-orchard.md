@@ -1,0 +1,12 @@
+# Slice first-round benchmark implementation plan
+
+**Goal:** Polish one complete Slice round to the accepted Jab/Goalie/Freeze benchmark before adding bespoke levels.
+**Visual thesis:** Bright citrus sports-club energy: warm orchard court, vivid tactile fruit, readable juicy cut surfaces and an unobstructed natural live camera. Same original3D Rizzquake appears briefly for genuine achievements.
+**Content:** One action cue, score/time, concise power/flow feedback and a compact earned combo toast. Remove the raster buddy and repeated photographic juice cutouts. Preserve Arcade/Classic/Zen and existing stage scaling; five bespoke stages are later work.
+**Interaction thesis:** Existing real cut halves tumble apart; crisp trails follow actual hands with no held prop; fruit-coloured droplets and brief peel/flesh reactions reward contact. Rizzquake acknowledges real streaks/multi-cuts with skinned animation, then exits. No forced delays or ordinary-cut hit-stop.
+**Architecture:** Keep Slice's flight/spawn/award logic and shared tracker intact. Slice-only material/cut-surface helpers plus presentation HUD/coach. Natural exposure opt-in is a backwards-compatible backdrop option, leaving other games unchanged. Guard stale hand history after pause/reacquisition so a fast old stroke cannot earn a ghost cut. Use effects/reduced-motion/performance gates for secondary decoration.
+
+1. Write meaningful RED regressions for once-only earned reactions and stale/pause hand history; implement a small pure Slice feedback/reaction module. Reuse existing collision/score rules and verify no stationary, absent or wrong-lane credit.
+2. Generate an original empty orchard court backplate for classic/proof/briefing, save prompt/provenance. Implement Slice-only fruit material improvements and patterned flesh linings without altering Lumber or other games. Keep meshes genuinely clipped by the real swipe and inspect actual cut frames.
+3. Replace legacy moonSlice raster puppet/photo splashes with a restrained bright HUD, actual score/phase feedback and one skinned Rizzquake reaction. Preserve natural camera alignment and no equipment. Add production snapshot and deterministic local proof for testing.
+4. Full unit/type/build, focused browser actual cuts/halves/trails, earned combos/coach, bombs/powers, no passive/stale/pause credit, modes/results, paired ownership and responsive layouts. Standard game client action capture and visual inspection. Read-only review, fixes, then a separate stacked draft preview on codex/moon-freeze-studio; no production merge.
