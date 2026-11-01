@@ -8,12 +8,12 @@ assert.deepEqual(menuHandPoint({present:true,hands:[{...good,y:1},good]},1100,10
 assert.equal(menuHandPoint({present:true,hands:[good,good]},1500,1000,600),null,'stale hand cannot select');
 const a={},b={};let s=newMenuHold<object>();
 const frame=(target:object|null,point:{x:number;y:number}|null,ms=50)=>stepMenuHold(s,target,point,ms);
-frame(a,{x:100,y:100});for(let i=0;i<59;i++)assert.equal(frame(a,{x:100+(i%2)*4,y:100}).activate,null);
-assert.equal(frame(a,{x:100,y:100}).activate,a,'three seconds of steady aim selects');
+frame(a,{x:100,y:100});for(let i=0;i<29;i++)assert.equal(frame(a,{x:100+(i%2)*4,y:100}).activate,null);
+assert.equal(frame(a,{x:100,y:100}).activate,a,'1.5 seconds of steady aim selects');
 for(let i=0;i<100;i++)assert.equal(frame(a,{x:101,y:100}).activate,null,'held selection cannot repeat');
 for(let i=0;i<100;i++)assert.equal(frame(b,{x:102,y:100}).activate,null,'new screen under a stationary hand cannot chain-select');
-frame(b,{x:200,y:100});for(let i=0;i<60;i++)frame(b,{x:200,y:100});assert.equal(s.fired,true,'moving away enables a new choice');
-s=newMenuHold();frame(a,{x:0,y:0});for(let i=0;i<50;i++)frame(a,{x:0,y:0});frame(b,{x:0,y:0});assert.equal(s.elapsed,0,'switching option starts over');frame(b,{x:50,y:0});assert.equal(s.elapsed,0,'sweeping across a large card starts over');
-for(let i=0;i<50;i++)frame(b,{x:50,y:0});frame(null,null);assert.equal(s.elapsed,0,'lost tracking cancels progress');assert.equal(s.target,null);
+frame(b,{x:200,y:100});for(let i=0;i<30;i++)frame(b,{x:200,y:100});assert.equal(s.fired,true,'moving away enables a new choice');
+s=newMenuHold();frame(a,{x:0,y:0});for(let i=0;i<20;i++)frame(a,{x:0,y:0});frame(b,{x:0,y:0});assert.equal(s.elapsed,0,'switching option starts over');frame(b,{x:50,y:0});assert.equal(s.elapsed,0,'sweeping across a large card starts over');
+for(let i=0;i<20;i++)frame(b,{x:50,y:0});frame(null,null);assert.equal(s.elapsed,0,'lost tracking cancels progress');assert.equal(s.target,null);
 frame(a,{x:10,y:10},5000);assert.equal(s.fired,false,'a background-tab frame cannot jump the hold timer');
-console.log('PASS right hand only, fresh samples, three-second hold, tremor tolerance, movement/loss cancellation and one-shot release');
+console.log('PASS right hand only, fresh samples, 1.5-second hold, tremor tolerance, movement/loss cancellation and one-shot release');

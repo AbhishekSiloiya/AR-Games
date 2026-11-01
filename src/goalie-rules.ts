@@ -20,7 +20,7 @@ export function stepKeeper(s:KeeperSeat,dt:number,t:number,present:boolean,hands
  if(s.phase==='waiting'){
   if(s.age<.35)return null;
   const l=keeperLayout(s.n,s.seat),shot=keeperShot(s.stage,s.index,t,practice);
-  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8);s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002)/(s.speed*1.5);s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
+  s.tx=l.cx+shot.x*l.k*s.reach;s.ty=shot.y*(s.n===1?1:.8)*s.reach;s.bend=shot.bend*l.k*s.reach;s.drill=shot.drill;s.finale=shot.finale;s.gold=!practice&&s.index>=4&&s.index%5===4;s.duration=practice?2.2:Math.max(1.25,1.9-(s.stage-1)*.11-Math.max(0,t)*.002)/(s.speed*1.5);s.index++;s.phase='windup';s.age=0;s.position={...s.from};s.lastEvent='';return 'prepare';
  }
  if(s.phase==='windup'){if(s.age<.85)return null;s.phase='flight';s.age=0;return 'kick';}
  if(s.phase==='flight'){
@@ -32,4 +32,10 @@ export function stepKeeper(s:KeeperSeat,dt:number,t:number,present:boolean,hands
  if(s.phase==='saved'){s.velocity.y-=5*dt;s.position={x:s.position.x+s.velocity.x*dt,y:s.position.y+s.velocity.y*dt,z:s.position.z+s.velocity.z*dt};}
  else if(s.phase==='miss'){s.position={x:s.tx,y:s.ty-Math.max(0,s.age-.3)*1.7,z:Math.min(2.3,.95+s.age*7)};}
  if(s.age>=1.15){s.phase='waiting';s.age=0;}return null;
+}
+
+// High-corner cues stay inside the real posts; the forgiving glove collision radius is unchanged.
+export function keeperRingScale(n:number,p:number,tx:number,ty:number,flight:number){
+ const l=keeperLayout(n,p),top=n===1?3.15:2.6;
+ return Math.max(.5,Math.min(l.hitRadius*(1.55-Math.max(0,Math.min(1,flight))*.55),l.hw-Math.abs(tx-l.cx)-.08,top-ty-.08,ty+3.12-.08));
 }

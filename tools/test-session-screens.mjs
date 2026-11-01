@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const {chromium}=await import(process.env.AR_PLAYWRIGHT_MODULE||'playwright');
 const out=process.env.AR_TEST_OUTPUT||'test-results/session-layout';fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});const page=await browser.newPage();let failures=[];page.on('pageerror',e=>console.error('PAGE ERROR',e.message));
-await page.goto(process.env.AR_GAME_TEST_URL||'http://127.0.0.1:5200/?sim');await page.evaluate(()=>document.fonts.ready);
+await page.goto(process.env.AR_GAME_TEST_URL||'http://127.0.0.1:5200/?sim');await page.waitForLoadState('networkidle');await page.evaluate(()=>document.fonts.ready);
 // Drive only shell state, never gameplay: this keeps layout fixtures deterministic and inexpensive.
 await page.evaluate(()=>{
  const root=document.querySelector('#root'),key=Object.keys(root).find(k=>k.startsWith('__reactContainer'));

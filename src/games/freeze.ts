@@ -24,7 +24,7 @@ export default async function freeze({n,stage,onEnd,hud,scene,cleanup}:Game){
   if(studio.done){ended=true;soundtrack.stop();say('time_over');onEnd(studio.seats.map(s=>Math.floor(s.score)),studio.seats.map(s=>[`Clean holds ${s.holds}/${s.attempts}`,`Best chain ${s.best}`,`${Math.round(s.danceSeconds)} seconds moving`,freezeLesson(stage).title]));return;}
   soundtrack.gate(studio.dancing&&t>=0);if(dancing!==studio.dancing)sfx(studio.dancing?'zapThreeToneUp':'zapThreeToneDown',{vol:.4,jitter:0});studio.seats.forEach((s,p)=>{if(s.holds>holds[p])sfx('select',{vol:.55,rate:1+Math.min(5,s.chain)*.08,jitter:0});});
   hud('clock',String(Math.ceil(t<0?-t:Math.max(0,60-t))));const motion=effects.on&&!pace.lean&&!reduced,demonstrate=!studio.dancing||studio.phaseEnd-t<1.4;
-  actor.update(players[0].rig,studio.dancing&&t>=0,demonstrate?studio.pose:'free',studio.visualTime,Math.max(...studio.seats.map(s=>s.cheer)),motion,players[0].lift);world.update(studio.visualTime,motion);coach.update(studio,samples.map(s=>s.present),motion);
+  actor.update(players[0].rig,studio.dancing&&t>=0,demonstrate?studio.pose:'free',studio.visualTime,Math.max(...studio.seats.map(s=>s.cheer)),motion,players[0].lift);world.update(studio.visualTime,motion,studio.dancing&&t>=0,samples,dt);coach.update(studio,samples.map(s=>s.present),motion);
  };
  return update;
 }

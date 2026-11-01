@@ -20,3 +20,16 @@ for(let stage=1;stage<=5;stage++)for(const n of [1,2])for(const reach of [.8,1])
 assert.deepEqual(starGoals('jab',3),[32,64,104],'Goalie tuning cannot alter Jab progression');
 
 console.log('PASS Goalie continuous contacts, once-only outcomes, practice/lane isolation, reachable targets and attainable stars in all stages/reach/player layouts');
+for(const n of [1,2])for(const p of Array.from({length:n},(_,i)=>i))for(const reach of [.8,1]){
+ const corner=newKeeper(3,p,n,reach);corner.index=0;stepKeeper(corner,.4,0,true,[],false);const l=keeperLayout(n,p);
+ assert.ok(Math.abs(corner.tx-l.cx)<=l.gain*reach,'upper corner stays within horizontal mapping');
+ assert.ok(corner.ty<=l.vertical*reach,'upper corner stays within vertical mapping');
+ assert.equal(corner.ty,2.25*(n===1?1:.8)*reach,'comfort reach scales the high target too');
+ for(const hand of [0,1]){const q={...corner,position:{...corner.position},from:{...corner.from},velocity:{...corner.velocity}};stepKeeper(q,1,1,true,[],false);const glove={x:q.tx,y:q.ty,z:.25,px:q.tx,py:q.ty,on:true,vx:0,vy:0};assert.equal(stepKeeper(q,q.duration,3,true,hand===0?[glove,{...glove,on:false}]:[{...glove,on:false},glove],false),'save','either glove can make the true high corner save');}
+}
+const {keeperRingScale}=await import('./goalie-rules.ts');
+assert.equal(typeof keeperRingScale,'function','corner target rings must stay inside the goal bars');
+for(const n of [1,2])for(const p of Array.from({length:n},(_,i)=>i))for(const reach of [.8,1])for(const stage of [2,3,4,5])for(let i=0;i<9;i++){
+ const s=newKeeper(stage,p,n,reach);s.index=i;stepKeeper(s,.4,20,true,[],false);const l=keeperLayout(n,p),top=n===1?3.15:2.6;
+ for(const phase of [0,.5,1]){const radius=keeperRingScale(n,p,s.tx,s.ty,phase);assert.ok(radius>=.5,'the corner marker remains large enough to read');assert.ok(Math.abs(s.tx-l.cx)+radius<l.hw);assert.ok(s.ty+radius<top);assert.ok(s.ty-radius>-3.12);}
+}

@@ -5,7 +5,7 @@ const g=newShapeQuest(1,1);for(let f=0;f<31;f++)stepShapeQuest(g,1/60,f/60,[good
 assert.equal(g.seats[0].judged,true,'stable genuine match banks immediately, before pose timeout');
 assert.equal(g.seats[0].score,95);assert.equal(g.seats[0].stars,3);assert.equal(g.phase,'result');
 const score=g.seats[0].score;stepShapeQuest(g,.05,.55,[lost]);assert.equal(g.seats[0].score,score,'earned pose stays banked when relaxing');
-stepShapeQuest(g,.05,1.8,[good]);assert.equal(g.phase,'rest');assert.equal(g.seats[0].score,score,'result banks only once');
+stepShapeQuest(g,.05,1.4,[good]);assert.equal(g.phase,'rest');assert.equal(g.seats[0].score,score,'result banks only once');
 stepShapeQuest(g,.05,3.3,[good]);assert.equal(g.index,1);assert.equal(g.seats[0].locked,false);assert.equal(g.seats[0].score,score);
 const h=newShapeQuest(1,1);for(let f=0;f<20;f++)stepShapeQuest(h,1/60,f/60,[good]);stepShapeQuest(h,1/60,.34,[bad]);for(let f=21;f<43;f++)stepShapeQuest(h,1/60,f/60,[good]);assert.equal(h.seats[0].judged,false,'quality dip resets continuous hold');
 for(let f=43;f<50;f++)stepShapeQuest(h,1/60,f/60,[good]);assert.equal(h.seats[0].judged,true);

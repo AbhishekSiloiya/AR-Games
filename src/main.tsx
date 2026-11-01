@@ -8,7 +8,7 @@ import {trackingRecoveryStatus,type RecoveryStatus} from './tracking-recovery-st
 import {HandCursor,menuSelectionView} from './hand-cursor.tsx';
 import { PlayerPicker } from './player-picker.tsx';
 import { crewOf } from './moon-profile.ts';
-import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy } from './moon-catalog.ts';
+import { MOON_GAME_IDS, MOON_CATALOG, moonArt, moonBuddy, moonCardArt } from './moon-catalog.ts';
 import {JabOptions} from './jab-options.tsx';
 import {GoalieOptions} from './goalie-options.tsx';
 import { PartyOptions } from './party-options.tsx';
@@ -45,7 +45,7 @@ const LEGACY_GAMES: Game[] = [
     modes: [{ id: '', name: 'Arcade', blurb: '60 seconds, more balloons, wind, and a storm to pop at the end' }, { id: 'classic', name: 'Classic', blurb: 'Three lives. Every balloon that lands costs one' }] },
   { id: 'leaks', name: 'Leaks', icon: '💦', tone: ['#22d3ee', '#1d4ed8'], blurb: 'Plug the cracks with your whole body.', how: 'Cover a crack with a hand, a foot, a knee or your head. Hold it until the ring closes. Several open at once, so spread out. Do not let the water reach the top.', maxPlayers: 2, Play: Leaks, team: true, crew: true },
   { id: 'sprint', name: 'Sprint', icon: '⚡', tone: ['#fb923c', '#be123c'], blurb: 'A scenic race. Chase stars. Go turbo.', how: 'Race for 45 seconds. Jog on the spot or pump your arms to accelerate. Collect stars, pass checkpoints and build a turbo boost. Keep moving to earn distance; the runner’s warm-up animation earns no points. Race solo, as a team or side by side.', maxPlayers: 2, Play: Sprint, team: true },
-  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Raise your arms. Aim. Fire.', how: 'Move a hand to aim at its marker. Bring it forward and hold briefly to fire. Lower to reload. Hit ships to charge Starfall, then jump or hold both hands high to unleash the barrage. Breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
+  { id: 'jacks', name: 'Jack Attack', icon: '👾', tone: ['#4ade80', '#0e7490'], blurb: 'Aim your hands. Fire. Protect your shields.', how: 'Move a hand to aim at its marker. Bring it forward and hold briefly to fire. Lower to reload. Hit ships to charge Starfall, then jump or hold both hands high to unleash the barrage. Stop diving ships before they hit your shield. Breathe between waves.', maxPlayers: 2, Play: Jacks, team: true },
   { id: 'forge', name: 'Forge', icon: '🔨', tone: ['#f59e0b', '#7f1d1d'], blurb: 'Hold the squat. Strike when it glows.', how: 'Sink into a squat and hold it to heat the blade. Deeper heats faster. When it glows white, drive up hard to strike. Rest while it is quenched. Every blade wants a longer hold.', maxPlayers: 2, Play: Forge, team: true },
   { id: 'lumber', name: 'Lumberjack', icon: '🪓', tone: ['#65a30d', '#713f12'], blurb: 'Chop along the stripe.', how: 'Wind up high on one side and chop down across your body to the other, along the stripe on the log. Chop hard for a clean split. The stripe changes sides. Thick logs take two.', maxPlayers: 2, Play: Lumber, team: true },
   { id: 'smash', name: 'Smash', icon: '🤖', tone: ['#fbbf24', '#c2570c'], blurb: 'Demolish the robot. Expose its core.', how: 'Punch the armour plates. The yellow ring marks a weak spot that takes extra damage. Break all six plates, then strike the glowing core. Slow your hand between punches to reload. Each demolished robot brings a tougher one.', maxPlayers: 2, Play: Smash },
@@ -53,9 +53,9 @@ const LEGACY_GAMES: Game[] = [
   { id: 'jab', name: 'Jab', icon: '🥊', tone: ['#ff5a76', '#a3154a'], blurb: 'Punch the pads, duck the bar.', how: 'Punch each pad with the hand on its side. Gold pads want the opposite hand. Punch hard for extra. Squat when the bar comes.', maxPlayers: 2, Play: Jab },
   { id: 'beat', name: 'Beat', icon: '🎵', tone: ['#c084fc', '#6d28d9'], blurb: 'Hit the moves on the beat.', how: 'Hold the move as its shape reaches the line. Left hand up, right hand up, both up, squat, or jump. On the beat is Perfect.', maxPlayers: 2, Play: Beat },
   { id: 'rocket', name: 'Rocket', icon: '🚀', tone: ['#818cf8', '#3b2fb0'], blurb: 'Every squat is a burn.', how: 'Squat to fire the engine. Deeper squats burn harder. Stop and gravity wins. Highest altitude is your score.', maxPlayers: 2, Play: Rocket },
-  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Dance under the disco ball while the music and lights move. When they stop, freeze. A wobble resets your hold. Hold still to earn a bonus and a celebration when the music returns.', maxPlayers: 2, Play: Freeze },
+  { id: 'freeze', name: 'Freeze', icon: '🧊', tone: ['#67e8f9', '#0f7f9c'], blurb: 'Dance, then hold dead still.', how: 'Dance to spin the disco ball and earn confetti, sparkles and your partner’s light. When they stop, freeze. A wobble resets your hold. Hold still to earn a bonus and a celebration when the music returns.', maxPlayers: 2, Play: Freeze },
   { id: 'wipe', name: 'Wipe', icon: '🧽', tone: ['#fde047', '#d97706'], blurb: 'Scrub the screen clean.', how: 'Sweep both hands across the grime. It creeps back, so keep moving. Clear your whole side for a bonus and a tougher layer.', maxPlayers: 2, Play: Wipe },
-  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Copy Rizzquake beside your live view. Green markers show matched limbs. Hold a good match briefly to bank up to three stars, then relax for the next pose. Chain all eight poses. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
+  { id: 'shapeup', name: 'Shape Up', icon: '🤸', tone: ['#fb7185', '#b0186a'], blurb: 'Eight poses. Collect stars. Build a combo.', how: 'Copy the new pose set in each stage beside your live view. Green markers show matched limbs. Hold a good match briefly to bank up to three stars, then relax for the next pose. Chain all eight poses. Play solo, take turns or compete side by side.', maxPlayers: 2, Play: ShapeUp },
 ];
 const GAMES = MOON_GAME_IDS.map(id => LEGACY_GAMES.find(g => g.id === id)!);
 const NAMES = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
@@ -350,10 +350,10 @@ function App() {
         <div className="screen library moon-playroom">
           <header className="moon-masthead"><Logo /><span className="moon-eyebrow">YOUR PLAYROOM</span><nav aria-label="Playroom tools"><button className="ghost" onClick={toggleFx}>Effects {fx ? 'on' : 'off'}</button><button className="ghost" onClick={() => go({ at: 'tracking' })}>Tracking</button><button className="ghost" onClick={() => go({ at: 'badges' })}>Badges</button><button className="ghost" onClick={() => go({ at: 'stats' })}>Stats</button></nav></header>
           <section className="moon-session moon-session-compact" aria-label="Players and play mode"><div><h1>What are we playing?</h1><div className="seg">{(Object.keys(MODES) as Mode[]).map(m=><button key={m} aria-pressed={mode===m} onClick={()=>chooseMode(m)}>{MODES[m]}</button>)}</div></div><div className="moon-player-slots">{slots.map(i=><button className="moon-player-chip" key={i} onClick={()=>setEditingPlayer(i)} aria-label={`Choose player ${i+1}: ${name(i)}`}><img src={crewOf(db.avatars?.[name(i)]).art} alt="" /><span><b>{name(i)}</b><small>{crewOf(db.avatars?.[name(i)]).name} · Level {levelOf(xpOf(db.sessions,name(i))).level}</small></span><span aria-hidden="true">⌄</span></button>)}</div>{clash&&<p className="error">Pick two different players.</p>}</section>
-          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>RIGHT HAND · HOLD 3s TO CHOOSE</span></div>
+          <div className="moon-selection-label"><h2>THE SELECT SIX</h2><span>RIGHT HAND · HOLD 1.5s TO CHOOSE</span></div>
           <div className="moon-posters">
             {GAMES.filter(g => g.maxPlayers >= n).map((g,i) => <button className="moon-poster" data-game={g.id} key={g.id} style={toneOf(g)} disabled={clash} onClick={()=>go({at:'brief',game:g,stage:open(g),mode:g.id==='goalie'?keeperVariant(goalieSettings()):g.id==='freeze'?'studio':''})} aria-label={`${g.name} — ${MOON_CATALOG[g.id].hook}`}>
-              <div className="moon-poster-art"><img src={moonArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><img className="moon-poster-buddy" src={moonBuddy(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
+              <div className="moon-poster-art"><img src={moonCardArt(g.id)} alt="" loading={i>2?'lazy':'eager'} /><span className="moon-poster-index">0{i+1}</span><span className="moon-poster-arrow" aria-hidden="true">↗</span><span className="moon-poster-world">{MOON_CATALOG[g.id].world}</span></div>
               <div className="moon-poster-copy"><div><h3>{g.name}</h3><p>{MOON_CATALOG[g.id].hook}</p></div><span className="moon-poster-move">{MOON_CATALOG[g.id].move}<small>Stage {open(g)} / {STAGES}</small></span></div>
             </button>)}
           </div>
@@ -424,7 +424,7 @@ function App() {
         </div>
       )}
       {screen.at === 'results' && (
-        <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id}>
+        <div className="screen moon-results" style={{ alignItems: 'center' }} data-game={screen.game.id} data-players={screen.scores.length}>
           <img className="moon-result-art" src={moonArt(screen.game.id,screen.stage)} alt="" /><p className="moon-eyebrow">MOON / ROUND COMPLETE</p>
           {party && <Confetti />}
           <h1>{screen.game.name}{screen.game.id==='freeze'?' · Studio':screen.game.id==='goalie'?` · ${keeperDifficulty(keeperFromVariant(screen.mode))}`:screen.mode ? ` ${screen.game.modes?.find((m) => m.id === screen.mode)?.name}` : ''} · stage {screen.stage}{teamOf(screen.game) ? ' · team' : ''}</h1>
@@ -454,9 +454,9 @@ function App() {
             })}
           </div>
           <div className="row session-result-actions" style={{ justifyContent: 'center' }}>
-            <button className="primary" onClick={() => play(screen.game, screen.stage, screen.mode)}>Play again</button>
-            {screen.stage < open(screen.game, screen.mode) && <button onClick={() => play(screen.game, screen.stage + 1, screen.mode)}>Next stage →</button>}
-            <button onClick={() => go({ at: 'home' })}>Home</button>
+            <button className="primary session-action session-replay" onClick={() => play(screen.game, screen.stage, screen.mode)}><span aria-hidden="true">↻</span>Play again</button>
+            {screen.stage < open(screen.game, screen.mode) && <button className="session-action session-next" onClick={() => play(screen.game, screen.stage + 1, screen.mode)}><span aria-hidden="true">★</span>Next stage →</button>}
+            <button className="session-action session-home" onClick={() => go({ at: 'home' })}><span aria-hidden="true">⌂</span>Home</button>
           </div>
         </div>
       )}
@@ -484,7 +484,7 @@ function App() {
                 <button aria-pressed={tuning.model === 'lite'} onClick={() => setTracker('romp.model', 'lite')}>Fast</button>
               </div>
             </div>
-            <div className="row"><span className="label">Menu selection</span><span>Right hand · hold for 3 seconds</span><span className="dim">Let the ring fill to choose. Move away to cancel or choose again.</span></div>
+            <div className="row"><span className="label">Menu selection</span><span>Right hand · hold for 1.5 seconds</span><span className="dim">Let the ring fill to choose. Move away to cancel or choose again.</span></div>
             <div className="row">
               <span className="label">Sharp motion</span>
               <div className="seg">

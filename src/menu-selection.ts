@@ -1,4 +1,4 @@
-export const MENU_HOLD_MS=3000;
+export const MENU_HOLD_MS=1500;
 type Point={x:number;y:number};
 export type MenuHold<T>={target:T|null;anchor:Point|null;elapsed:number;fired:boolean};
 export const newMenuHold=<T>():MenuHold<T>=>({target:null,anchor:null,elapsed:0,fired:false});

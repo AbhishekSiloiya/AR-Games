@@ -5,16 +5,16 @@ import {hardness} from '../meta.ts';
 import {damageDrone} from '../galaxy-rules.ts';
 import {jackInput} from '../jack-input.ts';
 import {newJackPower,earnJackPower,resetJackGesture,stepJackPower,jackHandsHigh} from '../jack-power.ts';
-import {jackFormation,pulseContact,type DroneKind} from '../jack-combat.ts';
+import {jackFormation,pulseContact,jackDivePoint,pilotContact,JACK_PULSE_SPEED,type DroneKind} from '../jack-combat.ts';
 import {jackPilot} from '../jack-pilot.ts';
 import {jackArena} from '../jack-arena.ts';
 import {jackHud} from '../jack-hud.ts';
 import {effects,pace} from '../pace.ts';
 import {flat,lit,node,shapes,show,fade} from '../engine.ts';
 import {bestLine,bursts as makeBursts,hitSound,music,round,sfx,zoneHalf,zoneX,type Game} from '../kit.ts';
-const ROUND=70,REST=3,BREACH=1.25,POOL=40;
+const ROUND=70,REST=3,DIVE_LINE=1.25,POOL=40;
 type Home={position:Vec3;scale:Vec3;rotation:Vec3};
-type Drone={on:boolean;zone:number;x:number;y:number;hp:number;row:number;boss:boolean;kind:DroneKind;hurt:number;dead:number;age:number;delay:number;entryX:number;entryY:number;toX:number;toY:number;e:Entity;skin:Entity[];home:Home[]};
+type Drone={diving:boolean;diveAge:number;diveX:number;diveY:number;targetP:number;on:boolean;zone:number;x:number;y:number;hp:number;row:number;boss:boolean;kind:DroneKind;hurt:number;dead:number;age:number;delay:number;entryX:number;entryY:number;toX:number;toY:number;e:Entity;skin:Entity[];home:Home[]};
 export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
  let disposed=false;scene.cleanup(()=>{disposed=true;});
  const [arena,...loaded]=await Promise.all([jackArena(scene),...Array.from({length:n},(_,p)=>jackPilot(scene,p,n,team))]);
@@ -30,26 +30,26 @@ export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
    skin.push(node(e,pod,glass,[side*(kind==='orb'?.36:.61),-.03,0]),node(e,shapes.circle(.06,16),warm,[side*(kind==='orb'?.36:.61),-.03,.18]));
   }
   const home=skin.map(part=>({position:part.getLocalPosition().clone(),scale:part.getLocalScale().clone(),rotation:part.getLocalEulerAngles().clone()}));e.enabled=false;
-  return {on:false,zone:0,x:0,y:0,hp:1,row:0,boss:false,kind,hurt:0,dead:0,age:0,delay:0,entryX:0,entryY:0,toX:0,toY:0,e,skin,home};
+  return {diving:false,diveAge:0,diveX:0,diveY:0,targetP:0,on:false,zone:0,x:0,y:0,hp:1,row:0,boss:false,kind,hurt:0,dead:0,age:0,delay:0,entryX:0,entryY:0,toX:0,toY:0,e,skin,home};
  });
  const pulseLooks=[flat('#9af4f5'),flat('#ffca91'),flat('#ffe391')],trailLooks=[flat('#8bdadd',{opacity:.45}),flat('#e3b47e',{opacity:.45}),flat('#edc065',{opacity:.5})];
  const pulses=Array.from({length:96},(_,i)=>{const root=node(scene.root),e=node(root,shapes.sphere(.09,16),pulseLooks[0]),trail=node(root,shapes.quad(1,1),trailLooks[0]);root.name=`jack-pulse-${i}`;root.enabled=false;return {on:false,root,e,trail,x:0,y:0,dx:0,dy:1,life:0,p:0,zone:0,power:false};});
  const markers=Array.from({length:n*2},(_,i)=>{const root=node(scene.root);root.name=`jack-aim-${i}`;const look=flat(i>>1?'#ffca91':'#a1edf2');node(root,shapes.ring(.11,.14,32),look);node(root,shapes.box(.08,.018,.01),look,[-.19,0,0]);node(root,shapes.box(.08,.018,.01),look,[.19,0,0]);root.enabled=false;return root;});
  const rays=Array.from({length:n*2},()=>{const e=node(scene.root,shapes.quad(2,2),flat('#9aefff',{opacity:.2}));e.enabled=false;return e;});
  const bursts=makeBursts(scene.root),passed=bestLine(hud,best);
- const crews=(team?[[0,1].slice(0,n)]:Array.from({length:n},(_,p)=>[p])).map((who,k)=>({who,x:team?0:zoneX(n,k),half:team?7:zoneHalf(n)-.6,wave:0,shields:3,rest:1.4,score:0,cleared:0,inWave:false,kills:0,size:0}));
+ const crews=(team?[[0,1].slice(0,n)]:Array.from({length:n},(_,p)=>[p])).map((who,k)=>({who,x:team?0:zoneX(n,k),half:team?7:zoneHalf(n)-.6,wave:0,shields:3,rest:1.4,score:0,cleared:0,inWave:false,kills:0,size:0,invulnerable:0,hits:0,lastHit:-Infinity,hitPlayer:-1}));
  const me=Array.from({length:n},()=>({input:jackInput(),power:newJackPower(),reps:0,hits:0,powerShots:0,powerHits:0,volley:0,last:-9}));
  let time=-3,forced=0,guard=0,lastWall=performance.now();
  const reset=()=>{me.forEach(m=>{m.input.reset();resetJackGesture(m.power);});guard=performance.now()+150;lastWall=performance.now();};
  const keyReset=(e:KeyboardEvent)=>{if(e.code==='Escape'||e.code==='Space')reset();};window.addEventListener('keydown',keyReset,true);window.addEventListener('click',reset,true);
  scene.cleanup(()=>{overlay.dispose();music.stop();window.removeEventListener('keydown',keyReset,true);window.removeEventListener('click',reset,true);delete(window as Window&{__jacks?:unknown}).__jacks;delete(window as Window&{advanceTime?:unknown}).advanceTime;});
- const snapshot=()=>({coordinates:'world units; centre origin, x right, y up',time,stage,arena,players:bodies.map((b,p)=>({...b.state(),shots:me[p].reps,hits:me[p].hits,power:{...me[p].power},powerShots:me[p].powerShots,powerHits:me[p].powerHits})),crews:crews.map(c=>({...c})),drones:invaders.filter(v=>v.on||v.dead>0).map(v=>({x:v.x,y:v.y,hp:v.hp,boss:v.boss,kind:v.kind,zone:v.zone,state:!v.on?'breaking':v.age<1+v.delay?'arriving':'active',parts:v.skin.length})),projectiles:pulses.filter(p=>p.on).map(p=>({x:p.x,y:p.y,dx:p.dx,dy:p.dy,player:p.p,zone:p.zone,power:p.power})),motion:effects.on&&!pace.lean&&!reduced});
+ const snapshot=()=>({coordinates:'world units; centre origin, x right, y up',time,stage,arena,players:bodies.map((b,p)=>({...b.state(),shots:me[p].reps,hits:me[p].hits,power:{...me[p].power},powerShots:me[p].powerShots,powerHits:me[p].powerHits})),crews:crews.map(c=>({...c})),drones:invaders.filter(v=>v.on||v.dead>0).map(v=>({x:v.x,y:v.y,hp:v.hp,boss:v.boss,kind:v.kind,zone:v.zone,state:!v.on?'breaking':v.diving?'diving':v.age<1+v.delay?'arriving':'active',diveAge:v.diveAge,targetPlayer:v.diving?v.targetP:null,parts:v.skin.length})),projectiles:pulses.filter(p=>p.on).map(p=>({x:p.x,y:p.y,dx:p.dx,dy:p.dy,player:p.p,zone:p.zone,power:p.power})),motion:effects.on&&!pace.lean&&!reduced});
  const advance=(ms:number)=>{for(let i=0;i<Math.ceil(ms/(1000/60));i++){forced++;update(1/60);}};
  Object.assign(window,{__jacks:{crews,me,invaders,bodies,pulses,snapshot,advance},advanceTime:advance});
  const tick=round(hud,ROUND,()=>{music.stop();onEnd(team?Array(n).fill(crews[0].score):crews.map(c=>c.score),me.map((m,p)=>[`${m.reps} gauntlet shots`,m.reps?`${Math.round(100*m.hits/m.reps)}% hit rate`:'',`${m.power.serial} Starfall barrages`,`${crews[team?0:p].cleared} perfect waves`].filter(Boolean)));});music.start('cosmic',undefined,.42);
  const spawnWave=(c:typeof crews[number],k:number,t:number)=>{
   const formation=jackFormation(c.wave,n,team,c.x,c.half);c.inWave=true;c.kills=0;c.size=formation.length;overlay.cue(formation.some(v=>v.boss)?'COMMANDER APPROACHING':`WAVE ${c.wave+1} · INBOUND`,t);
-  formation.forEach((f,row)=>{const v=invaders.find(q=>!q.on&&q.dead<=0&&q.kind===f.kind)??invaders.find(q=>!q.on&&q.dead<=0);if(!v)return;Object.assign(v,{on:true,zone:k,x:f.entryX,y:f.entryY,row,boss:f.boss,hp:f.boss?8:1,hurt:0,dead:0,age:0,delay:f.delay,entryX:f.entryX,entryY:f.entryY,toX:f.x,toY:f.y});});
+  formation.forEach((f,row)=>{const v=invaders.find(q=>!q.on&&q.dead<=0&&q.kind===f.kind)??invaders.find(q=>!q.on&&q.dead<=0);if(!v)return;Object.assign(v,{diving:false,diveAge:0,targetP:c.who[row%c.who.length],on:true,zone:k,x:f.entryX,y:f.entryY,row,boss:f.boss,hp:f.boss?8:1,hurt:0,dead:0,age:0,delay:f.delay,entryX:f.entryX,entryY:f.entryY,toX:f.x,toY:f.y});});
  };
  const destroy=(v:Drone)=>{v.on=false;v.dead=.72;};
  const launch=(p:number,hand:number,dx:number,dy:number,power=false)=>{
@@ -69,9 +69,27 @@ export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
   const fresh=players.slice(0,n).map((pl,p)=>pl.present&&(sim||trackingSeen[p]>0&&now-trackingSeen[p]<=180)&&now>=guard),motion=effects.on&&!pace.lean&&!reduced;
   bodies.forEach((b,p)=>b.update(players[p].rig,fresh[p],dt,t,motion,players[p].lift));
   crews.forEach((c,k)=>{
-   const mine=invaders.filter(v=>v.on&&v.zone===k);if(t>=0&&!mine.length&&!c.inWave&&(c.rest-=dt)<=0){spawnWave(c,k,t);c.rest=REST;}
-   for(const v of mine){v.age+=dt;const entry=Math.max(0,Math.min(1,(v.age-v.delay)/1));if(entry<1){const u=1-(1-entry)**3;v.x=v.entryX+(v.toX-v.entryX)*u;v.y=v.entryY+(v.toY-v.entryY)*u;}else{v.y-=(.19+c.wave*.03)*hard*dt*(v.boss?.55:1);v.x+=Math.sin(t*1.2+v.row)*.22*dt;}}
-   const low=mine.find(v=>v.age>=1+v.delay&&v.y<BREACH);if(low){destroy(low);c.shields--;overlay.cue(c.shields?`SHIELD LOST · ${c.shields} LEFT`:'REGROUP. YOU’VE GOT THIS.',t);sfx('error',{vol:.35});if(c.shields<=0){mine.forEach(destroy);c.inWave=false;c.shields=3;c.score=Math.max(0,c.score-5);c.rest=2.5;}}
+   const mine=invaders.filter(v=>v.on&&v.zone===k);
+   if(!c.who.some(p=>fresh[p])){c.who.forEach(p=>{me[p].input.reset();resetJackGesture(me[p].power);});return;}
+   c.invulnerable=Math.max(0,c.invulnerable-dt);
+   if(c.shields<=0){c.who.forEach(p=>me[p].input.reset());c.rest-=dt;if(c.rest<=0){c.shields=3;c.invulnerable=1.2;c.rest=1;overlay.cue('SHIELDS RESTORED · BACK IN THE FIGHT',t);}return;}
+   if(t>=0&&!mine.length&&!c.inWave&&(c.rest-=dt)<=0){spawnWave(c,k,t);c.rest=REST;}
+   for(const v of mine){
+    if(v.diving){
+     if(!fresh[v.targetP])continue;
+     const target=bodies[v.targetP].shieldTarget(),before={x:v.x,y:v.y};v.diveAge+=dt;
+     const next=jackDivePoint({x:v.diveX,y:v.diveY},target,v.diveAge/.95);v.x=next.x;v.y=next.y;
+     if(pilotContact(before,next,target)){
+      destroy(v);bodies[v.targetP].react('shield',t);
+      if(c.invulnerable<=0){c.shields=Math.max(0,c.shields-1);c.hits++;c.lastHit=t;c.hitPlayer=v.targetP;c.invulnerable=1.25;overlay.hit(v.targetP,t,c.shields);overlay.cue(c.shields?`SHIELD HIT · ${c.shields} LEFT`:'SHIELDS DOWN · REGROUP',t,1.5);sfx('impactMetal_heavy',{vol:.28});if(motion)bursts.burst(target.x,target.y,1.6,'#ffcba7',12,2.8);
+       if(c.shields<=0){mine.forEach(destroy);c.inWave=false;c.score=Math.max(0,c.score-5);c.rest=2.5;break;}
+      }
+     }
+     continue;
+    }
+    v.age+=dt;const entry=Math.max(0,Math.min(1,(v.age-v.delay)/1));if(entry<1){const u=1-(1-entry)**3;v.x=v.entryX+(v.toX-v.entryX)*u;v.y=v.entryY+(v.toY-v.entryY)*u;}else{v.y-=(.19+c.wave*.03)*hard*dt*(v.boss?.55:1);v.x+=Math.sin(t*1.2+v.row)*.22*dt;}
+    if(v.age>=1+v.delay&&v.y<DIVE_LINE){const ready=c.who.filter(p=>fresh[p]);v.targetP=ready[(v.row+c.wave)%ready.length];v.diving=true;v.diveAge=0;v.diveX=v.x;v.diveY=v.y;overlay.cue('INCOMING · SHOOT THE DIVING SHIP',t,1);}
+   }
    c.who.forEach(p=>{
     const m=me[p],pl=players[p],shots=m.input.sample(pl.rig,t,fresh[p]&&t>=0),high=jackHandsHigh(pl.rig);
     for(const shot of shots){const muzzle=bodies[p].muzzle(shot.hand);m.reps++;m.last=t;launch(p,shot.hand,muzzle.dx,Math.max(.01,muzzle.dy));hitSound('laser',Math.min(8,m.reps%8),.2);}
@@ -81,14 +99,14 @@ export default async function jacks({n,stage,team,best,onEnd,hud,scene}:Game){
    });hud.p('s',team?0:k,String(c.score));
   });
   for(const pulse of pulses){
-   if(!pulse.on)continue;const x=pulse.x,y=pulse.y,speed=pulse.power?14:11;pulse.x+=pulse.dx*speed*dt;pulse.y+=pulse.dy*speed*dt;pulse.life-=dt;
+   if(!pulse.on)continue;const x=pulse.x,y=pulse.y,speed=pulse.power?19:JACK_PULSE_SPEED;pulse.x+=pulse.dx*speed*dt;pulse.y+=pulse.dy*speed*dt;pulse.life-=dt;
    const hit=pulseContact(invaders.filter(v=>v.on&&v.zone===pulse.zone&&v.age>=1+v.delay).map(v=>({x:v.x,y:v.y,r:v.boss?1.05:v.kind==='orb'?.46:.57,v})),x,y,pulse.x,pulse.y);
    if(hit){impact(hit.v,pulse.p,pulse.power,t,motion);pulse.on=false;}
    if(pulse.life<=0||Math.abs(pulse.x)>9||pulse.y>6||pulse.y<-5)pulse.on=false;
    show(pulse.root,pulse.on);if(pulse.on){pulse.root.setLocalPosition(pulse.x,pulse.y,1.5);pulse.e.setLocalScale(pulse.power?1.3:1,pulse.power?1.3:1,1);pulse.trail.setLocalPosition(-pulse.dx*.23,-pulse.dy*.23,-.01);pulse.trail.setLocalEulerAngles(0,0,Math.atan2(pulse.dy,pulse.dx)*180/Math.PI);pulse.trail.setLocalScale(.5,.035,1);}
   }
-  crews.forEach((c,k)=>{if(!c.inWave||invaders.some(v=>v.on&&v.zone===k))return;c.inWave=false;const perfect=c.kills===c.size;if(perfect){c.score+=10;c.cleared++;sfx('confirmation',{vol:.4});}c.wave++;c.rest=REST;overlay.cue(perfect?'SECTOR CLEAR · +10':'NEXT SECTOR · HANDS READY',t,2.5);});
-  for(const v of invaders){if(!show(v.e,v.on||v.dead>0))continue;v.hurt=Math.max(0,v.hurt-dt);const s=(v.boss?1.8:1)*(1+v.hurt*.4);v.e.setLocalPosition(v.x,v.y,.9);v.e.setLocalScale(s,s,s);v.e.setLocalEulerAngles(0,motion?Math.sin(t*1.8+v.row)*14:0,motion?Math.sin(t*2+v.x)*4:0);if(v.dead>0)v.dead=Math.max(0,v.dead-dt);
+  crews.forEach((c,k)=>{if(c.shields<=0||!c.inWave||invaders.some(v=>v.on&&v.zone===k))return;c.inWave=false;const perfect=c.kills===c.size;if(perfect){c.score+=10;c.cleared++;sfx('confirmation',{vol:.4});}c.wave++;c.rest=REST;overlay.cue(perfect?'SECTOR CLEAR · +10':'NEXT SECTOR · HANDS READY',t,2.5);});
+  for(const v of invaders){if(!show(v.e,v.on||v.dead>0))continue;v.hurt=Math.max(0,v.hurt-dt);const s=(v.boss?1.8:1)*(1+v.hurt*.4);v.e.setLocalPosition(v.x,v.y,.9);v.e.setLocalScale(s,s,s);v.e.setLocalEulerAngles(v.diving?Math.min(35,v.diveAge*30):0,motion?Math.sin(t*1.8+v.row)*14:0,v.diving?Math.atan2(bodies[v.targetP].shieldTarget().y-v.y,bodies[v.targetP].shieldTarget().x-v.x)*180/Math.PI+90:motion?Math.sin(t*2+v.x)*4:0);if(v.dead>0)v.dead=Math.max(0,v.dead-dt);
    v.skin.forEach((part,j)=>{const home=v.home[j];if(v.on){part.setLocalPosition(home.position);part.setLocalScale(home.scale);part.setLocalEulerAngles(home.rotation);}else{const a=1-v.dead/.72,side=j%2?-1:1;part.setLocalPosition(home.position.x+(motion?side*a*(.5+j*.06):0),home.position.y+(motion?a*.7-a*a*2:0),home.position.z);part.setLocalEulerAngles(home.rotation.x,home.rotation.y,motion?home.rotation.z+side*a*160:home.rotation.z);const k=Math.max(0,1-a*a);part.setLocalScale(home.scale.x*k,home.scale.y*k,home.scale.z*k);}});
   }
   rays.forEach((ray,i)=>{const p=i>>1,h=i%2,target=bodies[p].aim(h),on=fresh[p]&&!!target?.ready;show(markers[i],on);if(on){markers[i].setLocalPosition(target!.x,target!.y,2.9);const k=1+me[p].input.progress(h)*.5;markers[i].setLocalScale(k,k,1);}if(!show(ray,on))return;const m=bodies[p].muzzle(h),len=Math.min(1.8,Math.hypot(target!.x-m.x,target!.y-m.y));ray.setLocalPosition(m.x+m.dx*len/2,m.y+m.dy*len/2,2.8);ray.setLocalEulerAngles(0,0,Math.atan2(m.dy,m.dx)*180/Math.PI);ray.setLocalScale(len/2,.006,1);fade(ray,.2);});

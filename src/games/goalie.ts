@@ -8,7 +8,7 @@ import {goalieArena} from '../goalie-arena.ts';
 import {goalieStriker} from '../goalie-striker.ts';
 import {keeperGloves} from '../goalie-gloves.ts';
 import {keeperCoach} from '../goalie-coach.ts';
-import {newKeeper,stepKeeper,keeperLayout,keeperReport} from '../goalie-rules.ts';
+import {newKeeper,stepKeeper,keeperLayout,keeperReport,keeperRingScale} from '../goalie-rules.ts';
 import {goalieSettings,saveGoalieSettings,keeperFromVariant,keeperSetupLabel} from '../goalie-settings.ts';
 import {keeperCrowd} from '../goalie-audio.ts';
 import {keeperStage,keeperShot,keeperProgress} from '../goalie-stages.ts';
@@ -36,7 +36,7 @@ export default async function goalie({n,stage,mode,best,onEnd,hud,scene}:Game){
    if((practicing||t>=0)&&t<60){const event=stepKeeper(s,dt,Math.max(0,t),players[p].present,hands.slice(p*2,p*2+2),practicing);if(event==='kick'){actors[p]!.kick();sfx('impactPunch_medium',{vol:.22,rate:.7});}if(event==='save'){gloves.hit(p,s.hand);hitSound('impactSoft_heavy',s.streak,.62);sfx('impactPunch_medium',{vol:.22,rate:.9});if(!practicing&&(s.streak===3||s.streak%5===0))crowd.cheer();}if(event==='miss')sfx('impactSoft_heavy',{vol:.17,rate:.7});}
    actors[p]!.update(s,clock,dt,motion);
    const b=balls[p],active=['windup','flight','saved','miss'].includes(s.phase)&&t<60;show(b.mesh,active);show(b.shadow,active);b.mesh.setLocalPosition(s.position.x,s.position.y,s.position.z);b.mesh.setLocalEulerAngles(clock*390,clock*220,clock*100);tint(b.mesh,s.gold?'#f5c665':'#fff4df','diffuse');b.shadow.setLocalPosition(s.position.x,-3.185,s.position.z);const shade=.28+Math.max(0,s.position.y+3.2)*.035;b.shadow.setLocalScale(shade,shade,1);fade(b.shadow,Math.max(.04,.2-(s.position.y+3.2)*.018));
-   const intro=!practicing&&t<0,demo=intro?keeperShot(stage,Math.floor((t+3)/.75),0,false):null,l=keeperLayout(n,p),tx=demo?l.cx+demo.x*l.k*reach:s.tx,ty=demo?demo.y*(n===1?1:.8):s.ty;const cue=settings.circles&&(intro||s.phase==='windup'||s.phase==='flight')&&t<60;show(b.ring,cue);show(b.inner,cue);if(cue){const u=intro||s.phase==='windup'?0:Math.min(1,s.age/s.duration),scale=l.hitRadius*(1.55-u*.55);b.ring.setLocalPosition(tx,ty,.3);b.inner.setLocalPosition(tx,ty,.31);b.ring.setLocalScale(scale,scale,1);b.inner.setLocalScale(scale,scale,1);b.inner.render!.meshInstances[0].material=s.gold&&!intro?gold:tx<l.cx?coral:teal;}
+   const intro=!practicing&&t<0,demo=intro?keeperShot(stage,Math.floor((t+3)/.75),0,false):null,l=keeperLayout(n,p),tx=demo?l.cx+demo.x*l.k*reach:s.tx,ty=demo?demo.y*(n===1?1:.8)*reach:s.ty;const cue=settings.circles&&(intro||s.phase==='windup'||s.phase==='flight')&&t<60;show(b.ring,cue);show(b.inner,cue);if(cue){const u=intro||s.phase==='windup'?0:Math.min(1,s.age/s.duration),scale=keeperRingScale(n,p,tx,ty,u);b.ring.setLocalPosition(tx,ty,.3);b.inner.setLocalPosition(tx,ty,.31);b.ring.setLocalScale(scale,scale,1);b.inner.setLocalScale(scale,scale,1);b.inner.render!.meshInstances[0].material=s.gold&&!intro?gold:tx<l.cx?coral:teal;}
    const impact=s.phase==='saved'&&s.age<.35&&motion;show(b.flash,impact);if(impact){b.flash.setLocalPosition(s.tx,s.ty,.4);const size=keeperLayout(n,p).hitRadius*(1+s.age*2);b.flash.setLocalScale(size,size,1);fade(b.flash,.75*(1-s.age/.35));}
   });
   arena.update(states,motion);coach.update(states,t,players.slice(0,n).map(p=>p.present),practicing?Math.max(0,12-practiceTime):null,motion);music.intensity(practicing?.18:lesson.level+Math.min(.18,Math.max(...states.map(s=>s.streak))*.018)+(stage===5&&t>=50?.08:0));

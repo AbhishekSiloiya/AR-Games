@@ -44,7 +44,7 @@ export function HandCursor(){
    const confirmed=hold.current.fired&&now-selectedAt<500;
    cursor.dataset.state=confirmed?'selected':result.locked?'locked':over?'holding':'aiming';
    ring.style.strokeDashoffset=String(confirmed?0:100*(1-result.progress));
-   caption.textContent=confirmed?'Selected':result.locked?'Move to continue':over?`Hold ${Math.max(1,Math.ceil((1-result.progress)*3))}s to choose`:'Right hand';
+   caption.textContent=confirmed?'Selected':result.locked?'Move to continue':over?`Hold ${(Math.max(.1,Math.ceil((1-result.progress)*MENU_HOLD_MS/100)/10)).toFixed(1)}s to choose`:'Right hand';
    Object.assign(menuSelectionView,{progress:result.progress,locked:result.locked,target:label(over)});
    if(result.activate&&enabled(result.activate)){sfx('confirmation',{vol:.3});result.activate.click();}
   };

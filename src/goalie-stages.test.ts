@@ -5,12 +5,15 @@ const {keeperStage,keeperShot,keeperProgress}=stages;
 const pattern=(stage:number)=>Array.from({length:14},(_,i)=>keeperShot(stage,i,20,false));
 for(let stage=1;stage<=5;stage++){
  const lesson=keeperStage(stage);assert.ok(lesson.title&&lesson.instruction&&lesson.world&&lesson.art);
- const shots=pattern(stage);assert.ok(shots.every(s=>Math.abs(s.x)<=3.7&&s.y>=-1.3&&s.y<=1.8));
+ const shots=pattern(stage);assert.ok(shots.every(s=>Math.abs(s.x)<=4.2&&s.y>=-1.3&&s.y<=2.25));
  if(stage>1)assert.notDeepEqual(shots.map(s=>[s.x,s.y,s.bend]),pattern(stage-1).map(s=>[s.x,s.y,s.bend]),'each stage teaches a distinct movement');
  for(let i=0;i<14;i++)assert.deepEqual(keeperShot(stage,i,0,true),keeperShot(1,i,0,true),'practice remains slow near left/right at every stage');
 }
 assert.ok(pattern(1).every(s=>Math.abs(s.x)<=1.8&&Math.abs(s.y)<=.6),'stage1 builds confidence with near shots');
 assert.ok(pattern(2).some(s=>s.x<=-3.5)&&pattern(2).some(s=>s.x>=3.5),'stage2 asks for both wide corners');
+for(const side of [-1,1])assert.ok(pattern(2).some(s=>s.x*side>=3.9&&s.y>=1.7),'stage2 includes actual upper corners on both sides');
+for(const side of [-1,1])assert.ok(pattern(3).some(s=>s.x*side>=4&&s.y>=2.2),'stage3 asks for full upper corner stretches');
+assert.ok(pattern(4).some(s=>s.bend>=1.15)&&pattern(4).some(s=>s.bend<=-1.15),'later curves are visibly lateral before their true endpoint');
 assert.ok(pattern(3).some(s=>s.y>=1.5)&&pattern(3).some(s=>s.y<=-1.1),'stage3 mixes highs and lows');
 assert.ok(pattern(4).some(s=>s.bend<0)&&pattern(4).some(s=>s.bend>0),'stage4 has readable curves from either side');
 assert.equal(keeperShot(5,6,49.99,false).finale,false);

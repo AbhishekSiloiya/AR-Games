@@ -8,3 +8,13 @@
 @media(prefers-reduced-motion:reduce){.shapeup-coach *{animation:none!important;}}
 
 .moon-results[data-game='shapeup'] .result h2,.moon-results[data-game='shapeup'] .who b{color:#254940;}.moon-results[data-game='shapeup'] .moon-eyebrow{color:#32775f;}.moon-results[data-game='shapeup'] .score{text-shadow:none;}
+
+/* Stage identity and earned flow stay outside the live camera centre. */
+.shape-stage-focus{display:block;max-width:23vw;margin-top:3px;font-style:normal;font-size:clamp(6px,.65vw,10px);color:#586e61;}
+.shape-brand>span{font-size:clamp(7px,.8vw,11px);display:block;max-width:25vw;}
+.shapeup-world>strong{max-width:38%;white-space:normal;font-size:clamp(7px,.8vw,12px);line-height:1.2;}
+.shape-earned-bonus{position:absolute;right:0;bottom:calc(100% + 7px);padding:7px 11px;background:#e5b94c;color:#493b17;border:1px solid #fff2ba;border-radius:7px;font-weight:800;font-size:clamp(11px,1.25vw,19px);box-shadow:0 3px 0 #a27c2c;}
+.shape-earned-bonus[hidden]{display:none;}
+.shapeup-coach[data-motion='true'] .shape-earned-bonus:not([hidden]){animation:shape-earned .25s ease-out;}
+.shapeup-coach[data-phase='rest'] .shape-target-title{background:#dbefdc;}
+@media(max-width:700px){.shape-stage-focus{font-size:6px;max-width:26vw;}.shape-brand>span{font-size:6px;max-width:29vw;}.shape-target-title strong{font-size:18px;}.shape-earned-bonus{font-size:9px;padding:4px 7px;}.shapeup-coach[data-players='2'] .shape-earned-bonus{font-size:8px;}.shapeup-world>strong{font-size:6px;}}

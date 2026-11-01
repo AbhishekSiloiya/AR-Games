@@ -159,3 +159,19 @@
  .player-setup .setup-workspace {display:flex;flex-direction:column;align-items:stretch;}
  .player-setup .camera-view {max-height:none;}
 }
+
+/* Reachable round actions: large, separate pads with a clear press response. */
+.moon-results.screen .session-result-actions{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);width:min(100%,820px);gap:14px;padding-top:6px;}
+.moon-results.screen .session-result-actions .session-action{display:flex;align-items:center;justify-content:center;gap:12px;min-height:64px;padding:12px 20px;border:1px solid #819c8b;border-radius:12px;background:#fff9ee;color:#243f39;font:750 clamp(17px,1.65vw,24px)/1.1 var(--moon-face);box-shadow:0 4px 0 #6d8777;transition:transform 120ms ease,box-shadow 120ms ease;}
+.moon-results.screen .session-result-actions .session-action>span{font:700 28px/1 var(--moon-face);}
+.moon-results.screen .session-result-actions .session-replay{background:#deff75;border-color:#a7c64e;box-shadow:0 4px 0 #7f9b3f;}
+.moon-results.screen .session-result-actions .session-next{background:#c6ece5;border-color:#8bbdb1;box-shadow:0 4px 0 #5f9083;}
+.moon-results.screen .session-result-actions .session-action:hover{transform:translateY(-2px);}
+.moon-results.screen .session-result-actions .session-action:active{transform:translateY(3px);box-shadow:none;}
+.moon-results.screen .session-result-actions .session-action:focus-visible{outline:3px solid #fff9ee;outline-offset:4px;}
+@media(max-height:600px) and (min-width:600px){.moon-results.screen .session-result-actions{gap:10px;padding-top:1px;}.moon-results.screen .session-result-actions .session-action{min-height:56px;padding:9px 12px;font-size:18px;gap:8px;}.moon-results.screen .session-result-actions .session-action>span{font-size:23px;}}
+@media(max-width:599px){.moon-results.screen .session-result-actions{grid-auto-flow:row;grid-auto-columns:auto;width:100%;max-width:420px;}.moon-results.screen .session-result-actions .session-action{min-height:60px;}}
+@media(prefers-reduced-motion:reduce){.moon-results.screen .session-result-actions .session-action{transition:none;}.moon-results.screen .session-result-actions .session-action:hover,.moon-results.screen .session-result-actions .session-action:active{transform:none;}}
+
+@media(max-height:600px) and (min-width:600px){.moon-results.screen{gap:6px;}.moon-results.screen .result{padding:8px 14px;gap:4px;}}
+@media(max-width:599px){.moon-results.screen[data-players='2'] .results{display:grid;grid-auto-flow:column;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.moon-results.screen[data-players='2'] .result{padding:12px 8px;gap:7px;}.moon-results.screen[data-players='2'] .result h2{font-size:14px;}.moon-results.screen[data-players='2'] .score{font-size:52px;}.moon-results.screen[data-players='2'] .bigstars{font-size:28px;gap:3px;}.moon-results.screen[data-players='2'] .session-earned,.moon-results.screen[data-players='2'] .session-xp,.moon-results.screen[data-players='2'] .session-next-star{font-size:10px;}.moon-results.screen[data-players='2'] .session-details-trigger{font-size:11px;padding:8px;}}

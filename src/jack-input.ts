@@ -11,7 +11,7 @@ export function jackInput(){
    if(y<-.35){a.armed=true;a.hold=-Infinity;a.progress=0;}
    if(!a.armed||y<-.15||t-a.fired<.25){a.hold=-Infinity;a.progress=0;continue;}
    if(!Number.isFinite(a.hold)||Math.hypot(x-a.x,y-a.y)>.06){a.hold=t;a.x=x;a.y=y;}
-   a.progress=Math.min(1,(t-a.hold)/.14);if(a.progress<1)continue;
+   a.progress=Math.min(1,(t-a.hold)/.095);if(a.progress<1)continue;
    a.armed=false;a.fired=t;a.progress=0;a.hold=-Infinity;const dy=Math.max(.25,y),len=Math.hypot(x,dy);shots.push({hand:h,x:w[0],y:w[1],dx:x/len,dy:dy/len});
   }return shots;
  }};

@@ -11,3 +11,13 @@ export function jackFormation(wave:number,n:number,team:boolean,x:number,half:nu
  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){const side=col%2?1:-1;out.push({x:x+((col+.5)/cols-.5)*half*1.65,y:2.65+row*.72,kind:(['scout','dart','orb'] as const)[(col+row+wave)%3],boss:false,entryX:Math.max(-8.2,Math.min(8.2,x+side*(half+2))),entryY:4.8+row*.2,delay:col*.09+row*.12});}
  if(boss)out.push({x,y:2.05,kind:'scout',boss:true,entryX:x,entryY:6,delay:.5});return out;
 }
+
+export const JACK_PULSE_SPEED=17;
+/** A telegraphed invader commits to its crew's pilot. Clamping keeps its final contact on the pilot. */
+export function jackDivePoint(from:{x:number;y:number},target:{x:number;y:number},age:number){
+ const u=Math.max(0,Math.min(1,age)),ease=u*u*(3-2*u);
+ return {x:from.x+(target.x-from.x)*ease,y:from.y+(target.y-from.y)*ease};
+}
+export function pilotContact(from:{x:number;y:number},to:{x:number;y:number},target:{x:number;y:number}){
+ return !!pulseContact([{...target,r:.58}],from.x,from.y,to.x,to.y);
+}
