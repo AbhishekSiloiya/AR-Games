@@ -1,0 +1,26 @@
+# Tablet performance preview — 5 November 2026
+
+Baseline masterfe6dc96; branch codex/moon-tablet-performance. User approved the shared performance review and requested a finished test version. Publish a preview, then use physical tablet feedback before merging production.
+
+## Changes
+- One camera allocation or inference at a time; no copied-frame waiting queue. Pending captures close on route replacement. GPU/CPU inference failures report explicitly and close frame resources.
+- Running watchdog, two worker rebuilds maximum, then a lighter paced inline fallback. Defaults may try Lite after repeated over-age Full results; an explicit saved model override is preserved. Route epochs discard obsolete callbacks, and paired crop initialization cannot overwrite a later solo request.
+- Reacquisition clears hand motion/filter history. Capture time and receipt time are separate, with result/current age in diagnostics; old results are rejected without widening the existing180ms input budget.
+- First inference gets a bounded15s shader warm-up grace; steady copied responses have2.5s and direct result silence4s deadlines. Cold inline compilation no longer adds an equally long idle wait afterwards. Hidden-tab time does not immediately exhaust the copied work deadline on resume.
+- Camera textures use a single shared frame observer and upload only for a new video frame/dimension. Freeze, Shape Up and shared mirror keep existing camera geometry/exposure. Observers cancel before round-owned textures are destroyed.
+- Auto/Quality/Performance profiles share pixel budgets and shadow/bloom/effects policy. Auto can take two bounded downgrade steps; low tiers disable real-time shadows while retaining existing contact blobs. Quality preserves the higher visual tier. Preference applies to the next round.
+- Tracking screen has a44px accessible native Graphics selector and a local JSON export. Partial/completed round frame timings retain their own quality/render context. Exports contain timings/device metadata, not images or body landmarks. No backend or new dependency.
+
+## Verification
+- Full `npm run check` (rules and TypeScript): PASS. Final `npm run build`: PASS. Existing engine bundle-size and node-worker externalization advisories remain.
+- RED/GREEN: missing capture/quality helpers, first-inference watchdog at7seconds, and five-second cold-inline extra-idle regression. Pure tests pass capture/inference exclusion, late cleanup, bounded retries/signals, epochs, reset, age fences, pacing, once-per-camera-frame upload/disposal and quality pixel/shadow decisions.
+- `tools/test-tracking-runtime.mjs`, production build: PASS with actual Lite inference/fake camera.80ms delayed real captures never overlap. Terminated running workers recover twice, old handlers cannot publish into replacements, then actual inline inference resumes at bounded cadence and reaches ready (observed final result age115ms in this software run). Explicitly injected faults account for recovery/error counters. Initial artificially delayed captures that exceed180ms are correctly rejected; the delay is removed for recovery acceptance.
+- `tools/test-tablet-rendering.mjs`: PASS Quality and Performance actual solo Jab/Goalie/Freeze/Shape scenes. Quality sports retain11 shadow draws; Performance has0 ongoing shadow draws. Freeze/Shape have17–19 texture uploads for17–19 camera frames, versus the prior48–49 requests for20frames. This is work-count evidence, not an iPad FPS benchmark.
+- `tools/test-tablet-session.mjs`, production build: PASS native preference, six actual solo game entries, one active round, no low-tier shadow light, scene/SVG cleanup and private local JSON download. Export retains partial Jack round frame counts and its Performance context. The deterministic body fixture explicitly uses copied frames: terminating a direct camera-stream worker in a fixture can orphan native VideoFrames. The production worker recovery test is separate and uses real inference. Jab/Goalie production readiness uses the renderer rather than their development-only debug handles.
+- Installed standard web-game client: PASS one lower/raise burst; state reports one shot and no console errors. Actual game screenshots, renderer counter captures, and exported JSON were inspected.
+- Independent renderer review: no P1/P2 findings in budget/quality, camera lifecycle or export contents. Minor round-context diagnostic mismatch fixed. Tracking implementation also received parent read-through; constructor/init fallback and full motion-history reset concerns fixed. React hook cleanup, label association and touch size checked.
+
+Evidence local under `test-results/tablet-rendering`, `test-results/tablet-session`, `test-results/tablet-standard-client` and temporary tracking/browser logs. Browser tests are Chromium on a Mac software GPU with fake camera/synthetic body where stated. No Safari/physical-camera/thermal or exact iPad frame-rate improvement claim. No game-scoring, character/art or dependency changes.
+
+## Tablet acceptance
+Open preview, select Tracking → Graphics → Performance, return home and play solo. Compare Auto after several minutes. If lag remains, leave the round and use Tracking → Export performance snapshot. Production remains on the current main version pending this trial.

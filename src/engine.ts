@@ -13,7 +13,9 @@ import {
 } from 'playcanvas';
 import { cutout, feed, players, sim, tuning } from './pose.ts';
 import { CUT } from './cut.ts';
-import { effects, pace } from './pace.ts';
+import { effects, pace,qualitySettings,paceSummary } from './pace.ts';
+import {renderQuality,nextQualityGrade} from './render-quality.ts';
+import {cameraTexture} from './camera-texture.ts';
 import { roundLifetime } from './round-lifetime.ts';
 
 export const W = 16, H = 9;
@@ -39,8 +41,10 @@ export const app = new AppBase(canvas);
 
 // Quality steps down by itself, once, for the rest of the session: if the frame rate sags, drop to 1x resolution and
 // lose the bloom. Responsiveness beats gloss — and a device that could not hold it in one game will not in the next.
-const quality = { slow: 0, last: 0 };
-const pixelRatio = () => (device.maxPixelRatio = pace.lean ? 1 : Math.min(window.devicePixelRatio || 1, 1.25));
+const quality = {slow:0,last:0,grade:0};
+const profile=()=>renderQuality(pace.profile,quality.grade,canvas.clientWidth||1024,canvas.clientHeight||576,window.devicePixelRatio||1);
+const pixelRatio=()=>{const q=profile();pace.lean=q.lean;pace.grade=q.grade;pace.pixelRatio=q.ratio;return device.maxPixelRatio=q.ratio;};
+const applyQuality=()=>{const q=profile();pace.shadows=q.shadows;pace.bloom=effects.on&&q.bloom;if(!q.shadows&&live)for(const light of live.root.findComponents('light'))(light as unknown as {castShadows:boolean}).castShadows=false;};
 pixelRatio();
 
 // ---- colour ---------------------------------------------------------------------------------------------------------
@@ -525,7 +529,7 @@ export const mirrorOn = () => tuning.look === 'mirror' && !sim && !!feed.video?.
 // Stage units per picture-height, and where a point of the picture (x in 0..aspect, y in 0..1, mirrored) lands on the stage.
 export const feedUnit = (aspect: number) => (aspect >= W / H ? H : W / aspect);
 function mirror(scene: Scene, place: Place, natural=false) {
-  const video = feed.video!, tex = own(new Texture(device, { name: 'feed', width: video.videoWidth, height: video.videoHeight, format: PIXELFORMAT_RGBA8, mipmaps: false, minFilter: FILTER_LINEAR, magFilter: FILTER_LINEAR, addressU: ADDRESS_CLAMP_TO_EDGE, addressV: ADDRESS_CLAMP_TO_EDGE }));
+  const video=feed.video!,source=cameraTexture(device,video,scene.cleanup,'Shared mirror feed'),tex=source.texture;
   const [low, high] = TONES[place] ?? ['#120a2e', '#a78bfa'], aspect = video.videoWidth / video.videoHeight, unit = feedUnit(aspect);
   const m = own(new ShaderMaterial({
     uniqueName: 'romp-mirror',
@@ -552,7 +556,7 @@ function mirror(scene: Scene, place: Place, natural=false) {
   m.update();
   const spots = [new Float32Array(4), new Float32Array(4)];
   const refresh = () => {
-    if (video.readyState >= 2) { tex.setSource(video as unknown as HTMLCanvasElement); tex.upload(); }
+    source.update();
     players.forEach((pl, i) => {
       const f = pl.frame, s = spots[i];
       if (pl.present) { s[0] = (f.x - f.aspect / 2) * unit; s[1] = (0.5 - f.y - f.sw * 0.9) * unit; s[2] = f.sw * unit * 3.4; s[3] = f.sw * unit * 4.6; } else s[2] = 0;
@@ -745,9 +749,9 @@ app.on('update', (dt: number) => {
   pace.late = compiled() - pace.shaders;
   if (live.t > 2 && pace.dts.length < 30000) pace.dts.push(real * 1000); // the first 2s are the countdown: loading lives there on purpose
   // Two slow seconds' worth of frames under ~48fps and the session goes lean.
-  if (!pace.lean && live.t > 3) {
+  if (live.t > 3) {
     quality.slow = real > 1 / 48 ? quality.slow + real : Math.max(0, quality.slow - real * 2);
-    if (quality.slow > 2) { pace.lean = true; pixelRatio(); resize(); if (live.frame) { live.frame.enabled = false; live.frame.update(); } }
+    const next=nextQualityGrade(pace.profile,quality.grade,quality.slow);if(next!==quality.grade){quality.grade=next;quality.slow=0;pace.downgrades++;resize();applyQuality();if(live.frame){live.frame.enabled=false;live.frame.update();}}
   }
   live.tick(performance.now() < slow.until ? dt * slow.k : dt);
 });
@@ -774,7 +778,7 @@ export function begin(view?: View): Scene {
   owned = roundLifetime();
   const at = live = { root, t: 0, warm: 0, hidden: [], lifetime };
   paused = false; slow.until = 0; slow.k = 1;
-  quality.last = 0;
+  quality.last=0;quality.slow=0;pace.dts=[];pace.profile=qualitySettings.mode;pixelRatio();resize();
   return {
     root, camera, cleanup: lifetime.add,
     ambient: (hex, k = 1) => { if (live !== at) return; const c = color(hex); app.scene.ambientLight = new Color(c.r * k, c.g * k, c.b * k); },
@@ -787,6 +791,7 @@ export function begin(view?: View): Scene {
 export function run(tick: Tick, scene?: Scene) {
   if (!live || scene && live.root !== scene.root) return;
   const at = live;
+  applyQuality();
   at.root.forEach((n) => { if (!(n as unknown as { _enabled: boolean })._enabled) { at.hidden.push(n); n.enabled = true; } });
   if (effects.on && !pace.lean) {
     const frame = (at.frame = new CameraFrame(app, at.root.findComponent('camera') as never));
@@ -804,7 +809,8 @@ export function run(tick: Tick, scene?: Scene) {
 
 export function end(scene?: Scene) {
   if (!live || scene && live.root !== scene.root) return;
-  const at = live, resources = owned;
+  const at=live,resources=owned;
+  if(pace.dts.length)paceSummary();
   // Close first: a cleanup or resolved asset must not register against this round again.
   live = null;
   at.lifetime.close();
@@ -832,7 +838,7 @@ export function pause(on: boolean) { paused = on; quality.last = 0; app.autoRend
 
 // ---- the canvas lives wherever the current stage is -------------------------------------------------------------------
 let host: HTMLElement | null = null;
-const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) { app.resizeCanvas(r.width, r.height); if (paused && live) app.renderNextFrame = true; } canvas.style.width = canvas.style.height = '100%'; } };
+const resize = () => { if (host) { const r = host.getBoundingClientRect(); if (r.width && r.height) { pixelRatio();app.resizeCanvas(r.width, r.height);pace.renderWidth=device.width;pace.renderHeight=device.height; if (paused && live) app.renderNextFrame = true; } canvas.style.width = canvas.style.height = '100%'; } };
 const watcher = new ResizeObserver(resize);
 export function mount(el: HTMLElement) { host = el; el.prepend(canvas); watcher.observe(el); resize(); }
 export function unmount(el?: HTMLElement) { if (el && host !== el) return; if (host) watcher.unobserve(host); host = null; canvas.remove(); }

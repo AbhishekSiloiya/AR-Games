@@ -2,6 +2,8 @@
 // Classic worker on purpose: MediaPipe's loader pulls its wasm glue in with importScripts(), which module
 // workers do not have. Vite builds `new Worker(new URL(...))` without a type as exactly that.
 import { CUT } from './cut.ts';
+import {trackingEpoch} from './tracking-runtime.ts';
+const halfEpoch=trackingEpoch();
 import { FilesetResolver, HandLandmarker, PoseLandmarker, type MPMask, type NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 type Fileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
@@ -27,8 +29,8 @@ async function readHand(crop: ImageBitmap) {
       minHandDetectionConfidence: 0.3, minHandPresenceConfidence: 0.3,
       ...(delegate === 'GPU' ? { canvas: new OffscreenCanvas(1, 1) } : {}),
     })).then((made) => made.v, () => null);
-  const lm = hands?.detect(crop).landmarks[0];
-  crop.close();
+  let lm:NormalizedLandmark[]|undefined;
+  try{lm=hands?.detect(crop).landmarks[0];}catch{postMessage({type:'hand',found:false});return;}finally{crop.close();}
   if (!lm) return postMessage({ type: 'hand', found: false });
   // Curl: how far each fingertip is from the wrist, relative to its own knuckle. An open hand reads ~1.8–2.0
   // (tips far beyond the knuckles); a fist ~0.9–1.2 (tips folded back onto the palm). Scale-free, so distance is irrelevant.
@@ -108,60 +110,33 @@ function compose(frame: VideoFrame, poses: NormalizedLandmark[][], masks: MPMask
 // The direct route: camera frames arrive here as a stream, straight from the capture pipeline — the page never
 // touches a pixel. The stream keeps only the newest frame, so after each model run the next read is the freshest
 // frame there is: no copy, no hop through the (busy, rendering) main thread, no waiting for its next callback.
-async function pump(readable: ReadableStream<VideoFrame>) {
-  const reader = readable.getReader();
-  let first = 0, sent = 0, proven = false;
-  for (;;) {
-    const { value: frame, done } = await reader.read();
-    if (done || !frame) return;
-    if (!landmarker || idle) { frame.close(); continue; }
-    const arrived = performance.now() + clockShift, ts = frame.timestamp / 1000;
-    first ||= ts - 1;
-    sent = Math.max(sent + 1, ts - first); // the model wants strictly increasing timestamps
-    try {
-      const t0 = performance.now();
-      let landmarks: NormalizedLandmark[][] = [], cut: ReturnType<typeof compose> = null, cutMs = 0;
-      const mine = half, tracker = mine ? side : landmarker;
-      if (mine && tracker) {
-        // Cut this seat's side out of the frame (no copy: a view onto the same pixels), track in it, and put the
-        // landmarks back into whole-frame coordinates so nothing downstream knows the difference.
-        const vr = frame.visibleRect!, x = (vr.x + Math.round(mine.x0 * vr.width)) & ~1, w = Math.min(vr.x + vr.width - x, Math.round(mine.w * vr.width)) & ~1;
-        const view = new VideoFrame(frame, { visibleRect: { x, y: vr.y, width: w, height: vr.height } });
-        if (relook) { relook = false; tracker.detectForVideo(new ImageData(64, 64), sent); sent += 1; } // a blank frame makes it forget whoever it was following
-        landmarks = tracker.detectForVideo(view, sent).landmarks.map((lm) => lm.map((q) => ({ ...q, x: (x - vr.x + q.x * w) / vr.width })));
-        view.close();
-      } else
-      // With masks on, the result is only valid inside the callback (the masks are GPU textures the model reuses).
-      if (wantCut && !mine) landmarker.detectForVideo(frame, sent, (r) => { landmarks = r.landmarks; const c0 = performance.now(); cut = r.segmentationMasks?.length ? compose(frame, r.landmarks, r.segmentationMasks) : null; cutMs = performance.now() - c0; });
-      else if (!mine) landmarks = landmarker.detectForVideo(frame, sent).landmarks;
-      const ms = performance.now() - t0 - cutMs;
-      proven = true;
-      let luma: number | undefined;
-      if (wantLuma) { // the Y plane leads every camera format Chrome hands out (I420, NV12); a sparse sample of it is plenty
-        if (lumaBuf.length < frame.allocationSize()) lumaBuf = new Uint8Array(frame.allocationSize());
-        await frame.copyTo(lumaBuf);
-        const n = frame.codedWidth * frame.codedHeight;
-        let sum = 0, count = 0;
-        for (let i = 0; i < n; i += 97) { sum += lumaBuf[i]; count++; }
-        luma = sum / count;
-      }
-      const picture = cut as { bitmap: ImageBitmap; slots: number } | null; // (assigned inside the callback above)
-      (postMessage as (message: unknown, transfer: Transferable[]) => void)({ type: 'pose', seat: mine?.seat, landmarks, ts, arrived, ms, cutMs, luma, aspect: frame.displayWidth / frame.displayHeight, cut: picture }, picture ? [picture.bitmap] : []);
-      if (gripRect) {
-        const [x, y, size] = gripRect, w = frame.displayWidth, h = frame.displayHeight, px = Math.round(size * w);
-        const crop = await createImageBitmap(frame, Math.round(x * w), Math.round(y * h), px, px, { resizeWidth: 224, resizeHeight: 224, resizeQuality: 'medium' }).catch(() => null);
-        if (crop) await readHand(crop);
-      }
-    } catch (err) {
-      // A browser that streams frames but cannot feed them to the model: say so once, and the page falls back to copies.
-      if (!proven) { frame.close(); void reader.cancel(); return postMessage({ type: 'nostream', why: String(err) }); }
-    }
-    frame.close();
-  }
+async function pump(readable:ReadableStream<VideoFrame>){
+ const reader=readable.getReader();let first=0,sent=0,proven=false;
+ try{for(;;){
+  const {value:frame,done}=await reader.read();if(done||!frame)return;
+  if(!landmarker||idle){frame.close();continue;}
+  const arrived=performance.now()+clockShift,ts=frame.timestamp/1000;first||=ts-1;sent=Math.max(sent+1,ts-first);
+  try{
+   const t0=performance.now();let landmarks:NormalizedLandmark[][]=[],cut:ReturnType<typeof compose>=null,cutMs=0;
+   const mine=half,tracker=mine?side:landmarker;
+   if(mine&&tracker){
+    const vr=frame.visibleRect!,x=(vr.x+Math.round(mine.x0*vr.width))&~1,w=Math.min(vr.x+vr.width-x,Math.round(mine.w*vr.width))&~1;
+    const view=new VideoFrame(frame,{visibleRect:{x,y:vr.y,width:w,height:vr.height}});
+    try{if(relook){relook=false;tracker.detectForVideo(new ImageData(64,64),sent);sent++;}landmarks=tracker.detectForVideo(view,sent).landmarks.map(lm=>lm.map(q=>({...q,x:(x-vr.x+q.x*w)/vr.width})));}finally{view.close();}
+   }else if(wantCut&&!mine)landmarker.detectForVideo(frame,sent,r=>{landmarks=r.landmarks;const c0=performance.now();cut=r.segmentationMasks?.length?compose(frame,r.landmarks,r.segmentationMasks):null;cutMs=performance.now()-c0;});
+   else if(!mine)landmarks=landmarker.detectForVideo(frame,sent).landmarks;
+   const ms=performance.now()-t0-cutMs;let luma:number|undefined;
+   if(wantLuma){if(lumaBuf.length<frame.allocationSize())lumaBuf=new Uint8Array(frame.allocationSize());await frame.copyTo(lumaBuf);let sum=0,count=0;for(let i=0;i<frame.codedWidth*frame.codedHeight;i+=97){sum+=lumaBuf[i];count++;}luma=sum/count;}
+   const picture=cut as {bitmap:ImageBitmap;slots:number}|null;
+   (postMessage as (m:unknown,t:Transferable[])=>void)({type:'pose',seat:mine?.seat,landmarks,ts,arrived,ms,cutMs,luma,aspect:frame.displayWidth/frame.displayHeight,cut:picture},picture?[picture.bitmap]:[]);proven=true;
+   if(gripRect){const [x,y,size]=gripRect,w=frame.displayWidth,h=frame.displayHeight,px=Math.round(size*w),crop=await createImageBitmap(frame,Math.round(x*w),Math.round(y*h),px,px,{resizeWidth:224,resizeHeight:224,resizeQuality:'medium'}).catch(()=>null);if(crop)await readHand(crop);}
+  }catch(err){postMessage({type:proven?'stream-error':'nostream',why:String(err)});return;}finally{frame.close();}
+ }}catch(err){postMessage({type:'stream-error',why:String(err)});}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
 
 self.onmessage = async (e: MessageEvent) => {
   const m = e.data;
+  try{
   if (m.type === 'init') {
     try {
       origin = m.origin; nPlayers = m.n;
@@ -181,22 +156,20 @@ self.onmessage = async (e: MessageEvent) => {
     }
   } else if (m.type === 'players') { nPlayers = m.n; await landmarker?.setOptions({ numPoses: m.n }); }
   else if (m.type === 'half') {
-    if (m.seat < 0) { half = null; return; }
-    if (liteIsMain) { side = landmarker; await landmarker?.setOptions({ numPoses: 1 }); }
-    else side ??= (await gpuThenCpu((delegate) => PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: `${origin}/models/pose_landmarker_lite.task`, delegate }, runningMode: 'VIDEO', numPoses: 1,
-      ...(delegate === 'GPU' ? { canvas: new OffscreenCanvas(1, 1) } : {}),
-    }))).v;
-    half = { seat: m.seat, x0: m.x0, w: m.w };
+    const token=halfEpoch.next();if(m.seat<0){half=null;return;}
+    let candidate=side,created=false;
+    if(liteIsMain){candidate=landmarker;await landmarker?.setOptions({numPoses:1});}
+    else if(!candidate){candidate=(await gpuThenCpu(delegate=>PoseLandmarker.createFromOptions(fileset,{baseOptions:{modelAssetPath:`${origin}/models/pose_landmarker_lite.task`,delegate},runningMode:'VIDEO',numPoses:1,...(delegate==='GPU'?{canvas:new OffscreenCanvas(1,1)}:{})}))).v;created=true;}
+    if(!halfEpoch.is(token)){if(created)candidate?.close();return;}side=candidate;half={seat:m.seat,x0:m.x0,w:m.w};
   } else if (m.type === 'idle') idle = m.on;
   else if (m.type === 'relook') relook = true;
   else if (m.type === 'cut') { if (gpu && wantCut !== m.on) { wantCut = m.on; await landmarker?.setOptions({ outputSegmentationMasks: m.on }); } }
   else if (m.type === 'stream') void pump(m.readable);
   else if (m.type === 'grip') gripRect = m.rect;
   else if (m.type === 'luma') wantLuma = m.on;
-  else if (m.type === 'frame' && landmarker) {
-    const t0 = performance.now(), landmarks = landmarker.detectForVideo(m.bitmap, m.t).landmarks;
-    m.bitmap.close();
-    postMessage({ type: 'pose', landmarks, t: m.t, ms: performance.now() - t0 });
-  } else if (m.type === 'hand') await readHand(m.bitmap);
+  else if(m.type==='frame'){
+    try{if(!landmarker)throw Error('tracker unavailable');const t0=performance.now(),landmarks=landmarker.detectForVideo(m.bitmap,m.t).landmarks;postMessage({type:'pose',landmarks,t:m.t,ms:performance.now()-t0});}
+    catch(err){postMessage({type:'inference-error',why:String(err)});}finally{m.bitmap.close();}
+  }else if(m.type==='hand')await readHand(m.bitmap);
+  }catch(err){postMessage({type:'inference-error',why:String(err)});}
 };

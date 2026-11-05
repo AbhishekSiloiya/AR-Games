@@ -1,6 +1,7 @@
 // Camera → MediaPipe Pose → up to two players with body-relative hands.
 // Games read the mutable `players` array every frame; nothing here touches React.
 import type { NormalizedLandmark, PoseLandmarker } from '@mediapipe/tasks-vision';
+import {trackingWork,trackingEpoch,inlinePacer,freshTrackingResult} from './tracking-runtime.ts';
 
 // x, y: -1..1 inside the player's own zone, y up. vx, vy: zone-units per second, measured at camera rate.
 // t: when the camera frame behind this reading was captured (performance.now clock) — the renderer predicts forward from it.
@@ -92,10 +93,14 @@ const mkPlayer = (): Player => ({
 export const players: [Player, Player] = [mkPlayer(), mkPlayer()];
 // Receipt times, independent of camera timestamps; a stalled stream must never look ready.
 export const trackingSeen = [0, 0];
+export const trackingCaptured = [0,0], trackingReceived = [0,0];
+const trackerInfo={requestedModel:tuning.model as string,actualModel:'',route:'',status:'idle',captureClock:'unavailable',recoveries:0,errors:0,results:0,rejected:0,lastError:''};
+let activeWork:{captureInFlight:number;inferenceInFlight:number;captures:number;skipped:number}|null=null;
+export const trackerDiagnostics=()=>({...trackerInfo,...(activeWork??{captureInFlight:0,inferenceInFlight:0,captures:0,skipped:0}),seats:trackingCaptured.map((captureAt,i)=>({captureAt,receivedAt:trackingReceived[i],resultAgeMs:Math.max(0,trackingReceived[i]-captureAt),currentAgeMs:captureAt>0?Math.max(0,performance.now()-captureAt):null}))});
 // Estimated comfortable horizontal reach from setup, in mirrored camera coordinates.
 export const cameraReach: ({ left: number; right: number } | null)[] = [null,null];
 export const perf = { fps: 0, delegate: '' };
-queueMicrotask(() => Object.assign(globalThis, { __romp: { perf, track, tuning, players, grip, trackingSeen } })); // a handle for DevTools over adb — read-only by convention
+queueMicrotask(() => Object.assign(globalThis, { __romp: { perf, track, tuning, players, grip, trackingSeen, trackerDiagnostics } })); // a handle for DevTools over adb — read-only by convention
 export const sim = new URLSearchParams(globalThis.location?.search ?? '').has('sim');
 
 let nPlayers = 1;
@@ -218,6 +223,12 @@ export function captureStanding() {
 // With two players each has a tracker of their own, looking at their own side of the picture (see startWorker): a
 // reading then arrives for one `seat` at a time, in its own rhythm. With one player, one tracker sees the whole frame.
 function apply(poses: NormalizedLandmark[][], aspect: number, now = performance.now(), seat = -1) {
+  const receipt=performance.now(), seats=seat>=0?[seat]:Array.from({length:nPlayers},(_,i)=>i);
+  if(seat>=nPlayers)return false;
+  trackerInfo.results++;
+  seats.forEach(i=>{trackingCaptured[i]=now;trackingReceived[i]=receipt;});
+  if(!freshTrackingResult(now,receipt)){trackerInfo.rejected++;trackerInfo.status='slow';resetTracking(seats);return false;}
+  trackerInfo.status='ready';
   const slots = seat < 0 ? assignSlots(poses, aspect, nPlayers) : [];
   if (seat >= 0) {
     // A tracker only speaks for its own side: a body whose shoulders are past the middle belongs to the other seat
@@ -231,7 +242,7 @@ function apply(poses: NormalizedLandmark[][], aspect: number, now = performance.
     const dt = Math.min(0.2, Math.max(1e-3, (now - lastApply[i]) / 1000));
     lastApply[i] = now;
     const lm = slots[i], F = filters[i], st = stand[i];
-    trackingSeen[i] = performance.now();
+    trackingSeen[i] = receipt;
     pl.present = !!lm;
     if (!lm) return void ((prev[i] = null), (st.y = st.x = NaN), (st.ratio = 0), resetFilters(F));
 
@@ -289,6 +300,7 @@ function apply(poses: NormalizedLandmark[][], aspect: number, now = performance.
       }
     prev[i] = lm;
   });
+  return true;
 }
 
 // The players' cut-outs (see pose.worker.ts compose): the newest picture, how many players are in it, and a counter that
@@ -310,7 +322,12 @@ export const track = { lag: 0, camera: '', camFps: 0, grabMs: 0, modelMs: 0, fra
 export const grip = { want: false, hand: 1, closed: false, curl: 0, seenAt: 0, busy: false }; // ms from camera frame to usable pose — shown next to the fps on the home screen
 
 export const feed = { video: null as HTMLVideoElement | null }; // the live camera element, for the Mirror look
-export async function startPose(video: HTMLVideoElement) {
+let poseStarting:Promise<void>|undefined;
+export function startPose(video:HTMLVideoElement){
+ if(poseStarting)return poseStarting;
+ poseStarting=initializePose(video).finally(()=>{poseStarting=undefined;});return poseStarting;
+}
+async function initializePose(video: HTMLVideoElement) {
   feed.video = video;
   if (landmarker || worker || sim) return sim ? startSim() : undefined;
   // 1280×720: the tracker crops each person out of the frame and scales the crop to 256px. At three metres a
@@ -323,7 +340,8 @@ export async function startPose(video: HTMLVideoElement) {
   await video.play();
   track.camera = await tuneCamera(cam, video);
   const model = `/models/pose_landmarker_${tuning.model}.task`;
-  if (!(await startWorker(video, model, cam).catch(() => false))) await startInline(video, model);
+  trackerInfo.requestedModel=tuning.model;trackerInfo.recoveries=0;
+  if (!(await startWorker(video, model, cam).catch(() => false))) await startInline(video, fallbackModel(model)).catch(err=>{trackerInfo.status='failed';trackerInfo.lastError=String(err);throw err;});
 }
 
 // A smeared hand cannot be tracked accurately by any model. Measured on the Tab S7 (2026-09-20, adb + DevTools): left
@@ -384,6 +402,7 @@ export function frameClock() {
   let loose = -Infinity, exact = NaN;
   const seenAt: number[] = [];
   return {
+    get calibrated(){return Number.isFinite(exact);},
     saw(captureTime: number) { seenAt.push(captureTime); if (seenAt.length > 8) seenAt.shift(); },
     time(ts: number, arrived: number) {
       loose = Math.max(loose, ts - arrived);
@@ -396,125 +415,107 @@ export function frameClock() {
 
 // Preferred: inference in a worker, fed straight from the camera. Where the browser can stream a camera track into a
 // worker, the page never touches a pixel: no copy, and no dependence on a main thread that is busy drawing the game.
-// Otherwise frames are copied out of the <video> as ImageBitmaps, one in the tracker and the newest waiting behind it.
+// Otherwise capture the latest video frame only when the worker can accept it; no queued bitmap.
 let worker: Worker | undefined;
-async function startWorker(video: HTMLVideoElement, model: string, cam: MediaStreamTrack) {
-  if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return false;
-  const w = new Worker(new URL('./pose.worker.ts', import.meta.url));
-  const ready = await new Promise<string | null>((resolve) => {
-    const giveUp = setTimeout(() => resolve(null), 25000);
-    w.onerror = () => resolve(null);
-    w.onmessage = (e) => (e.data.type === 'ready' || e.data.type === 'failed') && (clearTimeout(giveUp), resolve(e.data.type === 'ready' ? e.data.delegate : null));
-    w.postMessage({ type: 'init', origin: location.origin, timeOrigin: performance.timeOrigin, model, n: nPlayers });
+const trackerEpoch=trackingEpoch();
+let stopRoute:()=>void=()=>{},recoveryPending=false;
+const explicitModel=()=>stored('romp.model')==='full'||stored('romp.model')==='lite';
+const fallbackModel=(_model:string)=>explicitModel()?`/models/pose_landmarker_${tuning.model}.task`:'/models/pose_landmarker_lite.task';
+export const resetTracking=(seats:number[]=[0,1])=>{seats.forEach(i=>{const p=players[i];p.present=false;p.hands.forEach(h=>{h.seen=false;h.vx=h.vy=h.ax=h.ay=h.t=0;});prev[i]=null;resetFilters(filters[i]);Object.assign(stand[i],{x:NaN,y:NaN,ratio:0,since:0});lastApply[i]=0;trackingSeen[i]=0;});grip.busy=false;};
+const invalidateTracking=resetTracking;
+async function recoverTracker(video:HTMLVideoElement,model:string,cam:MediaStreamTrack,reason:string){
+ if(recoveryPending)return;recoveryPending=true;trackerInfo.errors++;trackerInfo.lastError=reason;trackerInfo.status='recovering';
+ trackerEpoch.next();stopRoute();stopPartner();invalidateTracking();
+ try{
+  if(trackerInfo.recoveries<2){trackerInfo.recoveries++;if(await startWorker(video,fallbackModel(model),cam,true,trackerInfo.recoveries>1).catch(()=>false))return;}
+  await startInline(video,fallbackModel(model));
+ }catch(err){trackerInfo.status='failed';trackerInfo.lastError=String(err);invalidateTracking();}
+ finally{recoveryPending=false;}
+}
+async function startWorker(video: HTMLVideoElement, model: string, cam: MediaStreamTrack,forceCopy=false,cpu=false) {
+ if(typeof OffscreenCanvas==='undefined'||typeof createImageBitmap==='undefined')return false;
+ const token=trackerEpoch.next(),w=new Worker(new URL('./pose.worker.ts',import.meta.url));let closed=false,frameId=0,watch=0;
+ const ready=await new Promise<string|null>(resolve=>{
+  let settled=false;const finish=(value:string|null)=>{if(settled)return;settled=true;clearTimeout(giveUp);resolve(value);};
+  const giveUp=setTimeout(()=>{trackerInfo.lastError='worker initialization timed out';finish(null);},25000);w.onerror=e=>{trackerInfo.lastError='worker initialization: '+e.message;finish(null);};
+  w.onmessage=e=>{if(e.data.type==='ready'||e.data.type==='failed'){if(e.data.type==='failed')trackerInfo.lastError=String(e.data.why);finish(e.data.type==='ready'?e.data.delegate:null);}};
+  w.postMessage({type:'init',origin:location.origin,timeOrigin:performance.timeOrigin,model,n:nPlayers,cpu});
+ });
+ if(!ready||!trackerEpoch.is(token)){w.terminate();return false;}
+ worker=w;camTrack=cam;workerModel=model.includes('lite')?'lite':'full';trackerInfo.actualModel=workerModel;trackerInfo.status='starting';perf.delegate=`${ready} worker`;
+ const current=()=>!closed&&trackerEpoch.is(token)&&worker===w;
+ const fail=(why:string)=>{if(current())void recoverTracker(video,model,cam,why);};
+ const work=trackingWork(()=>performance.now(),()=>fail('capture or inference reply timed out/failed'));activeWork=work.state;
+ stopRoute=()=>{closed=true;work.close();clearInterval(watch);if(frameId)video.cancelVideoFrameCallback?.(frameId);w.terminate();if(worker===w)worker=undefined;stopPartner();};
+ const visibility=()=>{if(current()){w.postMessage({type:'idle',on:document.hidden});partner?.postMessage({type:'idle',on:document.hidden});if(!document.hidden){lastResult=performance.now();work.resume();}}};document.addEventListener('visibilitychange',visibility);
+ const close=stopRoute;stopRoute=()=>{document.removeEventListener('visibilitychange',visibility);close();};
+ const clock=frameClock();let last=performance.now(),lastResult=last,hasResult=false,lastCam=0,sent=0,copying=false,slow=0;
+ const copyRoute=()=>{if(!current())return;copying=true;track.frames=trackerInfo.route='copied';stopPartner();w.postMessage({type:'half',seat:-1});w.postMessage({type:'players',n:nPlayers});invalidateTracking();lastResult=performance.now();};
+ w.onerror=()=>fail('worker runtime error');
+ w.onmessage=e=>{
+  const m=e.data;if(!current()){m.cut?.bitmap?.close();return;}
+  if(m.type==='nostream'){copyRoute();return;}
+  if(m.type==='inference-error'||m.type==='stream-error'||m.type==='failed'){fail(m.why??m.type);return;}
+  if(m.type==='hand'){grip.busy=false;if(m.found){grip.seenAt=performance.now();grip.curl=m.curl;grip.closed=grip.closed?m.curl<tuning.openAt:m.curl<tuning.fistAt;}return;}
+  if(m.type!=='pose')return;work.reply();
+  const now=performance.now(),t=m.ts===undefined?m.t:clock.time(m.ts,m.arrived);lastResult=now;hasResult=true;if(m.ts!==undefined)trackerInfo.captureClock=clock.calibrated?'camera-capture':'stream-arrival-estimate';
+  const accepted=apply(m.landmarks,m.aspect??video.videoWidth/video.videoHeight,t,m.seat??-1);
+  slow=accepted?0:slow+1;
+  if(slow>=3&&!explicitModel()&&trackerInfo.actualModel==='full'){m.cut?.bitmap?.close();fail('full model exceeded capture-age budget; trying lite');return;}
+  if(m.seat===0&&strangers[0]>20){strangers[0]=0;w.postMessage({type:'relook'});}
+  if(m.luma!==undefined)lumaTap?.(t,m.luma);
+  tape?.push([Math.round(t),Math.round(now-t),m.landmarks.map((lm:NormalizedLandmark[])=>lm.flatMap(q=>[+q.x.toFixed(4),+q.y.toFixed(4),+(q.visibility??1).toFixed(2)]))]);
+  perf.fps+=(1000/Math.max(1,now-last)-perf.fps)*.1;track.lag+=(now-t-track.lag)*.1;track.modelMs+=(m.ms-track.modelMs)*.1;
+  if(cutout.asked){cutout.slowFor=perf.fps<17?cutout.slowFor+(now-last)/1000:0;if(cutout.slowFor>4){cutout.dropped=true;cutout.asked=false;tuning.look='shadow';w.postMessage({type:'cut',on:false});}}
+  if(m.cut){cutout.bitmap?.close();Object.assign(cutout,{bitmap:m.cut.bitmap,slots:m.cut.slots,seq:cutout.seq+1,ok:true});cutout.ms+=(m.cutMs-cutout.ms)*.1;}
+  else if(cutout.bitmap&&!cutout.asked){cutout.bitmap.close();cutout.bitmap=null;cutout.slots=0;}
+  last=now;if(copying)void askGrip(video,w);else w.postMessage({type:'grip',rect:gripRect(video.videoWidth,video.videoHeight)});
+ };
+ w.postMessage({type:'players',n:nPlayers});
+ if(cutout.asked)w.postMessage({type:'cut',on:true});
+ if(!forceCopy&&tuning.direct&&typeof MediaStreamTrackProcessor==='function'){
+  try{const {readable}=new MediaStreamTrackProcessor({track:cam,maxBufferSize:1});w.postMessage({type:'stream',readable},[readable as unknown as Transferable]);track.frames=trackerInfo.route='direct';}catch{copyRoute();}
+ }else copyRoute();
+ if(nPlayers===2&&!copying)pairUp(true);
+ const tick=(now:number,meta?:VideoFrameCallbackMetadata)=>{
+  if(!current())return;frameId=video.requestVideoFrameCallback(tick);
+  track.camFps+=(1000/Math.max(1,now-lastCam)-track.camFps)*.1;lastCam=now;
+  if(meta?.captureTime)clock.saw(meta.captureTime);
+  if(!copying||document.hidden)return;
+  trackerInfo.captureClock=meta?.captureTime?'camera-capture':'video-callback';
+  const captured=meta?.captureTime??now;
+  void work.capture(async()=>{const started=performance.now(),bitmap=await createImageBitmap(video);track.grabMs+=(performance.now()-started-track.grabMs)*.1;return bitmap;},bitmap=>{
+   const t=sent=Math.max(sent+1,captured);w.postMessage({type:'frame',bitmap,t},[bitmap]);
   });
-  if (!ready) return w.terminate(), false;
-  worker = w;
-  camTrack = cam;
-  perf.delegate = `${ready} worker`;
-  if (cutout.asked) w.postMessage({ type: 'cut', on: true });
-
-  const clock = frameClock();
-  let busy = false, last = performance.now(), sent = 0, lastCam = 0, copying = false, aspect = 16 / 9, waiting: { bitmap: ImageBitmap; t: number } | null = null;
-  const send = (frame: { bitmap: ImageBitmap; t: number }) => {
-    busy = true;
-    sent = frame.t = Math.max(sent + 1, frame.t); // the model wants strictly increasing timestamps
-    w.postMessage({ type: 'frame', ...frame }, [frame.bitmap]);
-  };
-  w.onmessage = (e) => {
-    const m = e.data;
-    if (m.type === 'nostream') return void (copying = true, track.frames = 'copied');
-    if (m.type === 'hand') {
-      grip.busy = false;
-      if (!m.found) return;
-      grip.seenAt = performance.now();
-      grip.curl = m.curl;
-      grip.closed = grip.closed ? m.curl < tuning.openAt : m.curl < tuning.fistAt; // hysteresis: no flicker at the boundary
-      return;
-    }
-    if (m.type !== 'pose') return;
-    busy = false;
-    if (waiting) { send(waiting); waiting = null; }
-    const now = performance.now(), t = m.ts === undefined ? m.t : clock.time(m.ts, m.arrived);
-    aspect = m.aspect ?? video.videoWidth / video.videoHeight;
-    apply(m.landmarks, aspect, t, m.seat ?? -1);
-    if (m.seat === 0 && strangers[0] > 20) { strangers[0] = 0; w.postMessage({ type: 'relook' }); }
-    if (m.luma !== undefined) lumaTap?.(t, m.luma);
-    tape?.push([Math.round(t), Math.round(now - t), m.landmarks.map((lm: NormalizedLandmark[]) => lm.flatMap((q) => [+q.x.toFixed(4), +q.y.toFixed(4), +(q.visibility ?? 1).toFixed(2)]))]);
-    perf.fps += (1000 / (now - last) - perf.fps) * 0.1;
-    track.lag += (now - t - track.lag) * 0.1;
-    track.modelMs += (m.ms - track.modelMs) * 0.1;
-    // The mask is a luxury. If the tracker cannot hold ~17 frames a second with it on, for four seconds running,
-    // it goes — for the rest of the session — and players are drawn as characters instead. Tracking speed is the game.
-    // (Not when the look was chosen by hand on the Tracking screen: then it is the player's call.)
-    if (cutout.asked) {
-      cutout.slowFor = perf.fps < 17 ? cutout.slowFor + (now - last) / 1000 : 0;
-      if (cutout.slowFor > 4) { cutout.dropped = true; cutout.asked = false; tuning.look = 'shadow'; w.postMessage({ type: 'cut', on: false }); }
-    }
-    if (m.cut) { cutout.bitmap?.close(); Object.assign(cutout, { bitmap: m.cut.bitmap, slots: m.cut.slots, seq: cutout.seq + 1, ok: true }); cutout.ms += (m.cutMs - cutout.ms) * 0.1; }
-    else if (cutout.bitmap && !cutout.asked) { cutout.bitmap.close(); cutout.bitmap = null; cutout.slots = 0; }
-    last = now;
-    if (copying) void askGrip(video, w); else w.postMessage({ type: 'grip', rect: gripRect(aspect, 1) });
-  };
-  if (tuning.direct && typeof MediaStreamTrackProcessor === 'function')
-    try {
-      const { readable } = new MediaStreamTrackProcessor({ track: cam, maxBufferSize: 1 });
-      w.postMessage({ type: 'stream', readable }, [readable as unknown as Transferable]);
-      track.frames = 'direct';
-    } catch { copying = true; }
-  else copying = true;
-  if (copying) track.frames = 'copied';
-  if (nPlayers === 2 && !copying) pairUp(true);
-  // `captureTime` is when the sensor took the frame (same clock as performance.now): true frame spacing for the
-  // speed estimate, and the true age of every reading for prediction — not the jittery moment the callback ran.
-  // On the direct route this callback only keeps the clock; on the copy route it also lifts the frame out.
-  const tick = async (now: number, meta?: VideoFrameCallbackMetadata) => {
-    video.requestVideoFrameCallback(tick);
-    track.camFps += (1000 / Math.max(1, now - lastCam) - track.camFps) * 0.1;
-    lastCam = now;
-    if (meta?.captureTime) clock.saw(meta.captureTime);
-    if (!copying) return;
-    const t0 = performance.now(), bitmap = await createImageBitmap(video).catch(() => null);
-    if (!bitmap) return;
-    track.grabMs += (performance.now() - t0 - track.grabMs) * 0.1;
-    const frame = { bitmap, t: meta?.captureTime ?? now };
-    if (!busy) return send(frame);
-    waiting?.bitmap.close();
-    waiting = frame;
-  };
-  video.requestVideoFrameCallback(tick);
-  return true;
+ };
+ frameId=video.requestVideoFrameCallback(tick);
+ watch=window.setInterval(()=>{if(!current()||document.hidden)return;work.poll();if(performance.now()-lastResult>(hasResult?4000:15000))fail('tracker produced no results');},500);
+ return true;
 }
 
-// Two players, two trackers. The first worker keeps the GPU and takes player one's side of the picture; a second
-// worker runs the light model on the CPU and takes player two's — so they work at the same time instead of queueing
-// for one GPU. Each gets its own copy of the camera track's frames. The sides overlap a little in the middle so an
-// arm reaching toward the partner is not cut off. (Only on the direct route: copied frames go to one worker.)
-let partner: Worker | null = null, camTrack: MediaStreamTrack | null = null;
-const SIDES = [{ x0: 0.42, w: 0.58 }, { x0: 0, w: 0.58 }]; // raw picture: seat 0 (screen-left) is its right-hand side
-function pairUp(on: boolean) {
-  worker?.postMessage(on ? { type: 'half', seat: 0, ...SIDES[0] } : { type: 'half', seat: -1 });
-  worker?.postMessage({ type: 'players', n: 1 });
-  if (!on) return void partner?.postMessage({ type: 'idle', on: true });
-  if (partner) return void partner.postMessage({ type: 'idle', on: false });
-  if (!camTrack || typeof MediaStreamTrackProcessor !== 'function') return;
-  const w = (partner = new Worker(new URL('./pose.worker.ts', import.meta.url))), clock = frameClock();
-  let last = performance.now();
-  w.onmessage = (e) => {
-    const m = e.data;
-    if (m.type === 'ready') {
-      const { readable } = new MediaStreamTrackProcessor({ track: camTrack!.clone(), maxBufferSize: 1 });
-      w.postMessage({ type: 'half', seat: 1, ...SIDES[1] });
-      w.postMessage({ type: 'stream', readable }, [readable as unknown as Transferable]);
-      track.partner = m.delegate;
-    }
-    if (m.type !== 'pose') return;
-    const now = performance.now();
-    apply(m.landmarks, m.aspect, clock.time(m.ts, m.arrived), 1);
-    if (strangers[1] > 20) { strangers[1] = 0; w.postMessage({ type: 'relook' }); }
-    track.fps2 += (1000 / (now - last) - track.fps2) * 0.1; track.model2 += (m.ms - track.model2) * 0.1;
-    last = now;
-  };
-  w.postMessage({ type: 'init', origin: location.origin, timeOrigin: performance.timeOrigin, model: '/models/pose_landmarker_lite.task', n: 1, cpu: true });
+let partner:Worker|null=null,camTrack:MediaStreamTrack|null=null,partnerTrack:MediaStreamTrack|null=null,partnerTimer=0,workerModel='';
+const SIDES=[{x0:.42,w:.58},{x0:0,w:.58}];
+function stopPartner(){clearTimeout(partnerTimer);partner?.terminate();partner=null;partnerTrack?.stop();partnerTrack=null;track.partner='';track.fps2=track.model2=0;}
+function pairUp(on:boolean){
+ trackerInfo.actualModel=on?'lite':workerModel;
+ worker?.postMessage(on?{type:'half',seat:0,...SIDES[0]}:{type:'half',seat:-1});worker?.postMessage({type:'players',n:1});
+ stopPartner();if(!on||!worker||!camTrack||typeof MediaStreamTrackProcessor!=='function')return;
+ const primary=worker,w=partner=new Worker(new URL('./pose.worker.ts',import.meta.url)),clock=frameClock();let last=performance.now();
+ const current=()=>partner===w&&worker===primary&&nPlayers===2;
+ const failed=(why:string)=>{if(current())void recoverTracker(feed.video!,`/models/pose_landmarker_${trackerInfo.actualModel}.task`,camTrack!,why);};
+ const deadline=()=>{clearTimeout(partnerTimer);partnerTimer=window.setTimeout(()=>{if(document.hidden)deadline();else failed('partner tracker timed out');},5000);};
+ w.onerror=()=>failed('partner worker runtime error');
+ w.onmessage=e=>{
+  if(!current()){e.data.cut?.bitmap?.close();return;}const m=e.data;
+  if(m.type==='failed'||m.type==='nostream'||m.type==='stream-error'||m.type==='inference-error'){failed(m.why??m.type);return;}
+  if(m.type==='ready'){
+   try{partnerTrack=camTrack!.clone();const {readable}=new MediaStreamTrackProcessor({track:partnerTrack,maxBufferSize:1});w.postMessage({type:'half',seat:1,...SIDES[1]});w.postMessage({type:'stream',readable},[readable as unknown as Transferable]);track.partner=m.delegate;deadline();}catch(err){failed(String(err));}return;
+  }
+  if(m.type!=='pose')return;deadline();const now=performance.now();apply(m.landmarks,m.aspect,clock.time(m.ts,m.arrived),1);
+  if(strangers[1]>20){strangers[1]=0;w.postMessage({type:'relook'});}track.fps2+=(1000/Math.max(1,now-last)-track.fps2)*.1;track.model2+=(m.ms-track.model2)*.1;last=now;
+ };
+ partnerTimer=window.setTimeout(()=>failed('partner initialization timed out'),25000);
+ w.postMessage({type:'init',origin:location.origin,timeOrigin:performance.timeOrigin,model:'/models/pose_landmarker_lite.task',n:1,cpu:true});
 }
 
 // A square around the pointing hand's palm (1.8 shoulder-widths across: the whole hand with margin, whatever the
@@ -534,7 +535,7 @@ async function askGrip(video: HTMLVideoElement, w: Worker) {
   grip.busy = true;
   const px = Math.round(rect[2] * vw);
   const bitmap = await createImageBitmap(video, Math.round(rect[0] * vw), Math.round(rect[1] * vh), px, px, { resizeWidth: 224, resizeHeight: 224, resizeQuality: 'medium' }).catch(() => null);
-  if (bitmap) w.postMessage({ type: 'hand', bitmap }, [bitmap]); else grip.busy = false;
+  if(bitmap&&worker===w){try{w.postMessage({type:'hand',bitmap},[bitmap]);}catch{bitmap.close();grip.busy=false;}}else{bitmap?.close();grip.busy=false;}
 }
 
 // A tuning tape: every raw tracker result for a few seconds — [capture time, age on arrival, landmarks per body].
@@ -546,23 +547,22 @@ export function record(seconds: number) {
 }
 
 // Fallback: the original main-thread path, for browsers where the worker route is not available.
-async function startInline(video: HTMLVideoElement, model: string) {
-  const { FilesetResolver, PoseLandmarker } = await import('@mediapipe/tasks-vision');
-  const fileset = await FilesetResolver.forVisionTasks('/wasm');
-  const make = (delegate: 'GPU' | 'CPU') =>
-    PoseLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate }, runningMode: 'VIDEO', numPoses: nPlayers })
-      .then((l) => ((perf.delegate = `${delegate} inline`), l));
-  landmarker = await make('GPU').catch(() => make('CPU'));
-  let last = performance.now();
-  const tick = () => {
-    const now = performance.now();
-    apply(landmarker!.detectForVideo(video, now).landmarks, video.videoWidth / video.videoHeight, now);
-    perf.fps += (1000 / (now - last) - perf.fps) * 0.1;
-    track.lag += (performance.now() - now - track.lag) * 0.1;
-    last = now;
-    video.requestVideoFrameCallback(tick);
-  };
-  video.requestVideoFrameCallback(tick);
+async function startInline(video:HTMLVideoElement,model:string){
+ const token=trackerEpoch.next();let closed=false,frameId=0,retries=0,last=performance.now(),sent=0;
+ const {FilesetResolver,PoseLandmarker}=await import('@mediapipe/tasks-vision'),fileset=await FilesetResolver.forVisionTasks('/wasm');
+ const make=(delegate:'GPU'|'CPU')=>PoseLandmarker.createFromOptions(fileset,{baseOptions:{modelAssetPath:model,delegate},runningMode:'VIDEO',numPoses:nPlayers}).then(l=>{perf.delegate=`${delegate} inline`;return l;});
+ const marker=await make('GPU').catch(()=>make('CPU'));if(!trackerEpoch.is(token)){marker.close();return;}
+ landmarker=marker;worker=undefined;activeWork=null;trackerInfo.actualModel=model.includes('lite')?'lite':'full';trackerInfo.route=track.frames='inline';trackerInfo.status='starting';
+ const pacer=inlinePacer(),current=()=>!closed&&trackerEpoch.is(token)&&landmarker===marker;
+ stopRoute=()=>{closed=true;if(frameId)video.cancelVideoFrameCallback?.(frameId);marker.close();if(landmarker===marker)landmarker=undefined;};
+ const tick=(now:number,meta?:VideoFrameCallbackMetadata)=>{
+  if(!current())return;frameId=video.requestVideoFrameCallback(tick);if(document.hidden||!pacer.due(now))return;
+  const start=performance.now(),capture=meta?.captureTime??now;trackerInfo.captureClock=meta?.captureTime?'camera-capture':'video-callback';
+  try{const t=sent=Math.max(sent+1,capture),result=marker.detectForVideo(video,t);apply(result.landmarks,video.videoWidth/video.videoHeight,capture);perf.fps+=(1000/Math.max(1,start-last)-perf.fps)*.1;track.lag+=(performance.now()-capture-track.lag)*.1;track.modelMs+=(performance.now()-start-track.modelMs)*.1;last=start;}
+  catch(err){trackerInfo.errors++;trackerInfo.lastError=String(err);invalidateTracking();if(++retries>=3){trackerInfo.status='failed';stopRoute();}}
+  finally{pacer.finish(start,performance.now()-start);}
+ };
+ frameId=video.requestVideoFrameCallback(tick);
 }
 
 // Where a hand is *now*: its last reading pushed forward by how old that reading really is — its measured age in the

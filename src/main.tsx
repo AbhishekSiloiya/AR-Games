@@ -1,3 +1,5 @@
+import {PerformancePanel} from './performance-panel.tsx';
+import {pace} from './pace.ts';
 import {goalieSettings,keeperVariant,keeperFromVariant,keeperDifficulty} from './goalie-settings.ts';
 // Shell: start → home → briefing (stage, goals) → play → results (stars, XP, badges) → stats / badges.
 // Driven by hand, touch or keyboard. A tap or click during a game pauses it and offers the way home.
@@ -324,7 +326,7 @@ function App() {
     else if (scores.length === 2 && scores[0] === scores[1] && !team) say('its_a_tie');
     else if (rewards.some((r) => r.stars === 3)) say('congratulations');
   };
-  const play = (game: Game, stage: number, gameMode: string) => go({ at: 'setup', game, stage, mode: gameMode, turn: 0, scores: [], points: [], rewards: [], notes: [] });
+  const play=(game:Game,stage:number,gameMode:string)=>{pace.game=game.id;pace.stage=stage;go({at:'setup',game,stage,mode:gameMode,turn:0,scores:[],points:[],rewards:[],notes:[]});};
 
 
   const slots = mode === 'solo' ? [0] : [0, 1];
@@ -465,6 +467,7 @@ function App() {
           <TrackingView />
           <div className="row"><h1 className="grow">🎯 Tracking</h1><button className="ghost" onClick={() => go({ at: 'home' })}>← Back</button></div>
           <div className="panel" style={{ maxWidth: '46rem' }}>
+            <PerformancePanel />
             <p className="num"><Fps /></p>
             <p className="dim num">Camera {track.camera || '—'}</p>
             <p className="dim num"><TrackerDetail /></p>
